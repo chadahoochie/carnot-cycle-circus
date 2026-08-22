@@ -8,6 +8,35 @@
 
 ---
 
+## 🗺️ Documentation Suite & System Map
+
+A comprehensive documentation suite is maintained under [`docs/`](docs/README.md) for both human engineers and LLMs / autonomous coding agents:
+
+- 📖 **[Documentation Portal](docs/README.md)**: Central entry point and navigation map.
+- 🤖 **[LLMS.txt Spec](docs/LLMS.txt)**: High-density machine-readable system specification for agent context ingestion.
+- 🏛️ **Architecture & Topologies**:
+  - [System Overview & C4 Models](docs/architecture/system-overview.md)
+  - [Agent Orchestration & Failure Ports](docs/architecture/agent-orchestration.md)
+  - [Embedded Ticket System & DAG Decomposition](docs/architecture/ticket-system.md)
+  - [Hierarchical Persistent Memory (OpenViking-Style)](docs/architecture/memory-system.md)
+  - [Inference Hub, Key Vault & Security](docs/architecture/inference-and-security.md)
+  - [AI Knowledge Maps & Skill Registry](docs/architecture/knowledge-and-skills.md)
+- 📜 **Engineering Standards & Policies**:
+  - [C# 13 & .NET 10 Coding Standards](docs/standards/coding-standards.md)
+  - [Quality Gates & Ticket Policies](docs/standards/quality-gates.md)
+  - [Documentation & ADR Standards](docs/standards/documentation-standards.md)
+- 📋 **[Architectural Decision Records (ADRs)](docs/adrs/README.md)**: Complete catalog of formal architectural decisions (ADR-0001 through ADR-0007).
+- 🧭 **Developer Guides**:
+  - [Developer Onboarding Guide](docs/guides/developer-onboarding.md)
+  - [Extending the Platform](docs/guides/extending-the-platform.md)
+  - [LLM & Agent Interaction Guide](docs/guides/llm-agent-guide.md)
+  - [Testing Guide & QA](docs/guides/testing-guide.md)
+- 🔍 **Technical References**:
+  - [Core Domain Reference](docs/api/core-domain-reference.md)
+  - [Web Components Reference](docs/api/web-components-reference.md)
+
+---
+
 ## 🌟 Key Features
 
 1. **6 Core Autonomous Engineering Roles**:

@@ -1,0 +1,134 @@
+# Carnot Cycle Circus - LLM System Specification & Context Map
+
+> High-density machine-readable technical overview for LLMs, autonomous coding agents, and automated tools.
+
+## 1. System Metadata
+- **Project**: Carnot Cycle Circus (Autonomous Engineering Agent Orchestration Platform)
+- **Runtime**: .NET 10.0 (C# 13)
+- **UI Framework**: ASP.NET Core Blazor (Interactive Server Components)
+- **Test Framework**: xUnit 2.9+, FluentAssertions 8.0+
+- **Solution File**: `CarnotCycleCircus.slnx`
+- **Solution Architecture**: Layered DDD / Autonomous Agent Multi-Role Orchestrator
+
+---
+
+## 2. Core Architectural Invariants & Constraints
+
+### 2.1 Deliverable Isolation Contract (MANDATORY)
+- **Banter vs Deliverable**: Agents have witty/cynical personas in conversational chat/thought messages, BUT all delivered artifacts (PRDs, ADRs, C# code, STRIDE models, Benchmark reports, QA scorecards, tickets) MUST remain 100% professional, rigorous, standard-compliant, unambiguous, and free of sarcastic or joke content.
+- **Enforcement**: See ADR-0005 (`docs/adrs/0005-deliverable-isolation-contract-for-agent-personas.md`).
+
+### 2.2 Immutability & Type Design
+- **Domain Models & DTOs**: MUST be declared as immutable C# `record` types (`TicketItem`, `HandoffPacket`, `AgentPersona`, `MemoryEntry`, `GraphNode`, `ArchitecturalDecisionRecord`).
+- **Value Objects / Identifiers**: MUST be declared as `readonly record struct` or immutable primitives.
+- **State Transitions**: MUST use non-destructive mutation (`with { ... }`).
+
+### 2.3 Performance & Allocation Dogma
+- **Zero Allocations on Hot Paths**: Use `ReadOnlyMemory<byte>`, `ReadOnlySpan<char>`, `ValueTask`, and bounded `Channel<T>` buffers.
+- **Asynchronous Execution**: Every async method MUST accept `CancellationToken cancellationToken = default` and pass it down.
+- **Thread Safety**: All in-memory stores MUST use `ConcurrentDictionary<TKey, TValue>`, `ConcurrentQueue<T>`, or thread-safe atomic primitives.
+
+---
+
+## 3. Autonomous Engineering Roles
+
+| Role (`AgentRole` enum) | Persona Name | Default Model | Allowed Tools | Primary Deliverables |
+| :--- | :--- | :--- | :--- | :--- |
+| `TechnicalProductManager` | Tara (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown, Epics, User Stories, Acceptance Criteria |
+| `LeadArchitect` | Archibald (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Technical Subtasks |
+| `SoftwareDeveloper` | Devon (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
+| `SecurityEngineer` | Sari (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
+| `OptimizationEngineer` | Otto (Optimization Eng) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet reports, latency audits, allocation profiles |
+| `PrincipalQAAnalyst` | Quinn (Principal QA) | `deepseek/deepseek-r1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | Test strategies, boundary matrices, quality scorecards, certification |
+
+---
+
+## 4. Key Subsystems & Interfaces
+
+### 4.1 Ticket & Work Decomposition Engine (`CarnotCycleCircus.Core.Domain.Tickets`)
+- `ITicketStore`: In-memory thread-safe ticket and handoff repository.
+  - `CreateTicket(TicketItem)`, `UpdateTicket(TicketItem)`, `GetReadyTickets()`, `AreDependenciesSatisfied(string ticketId)`, `RecordHandoff(HandoffPacket)`.
+- `IWorkDecompositionEngine`:
+  - `DeconstructEpic(title, desc, priority)`: TPM creates Epic + Story 1; Architect creates 5 technical subtasks (Arch, Dev, Security, Opt, QA) with strict DAG dependency edges.
+  - `DeconstructStoryIntoTechnicalSubtasks(story)`: Generates DAG subtasks.
+- `IHandoffRouter`:
+  - `RouteSuccessHandoff(...)`: Dispatches structured `HandoffPacket` to next agent and advances DAG.
+  - `RouteFailureRemediation(...)`: Emits remediation packet and transitions ticket to `TicketStatus.Remediating` assigned to fixing role (e.g. Developer).
+  - `AdvanceWorkflowOnTicketCompletion(ticketId)`: Evaluates downstream dependencies; transitions satisfied tickets to `TicketStatus.Ready`.
+
+### 4.2 Hierarchical Persistent Memory (`CarnotCycleCircus.Core.Domain.Memory`)
+- `IPersistentMemoryStore` / `EmbeddedVectorMemoryStore`:
+  - 4 Memory Types: `Working` (scratchpad), `Episodic` (task completions), `Semantic` (patterns/concepts), `Procedural` (workflows).
+  - Embedded vector embedding: 64-dimensional normalized word-hash embeddings with composite cosine similarity + token overlap + importance weighting.
+  - Methods: `StoreAsync`, `SearchAsync(query, topK, typeFilter, roleFilter)`, `PruneAsync`, `GetAllAsync`.
+- `IMemoryConsolidationEngine`: Automatically consolidates completed tickets and telemetry into episodic memories.
+- `IContextAwareMemoryInjector`: Injects relevant hierarchical memory chunks into role prompts.
+- `IExternalMemoryConnector`: REST bridge for syncing with external vector stores (OpenViking, Mem0, Qdrant).
+
+### 4.3 Connectable Workflow Graph (`CarnotCycleCircus.Core.Domain.Graph`)
+- `WorkflowGraph`: Node/Edge DAG with explicit ports:
+  - `PortType.Input` (🟢)
+  - `PortType.Output` (🔵 Success)
+  - `PortType.Failure` (🔴 Reject/Remediation loopback)
+- `IGraphWorkflowExecutor`:
+  - `ExecuteWorkflowAsync(epicTitle, epicDesc, triggerFailureSimulation, ct)`: Runs full lifecycle through TPM $\to$ Arch $\to$ Dev $\to$ Sec & Opt (parallel) $\to$ QA $\to$ Release.
+  - `StepNextNodeAsync(ct)`: Executes the next pending ready ticket in single-step mode.
+  - Circuit Breakers: Configurable `FailurePolicy` tripping on excessive retries.
+
+### 4.4 Inference & Key Vault (`CarnotCycleCircus.Core.Domain.Inference`)
+- `IApiKeyVaultService`: Client-side key storage supporting named OpenRouter API keys with active key toggling, role-level key overrides, and connection validation.
+- `IOpenRouterClient`: Multi-model chat completion client with fallback to local simulation mode when using sandbox/mock keys.
+- `IAgentInferenceResolver`: Resolves effective model and API key per agent member with team inheritance.
+- `ISimulatedScenarioEngine`: Generates deterministic, high-quality engineering deliverables when operating in offline/sandbox mode.
+
+### 4.5 Tool Sandbox (`CarnotCycleCircus.Core.Domain.Tools`)
+- `IToolDefinition`: Interface exposing `Name`, `Description`, `ParameterSchema`, and `ExecuteAsync(ToolExecutionContext, CancellationToken)`.
+- Standard Tools: `web_search`, `csharp_syntax_check`, `test_runner`, `adr_writer`, `memory_lookup`.
+
+### 4.6 ADR & Documentation Hub (`CarnotCycleCircus.Core.Domain.Docs`)
+- `IAdrDocumentManager`: Manages ADRs (MADR/Nygard format) and Project Documents (C4 diagrams, STRIDE models). Exports complete markdown documentation bundles.
+
+### 4.7 Standards & Quality Gates (`CarnotCycleCircus.Core.Domain.Standards`)
+- `IStandardsValidator`: Enforces quality gate policies: minimum coverage, unit tests for features, root cause analysis (RCA) + regression tests for bugs, and ADRs for epics.
+
+### 4.8 AI Knowledge Maps (`CarnotCycleCircus.Core.Domain.Knowledge`)
+- `IKnowledgeMapService`: Graph of `KnowledgeNode` and `KnowledgeEdge` items (Concepts, Patterns, SecurityRules, AntiPatterns, LearnedInsights) with sub-graph query extraction for LLM prompt augmentation.
+
+### 4.9 Skills Registry (`CarnotCycleCircus.Core.Domain.Skills`)
+- `ISkillRegistry` & `ISkillImporter`: Parses `SKILL.md` frontmatter, JSON, or remote URLs; manages role-to-skill assignment matrix.
+
+### 4.10 Real-Time Telemetry Stream (`CarnotCycleCircus.Core.Domain.Events`)
+- `IAgentEventStream`: In-memory thread-safe pub/sub bus publishing `AgentMessage` items (Chat, Thought, ToolCall, ToolOutput, Handoff, StateChange, Alert, ArtifactCreated) with bounded 1,000-message buffer.
+
+---
+
+## 5. File & Directory Reference
+```
+src/
+├── CarnotCycleCircus.Core/
+│   ├── Domain/
+│   │   ├── Agents/      # AgentRole.cs, AgentPersona.cs, EngineeringTeam.cs
+│   │   ├── Docs/        # AdrDocumentManager.cs
+│   │   ├── Events/      # AgentEventStream.cs, ArtifactItem.cs
+│   │   ├── Graph/       # WorkflowGraph.cs, GraphWorkflowExecutor.cs
+│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs
+│   │   ├── Knowledge/   # KnowledgeMapService.cs
+│   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
+│   │   ├── Skills/      # SkillRegistry.cs
+│   │   ├── Standards/   # StandardsValidator.cs
+│   │   ├── Teams/       # TeamDefinitionManager.cs
+│   │   ├── Tickets/     # TicketEnums.cs, TicketItem.cs, TicketStore.cs, WorkDecompositionEngine.cs, HandoffRouter.cs
+│   │   └── Tools/       # IToolDefinition.cs, StandardTools.cs
+│   └── Extensions/      # ServiceCollectionExtensions.cs
+│
+├── CarnotCycleCircus.Web/
+│   ├── Components/
+│   │   ├── App.razor, Routes.razor, _Imports.razor
+│   │   ├── KeyVaultModal.razor, TicketCard.razor, TicketModal.razor
+│   │   ├── Layout/      # MainLayout.razor, NavMenu.razor
+│   │   └── Pages/       # TicketManager, WorkflowCanvas, ExecutionDashboard, MemoryInspector, TeamDefinition, DocsAndAdrs, StandardsManager, KnowledgeMapExplorer, SkillManager, SkillMatrix
+│   └── Program.cs
+│
+tests/
+└── CarnotCycleCircus.Tests/ # xUnit test suites for all Core domain services
+```
