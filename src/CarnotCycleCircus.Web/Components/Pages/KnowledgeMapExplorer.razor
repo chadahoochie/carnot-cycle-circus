@@ -1,0 +1,144 @@
+@page "/knowledge"
+@inject IKnowledgeMapService KnowledgeService
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🗺️ AI Knowledge Maps & Sub-Graph Queries</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Compact, context-efficient knowledge graphs mapping domain concepts, architectural patterns, and security rules.</p>
+    </div>
+
+    <button class="btn btn-success" @onclick="() => showAddNodeModal = true">
+        ➕ Add Knowledge Node
+    </button>
+</div>
+
+<!-- Semantic Sub-Graph Context Extractor -->
+<div class="glass-card" style="margin-bottom: 24px;">
+    <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; color: #38bdf8;">
+        🔍 Sub-Graph Context Query Sandbox
+    </h3>
+    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+        <input class="form-control" placeholder="Enter query (e.g. 'zero allocation', 'stride security', 'failure port')..." @bind="subGraphQuery" />
+        <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ExtractSubGraph">
+            Extract Sub-Graph
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(extractedContext))
+    {
+        <pre style="background: var(--bg-primary); padding: 12px; border-radius: 8px; font-size: 0.82rem; font-family: monospace; border-left: 3px solid #38bdf8;">@extractedContext</pre>
+    }
+</div>
+
+<!-- Knowledge Graph Nodes Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px;">
+    @foreach (var node in KnowledgeService.GetFullMap().Nodes)
+    {
+        var categoryCol = node.Category switch
+        {
+            "Pattern" => "#38bdf8",
+            "Concept" => "#a855f7",
+            "SecurityRule" => "#ef4444",
+            "LearnedInsight" => "#10b981",
+            _ => "#f59e0b"
+        };
+
+        <div class="glass-card" style="border-top: 3px solid @categoryCol;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="badge" style="background: rgba(255,255,255,0.06); color: @categoryCol; border: 1px solid @categoryCol;">@node.Category</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@node.Id</span>
+            </div>
+
+            <h4 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px;">@node.Label</h4>
+            <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">@node.Summary</p>
+
+            @if (node.Attributes.Count > 0)
+            {
+                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    @foreach (var attr in node.Attributes)
+                    {
+                        <span style="font-size: 0.7rem; background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; color: var(--text-muted);">
+                            @attr.Key: <strong style="color: #f8fafc;">@attr.Value</strong>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@if (showAddNodeModal)
+{
+    <div class="modal-backdrop" @onclick="() => showAddNodeModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Add Knowledge Node</h3>
+                <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Node Label</label>
+                    <input class="form-control" @bind="newNodeLabel" placeholder="e.g. Asynchronous Channel Backpressure" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select class="form-control" @bind="newNodeCategory">
+                        <option value="Concept">Concept</option>
+                        <option value="Pattern">Pattern</option>
+                        <option value="SecurityRule">SecurityRule</option>
+                        <option value="Convention">Convention</option>
+                        <option value="LearnedInsight">LearnedInsight</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Summary / Description</label>
+                    <textarea class="form-control" rows="3" @bind="newNodeSummary"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="SaveNode">Save Node</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string subGraphQuery = "zero allocation";
+    private string extractedContext = "";
+    private bool showAddNodeModal;
+
+    private string newNodeLabel = "";
+    private string newNodeCategory = "Pattern";
+    private string newNodeSummary = "";
+
+    protected override void OnInitialized()
+    {
+        ExtractSubGraph();
+    }
+
+    private void ExtractSubGraph()
+    {
+        extractedContext = KnowledgeService.ExtractSubGraphContext(subGraphQuery);
+    }
+
+    private void SaveNode()
+    {
+        if (string.IsNullOrWhiteSpace(newNodeLabel)) return;
+
+        var count = KnowledgeService.GetFullMap().Nodes.Count + 1;
+        var node = new KnowledgeNode(
+            Id: $"KN-{count:D3}",
+            Label: newNodeLabel,
+            Category: newNodeCategory,
+            Summary: newNodeSummary,
+            Attributes: new Dictionary<string, string> { ["Source"] = "Manual" }
+        );
+
+        KnowledgeService.AddOrUpdateNode(node);
+        showAddNodeModal = false;
+        newNodeLabel = "";
+        newNodeSummary = "";
+        ExtractSubGraph();
+    }
+}

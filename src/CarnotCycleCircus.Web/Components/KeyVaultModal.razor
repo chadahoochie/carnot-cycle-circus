@@ -1,0 +1,131 @@
+@inject IApiKeyVaultService KeyVaultService
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-dialog" @onclick:stopPropagation="true">
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.3rem;">🔑</span>
+                <h3 style="font-size: 1.15rem; font-weight: 700;">OpenRouter API Key Vault & Quick Swapper</h3>
+            </div>
+            <button class="btn btn-secondary" @onclick="Close" style="padding: 4px 8px;">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <div style="margin-bottom: 20px;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: #38bdf8;">Stored API Keys</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    @foreach (var key in KeyVaultService.GetAllKeys())
+                    {
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-primary); border: 1px solid @(key.IsActive ? "#38bdf8" : "var(--border-color)"); border-radius: 8px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-weight: 600;">@key.KeyName</span>
+                                    @if (key.IsActive)
+                                    {
+                                        <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">ACTIVE GLOBAL</span>
+                                    }
+                                </div>
+                                <div style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                    @key.ApiKeyMasked (@key.Provider)
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 8px;">
+                                @if (!key.IsActive)
+                                {
+                                    <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => ActivateKey(key.KeyId)">
+                                        Activate
+                                    </button>
+                                }
+                                <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => TestKey(key.RawApiKey)">
+                                    Test Connection
+                                </button>
+                                @if (KeyVaultService.GetAllKeys().Count > 1)
+                                {
+                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.78rem;" @onclick="() => DeleteKey(key.KeyId)">
+                                        🗑️
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(testResultStatus))
+            {
+                <div style="padding: 10px; border-radius: 8px; margin-bottom: 16px; font-size: 0.85rem; background: @(testResultSuccess ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"); border: 1px solid @(testResultSuccess ? "#22c55e" : "#ef4444"); color: @(testResultSuccess ? "#22c55e" : "#ef4444");">
+                    @testResultStatus
+                </div>
+            }
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Add New OpenRouter Key</h4>
+                <div class="form-group">
+                    <label class="form-label">Key Label / Friendly Name</label>
+                    <input class="form-control" placeholder="e.g. Production Anthropic Key / Dev DeepSeek Key" @bind="newKeyName" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">OpenRouter API Key (sk-or-v1-...)</label>
+                    <input class="form-control" type="password" placeholder="sk-or-v1-xxxxxxxx" @bind="newRawApiKey" />
+                </div>
+                <button class="btn btn-success" style="width: 100%; justify-content: center;" @onclick="AddKey">
+                    ➕ Add Key to Vault
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="Close">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string newKeyName = "";
+    private string newRawApiKey = "";
+    private string? testResultStatus;
+    private bool testResultSuccess;
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private void ActivateKey(string keyId)
+    {
+        KeyVaultService.SetActiveKey(keyId);
+        testResultStatus = "Active global key updated successfully.";
+        testResultSuccess = true;
+    }
+
+    private void DeleteKey(string keyId)
+    {
+        KeyVaultService.DeleteKey(keyId);
+    }
+
+    private async Task TestKey(string rawApiKey)
+    {
+        testResultStatus = "Testing connection to OpenRouter API...";
+        StateHasChanged();
+        testResultSuccess = await KeyVaultService.TestKeyConnectionAsync(rawApiKey);
+        testResultStatus = testResultSuccess
+            ? "✅ Key verified! Successfully authenticated with OpenRouter inference hub."
+            : "❌ Key authentication failed. Verify the API key string.";
+    }
+
+    private void AddKey()
+    {
+        if (string.IsNullOrWhiteSpace(newKeyName) || string.IsNullOrWhiteSpace(newRawApiKey))
+        {
+            testResultStatus = "Key name and API key string cannot be empty.";
+            testResultSuccess = false;
+            return;
+        }
+
+        KeyVaultService.AddOrUpdateKey(newKeyName.Trim(), newRawApiKey.Trim(), isActive: true);
+        newKeyName = "";
+        newRawApiKey = "";
+        testResultStatus = "New key added to vault and set as active global key.";
+        testResultSuccess = true;
+    }
+}

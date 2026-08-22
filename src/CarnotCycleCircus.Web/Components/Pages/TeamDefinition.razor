@@ -1,0 +1,184 @@
+@page "/"
+@inject ITeamDefinitionManager TeamManager
+@inject IApiKeyVaultService KeyVaultService
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🎯 Autonomous Engineering Team Studio</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Compose, configure, and assign OpenRouter models & keys across the 6 autonomous engineering roles.</p>
+    </div>
+
+    <!-- Archetype Selector & Actions -->
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <select class="form-control" style="width: 260px;" @onchange="OnArchetypeSelected">
+            <option value="">-- Load Archetype Preset --</option>
+            @foreach (var arc in TeamArchetypes.AllArchetypes)
+            {
+                <option value="@arc.ArchetypeName">@arc.Name</option>
+            }
+        </select>
+
+        <button class="btn btn-secondary" @onclick="ExportTeam">💾 Export JSON</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.88rem;">
+        @statusMessage
+    </div>
+}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px;">
+    @foreach (var member in currentTeam.Members)
+    {
+        <div class="glass-card" style="border-top: 4px solid @member.Persona.Role.ToColorHex(); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 2rem;">@member.Persona.Role.ToEmoji()</span>
+                        <div>
+                            <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc;">@member.Persona.Name</h3>
+                            <span class="badge" style="background: @member.Persona.Role.ToColorHex(); color: #000; font-size: 0.68rem; font-weight: 700;">@member.Persona.Role.ToDisplayName()</span>
+                        </div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer;">
+                        <input type="checkbox" checked="@member.IsEnabled" @onchange="(e) => ToggleMember(member, e)" />
+                        Active
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Inference Model (OpenRouter)</label>
+                    <select class="form-control" value="@member.EffectiveModel" @onchange="(e) => UpdateModel(member, e)">
+                        <option value="anthropic/claude-3.7-sonnet">anthropic/claude-3.7-sonnet (Architect / Opt)</option>
+                        <option value="openai/gpt-4o">openai/gpt-4o (TPM / Orchestrator)</option>
+                        <option value="openai/o3-mini">openai/o3-mini (Security / Reasoning)</option>
+                        <option value="deepseek/deepseek-r1">deepseek/deepseek-r1 (QA & Edge Cases)</option>
+                        <option value="qwen/qwen-2.5-coder-32b-instruct">qwen/qwen-2.5-coder-32b-instruct (Developer)</option>
+                        <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku (Fast Fallback)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Custom API Key Override</label>
+                    <select class="form-control" value="@(member.CustomApiKeyId ?? "")" @onchange="(e) => UpdateKey(member, e)">
+                        <option value="">Use Team Global Key (Fallback)</option>
+                        @foreach (var key in KeyVaultService.GetAllKeys())
+                        {
+                            <option value="@key.KeyId">@key.KeyName (@key.ApiKeyMasked)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Role Directive & System Prompt</label>
+                    <textarea class="form-control" rows="3" style="font-size: 0.8rem;" value="@member.Persona.SystemPrompt" @onchange="(e) => UpdatePrompt(member, e)"></textarea>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Allowed Sandboxed Tools:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        @foreach (var tool in member.Persona.AllowedToolNames)
+                        {
+                            <span style="font-family: monospace; font-size: 0.72rem; background: var(--bg-primary); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 4px; color: #38bdf8;">
+                                ⚙️ @tool
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showExportModal)
+{
+    <div class="modal-backdrop" @onclick="() => showExportModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Team Configuration Manifest (JSON)</h3>
+                <button class="btn btn-secondary" @onclick="() => showExportModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <pre style="background: var(--bg-primary); padding: 14px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; max-height: 400px; font-family: monospace;">@exportedJson</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showExportModal = false">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private EngineeringTeam currentTeam = default!;
+    private string? statusMessage;
+    private bool showExportModal;
+    private string exportedJson = "";
+
+    protected override void OnInitialized()
+    {
+        currentTeam = TeamManager.GetCurrentTeam();
+        TeamManager.OnCurrentTeamChanged += team =>
+        {
+            currentTeam = team;
+            InvokeAsync(StateHasChanged);
+        };
+    }
+
+    private void OnArchetypeSelected(ChangeEventArgs e)
+    {
+        var archetype = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(archetype))
+        {
+            TeamManager.LoadArchetype(archetype);
+            statusMessage = $"Loaded preset archetype '{archetype}' successfully.";
+        }
+    }
+
+    private void ToggleMember(AgentMember member, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? true);
+        UpdateMember(member with { IsEnabled = isChecked });
+    }
+
+    private void UpdateModel(AgentMember member, ChangeEventArgs e)
+    {
+        var model = e.Value?.ToString();
+        UpdateMember(member with { OverrideModel = model });
+    }
+
+    private void UpdateKey(AgentMember member, ChangeEventArgs e)
+    {
+        var keyId = e.Value?.ToString();
+        UpdateMember(member with { CustomApiKeyId = string.IsNullOrEmpty(keyId) ? null : keyId });
+    }
+
+    private void UpdatePrompt(AgentMember member, ChangeEventArgs e)
+    {
+        var prompt = e.Value?.ToString() ?? "";
+        UpdateMember(member with { Persona = member.Persona with { SystemPrompt = prompt } });
+    }
+
+    private void UpdateMember(AgentMember updated)
+    {
+        var members = currentTeam.Members.Select(m => m.Persona.Role == updated.Persona.Role ? updated : m).ToList();
+        var def = new CarnotCycleCircus.Core.Domain.Teams.TeamDefinition(
+            Id: currentTeam.Id,
+            Name: currentTeam.Name,
+            Description: currentTeam.Description,
+            ArchetypeName: "Custom",
+            Members: members,
+            DefaultFallbackModel: currentTeam.DefaultFallbackModel,
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        TeamManager.SaveTeam(def);
+        statusMessage = $"Updated configuration for {updated.Persona.Name}.";
+    }
+
+    private void ExportTeam()
+    {
+        exportedJson = TeamManager.ExportToJson(currentTeam.Id);
+        showExportModal = true;
+    }
+}

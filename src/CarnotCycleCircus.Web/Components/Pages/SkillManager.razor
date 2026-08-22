@@ -1,0 +1,120 @@
+@page "/skills"
+@inject ISkillRegistry SkillRegistry
+@inject ISkillImporter SkillImporter
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🧩 Dynamic Skill Importer & Registry</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Import and register engineering capabilities from Web URLs, raw SKILL.md documents, or JSON manifests.</p>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <a href="skills/matrix" class="btn btn-secondary">📊 View Skill Capability Matrix</a>
+        <button class="btn btn-success" @onclick="() => showImportModal = true">
+            ➕ Import New Skill
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div style="padding: 10px; border-radius: 8px; margin-bottom: 16px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.85rem;">
+        @statusMessage
+    </div>
+}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px;">
+    @foreach (var skill in SkillRegistry.GetAllSkills())
+    {
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8;">@skill.Category</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@skill.Id</span>
+                </div>
+
+                <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">@skill.Name</h3>
+                <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">@skill.Description</p>
+
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; font-size: 0.8rem; font-family: monospace; color: #94a3b8; max-height: 100px; overflow-y: auto; margin-bottom: 12px;">
+                    @skill.Instructions
+                </div>
+
+                <div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Recommended Tools:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        @foreach (var t in skill.RecommendedTools)
+                        {
+                            <span style="font-size: 0.7rem; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; color: #38bdf8;">⚙️ @t</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showImportModal)
+{
+    <div class="modal-backdrop" @onclick="() => showImportModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Import Dynamic Skill</h3>
+                <button class="btn btn-secondary" @onclick="() => showImportModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Import from Web URL (Raw SKILL.md)</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input class="form-control" placeholder="https://raw.githubusercontent.com/.../SKILL.md" @bind="importUrl" />
+                        <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ImportFromUrl">Fetch</button>
+                    </div>
+                </div>
+
+                <div style="text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 0.8rem;">— OR PASTE RAW SKILL.MD CONTENT —</div>
+
+                <div class="form-group">
+                    <label class="form-label">Raw Markdown / YAML Frontmatter</label>
+                    <textarea class="form-control" rows="8" @bind="rawMarkdown" placeholder="---&#10;name: My Custom Skill&#10;description: Skill description&#10;---&#10;# Instructions..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showImportModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="ImportFromRaw">Register Skill</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showImportModal;
+    private string importUrl = "";
+    private string rawMarkdown = "";
+    private string? statusMessage;
+
+    private async Task ImportFromUrl()
+    {
+        if (string.IsNullOrWhiteSpace(importUrl)) return;
+        try
+        {
+            var skill = await SkillImporter.ImportFromUrlAsync(importUrl);
+            SkillRegistry.RegisterSkill(skill);
+            showImportModal = false;
+            statusMessage = $"Successfully imported skill '{skill.Name}' from URL.";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to fetch skill: {ex.Message}";
+        }
+    }
+
+    private void ImportFromRaw()
+    {
+        if (string.IsNullOrWhiteSpace(rawMarkdown)) return;
+        var skill = SkillImporter.ParseSkillMarkdown(rawMarkdown);
+        SkillRegistry.RegisterSkill(skill);
+        showImportModal = false;
+        rawMarkdown = "";
+        statusMessage = $"Registered skill '{skill.Name}'.";
+    }
+}

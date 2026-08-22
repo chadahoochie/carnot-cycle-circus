@@ -1,0 +1,267 @@
+@page "/dashboard"
+@inject IGraphWorkflowExecutor GraphExecutor
+@inject IAgentEventStream EventStream
+@inject IApiKeyVaultService KeyVaultService
+@inject ITicketStore TicketStore
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">⚡ Real-Time Execution Dashboard</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent orchestration stream, active execution pulses, and dynamic key swapping.</p>
+    </div>
+
+    <!-- Live Execution Controls -->
+    <div style="display: flex; gap: 8px;">
+        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@GraphExecutor.IsRunning">
+            🚀 Run Epic Workflow
+        </button>
+        <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning">
+            ⏭️ Step Next Node
+        </button>
+        <button class="btn btn-danger" @onclick="RunFailureSimulation" disabled="@GraphExecutor.IsRunning">
+            🚨 Simulate Failure Loop
+        </button>
+        <button class="btn btn-secondary" @onclick="Reset">
+            🔄 Reset
+        </button>
+        <button class="btn btn-success" @onclick="ExportReport">
+            📄 Session Report
+        </button>
+    </div>
+</div>
+
+<!-- Active Graph Pulse Status Bar -->
+<div class="glass-card" style="margin-bottom: 20px; padding: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; text-transform: uppercase;">
+            Live Orchestration Topology Status
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
+            <span>State:</span>
+            <span class="badge" style="background: @(GraphExecutor.IsRunning ? "#38bdf8" : "#22c55e"); color: #000; font-weight: 700;">
+                @(GraphExecutor.IsRunning ? "RUNNING" : "READY / IDLE")
+            </span>
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;">
+        @foreach (var node in GraphExecutor.CurrentGraph.Nodes)
+        {
+            var isRunning = node.State == NodeExecutionState.Running;
+            var isRemediating = node.State == NodeExecutionState.Remediating;
+            var isCompleted = node.State == NodeExecutionState.Completed;
+            var isFailed = node.State == NodeExecutionState.Failed;
+
+            var borderCol = isRunning ? "#38bdf8" : isRemediating ? "#ef4444" : isCompleted ? "#22c55e" : "var(--border-color)";
+            var pulseClass = isRunning ? "pulse-running" : isRemediating ? "pulse-remediating" : "";
+
+            <div style="background: var(--bg-primary); border: 2px solid @borderCol; border-radius: 8px; padding: 10px; text-align: center;" class="@pulseClass">
+                <div style="font-size: 1.4rem;">@node.Role.ToEmoji()</div>
+                <div style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; margin-top: 4px;">@node.Role.ToDisplayName().Split(' ')[0]</div>
+                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isRunning ? "#38bdf8" : "var(--text-muted)");">
+                    @node.State
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Main Execution Stream & Live Tools -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+    
+    <!-- Real-Time Event Stream Log -->
+    <div class="glass-card" style="display: flex; flex-direction: column; height: 520px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+            <div style="font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                <span>📡</span> Live Agent Event Stream (@EventStream.GetHistory().Count messages)
+            </div>
+            <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" @onclick="ClearStream">Clear</button>
+        </div>
+
+        <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 6px;">
+            @foreach (var msg in EventStream.GetHistory())
+            {
+                var bg = msg.Type switch
+                {
+                    MessageType.Alert => "rgba(239, 68, 68, 0.15)",
+                    MessageType.Handoff => "rgba(168, 85, 247, 0.15)",
+                    MessageType.StateChange => "rgba(56, 189, 248, 0.1)",
+                    _ => "var(--bg-primary)"
+                };
+
+                var border = msg.Type switch
+                {
+                    MessageType.Alert => "#ef4444",
+                    MessageType.Handoff => "#a855f7",
+                    MessageType.StateChange => "#38bdf8",
+                    _ => "var(--border-color)"
+                };
+
+                <div style="background: @bg; border-left: 3px solid @border; border-radius: 6px; padding: 10px 12px; font-size: 0.85rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            @if (msg.Role.HasValue)
+                            {
+                                <span>@msg.Role.Value.ToEmoji()</span>
+                                <span style="font-weight: 700; color: @msg.Role.Value.ToColorHex();">@msg.SenderName</span>
+                            }
+                            else
+                            {
+                                <span style="font-weight: 700; color: #38bdf8;">@msg.SenderName</span>
+                            }
+                            <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 0.65rem;">@msg.Type</span>
+                        </div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">@msg.Timestamp.ToString("HH:mm:ss.fff")</span>
+                    </div>
+
+                    <div style="color: #f8fafc; line-height: 1.4; white-space: pre-wrap;">@msg.Content</div>
+                </div>
+            }
+            @if (EventStream.GetHistory().Count == 0)
+            {
+                <div style="text-align: center; color: var(--text-muted); margin-top: 40px;">
+                    No event telemetry captured yet. Click "Run Epic Workflow" to launch agents.
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Live Control & Mid-Flight Key Swapper -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+        
+        <!-- Live Key Swapper Card -->
+        <div class="glass-card">
+            <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: #eab308;">
+                🔑 Mid-Workflow Key Swapper
+            </h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
+                Swap inference keys on-the-fly without restarting active executions.
+            </p>
+            <div class="form-group">
+                <label class="form-label">Active Team Key</label>
+                <select class="form-control" value="@(KeyVaultService.GetActiveKey()?.KeyId ?? "")" @onchange="OnKeySwapped">
+                    @foreach (var key in KeyVaultService.GetAllKeys())
+                    {
+                        <option value="@key.KeyId">@key.KeyName (@key.ApiKeyMasked)</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <!-- Telemetry & Metrics -->
+        <div class="glass-card">
+            <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: #38bdf8;">
+                📊 Telemetry & Deliverables
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span style="color: var(--text-muted);">Total Tickets in Engine:</span>
+                    <span style="font-weight: 700;">@TicketStore.GetAllTickets().Count</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span style="color: var(--text-muted);">Completed Deliverables:</span>
+                    <span style="font-weight: 700; color: #22c55e;">@TicketStore.GetAllTickets().Sum(t => t.Deliverables.Count)</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span style="color: var(--text-muted);">Inter-Agent Handoffs:</span>
+                    <span style="font-weight: 700; color: #a855f7;">@TicketStore.GetAllHandoffs().Count</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (showReportModal)
+{
+    <div class="modal-backdrop" @onclick="() => showReportModal = false">
+        <div class="modal-dialog" style="max-width: 800px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Complete Autonomous Session Report</h3>
+                <button class="btn btn-secondary" @onclick="() => showReportModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <pre style="background: var(--bg-primary); padding: 14px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; max-height: 450px; font-family: monospace;">@sessionReportMarkdown</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showReportModal = false">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool showReportModal;
+    private string sessionReportMarkdown = "";
+
+    protected override void OnInitialized()
+    {
+        EventStream.OnMessagePublished += _ => InvokeAsync(StateHasChanged);
+        GraphExecutor.OnGraphUpdated += _ => InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunFullWorkflow()
+    {
+        await GraphExecutor.ExecuteWorkflowAsync(
+            "Build High-Throughput PubSub Event Stream",
+            "Implement high-performance zero-allocation pub/sub event pipeline with STRIDE security review and QA test scorecard.",
+            triggerFailureSimulation: false
+        );
+    }
+
+    private async Task RunFailureSimulation()
+    {
+        await GraphExecutor.ExecuteWorkflowAsync(
+            "Build High-Throughput PubSub Event Stream",
+            "Implement high-performance zero-allocation pub/sub event pipeline with simulated security vulnerability remediation.",
+            triggerFailureSimulation: true
+        );
+    }
+
+    private async Task StepNext()
+    {
+        await GraphExecutor.StepNextNodeAsync();
+    }
+
+    private void Reset()
+    {
+        GraphExecutor.ResetGraph();
+    }
+
+    private void ClearStream()
+    {
+        EventStream.Clear();
+    }
+
+    private void OnKeySwapped(ChangeEventArgs e)
+    {
+        var keyId = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(keyId))
+        {
+            KeyVaultService.SetActiveKey(keyId);
+        }
+    }
+
+    private void ExportReport()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("# Carnot Cycle Circus - Autonomous Engineering Execution Report");
+        sb.AppendLine($"Generated at: {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss} UTC\n");
+        sb.AppendLine("## Summary of Delivered Tickets");
+        foreach (var t in TicketStore.GetAllTickets())
+        {
+            sb.AppendLine($"- [{t.Status}] **{t.Id}** ({t.AssigneeRole.ToDisplayName()}): {t.Title}");
+            foreach (var d in t.Deliverables)
+            {
+                sb.AppendLine($"  - Artifact: `{d.Name}` ({d.ContentType})");
+            }
+        }
+        sb.AppendLine("\n## Inter-Agent Handoff Chain");
+        foreach (var ho in TicketStore.GetAllHandoffs())
+        {
+            sb.AppendLine($"- [{ho.Timestamp:HH:mm:ss}] {ho.FromAgentRole.ToDisplayName()} ➔ {ho.ToAgentRole.ToDisplayName()} (Ticket {ho.TicketId}): {ho.ContextSummary}");
+        }
+
+        sessionReportMarkdown = sb.ToString();
+        showReportModal = true;
+    }
+}

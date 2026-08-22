@@ -1,0 +1,135 @@
+@inject ITicketStore TicketStore
+@inject IHandoffRouter HandoffRouter
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-dialog" style="max-width: 780px;" @onclick:stopPropagation="true">
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="badge" style="background: @Ticket.AssigneeRole.ToColorHex(); color: #000; font-weight: 700;">@Ticket.Id</span>
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc;">@Ticket.Title</h3>
+            </div>
+            <button class="btn btn-secondary" @onclick="Close" style="padding: 4px 8px;">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+                <div>
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Description</h4>
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap;">@Ticket.Description</div>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Acceptance Criteria</h4>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            @foreach (var ac in Ticket.AcceptanceCriteria)
+                            {
+                                <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.85rem; background: var(--bg-primary); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                                    <span style="color: #22c55e;">✔</span>
+                                    <span>@ac</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (Ticket.Deliverables.Count > 0)
+                    {
+                        <div style="margin-bottom: 16px;">
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: #22c55e; text-transform: uppercase; margin-bottom: 6px;">Delivered Artifacts (@Ticket.Deliverables.Count)</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                @foreach (var artifact in Ticket.Deliverables)
+                                {
+                                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                                        <div style="background: var(--bg-tertiary); padding: 6px 12px; font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between;">
+                                            <span>📄 @artifact.Name</span>
+                                            <span style="color: var(--text-muted);">@artifact.ContentType</span>
+                                        </div>
+                                        <pre style="padding: 10px; font-size: 0.8rem; overflow-x: auto; max-height: 180px; font-family: monospace;">@artifact.Content</pre>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Right Sidebar Details -->
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <div style="background: var(--bg-primary); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-control" @bind="selectedStatus">
+                                @foreach (var status in Enum.GetValues<TicketStatus>())
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Assignee Role</label>
+                            <select class="form-control" @bind="selectedAssignee">
+                                @foreach (var role in Enum.GetValues<AgentRole>())
+                                {
+                                    <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-primary" style="width: 100%; justify-content: center;" @onclick="SaveUpdates">
+                                Update Ticket
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (Ticket.DependsOnTicketIds.Count > 0)
+                    {
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div style="font-size: 0.8rem; font-weight: 600; color: #eab308; margin-bottom: 6px;">Dependencies:</div>
+                            @foreach (var depId in Ticket.DependsOnTicketIds)
+                            {
+                                var dep = TicketStore.GetTicketById(depId);
+                                <div style="font-size: 0.78rem; margin-bottom: 4px;">
+                                    <span style="color: #38bdf8;">@depId</span>: @(dep?.Status == TicketStatus.Done ? "✅ Done" : "⏳ Pending")
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="Close">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TicketItem Ticket { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private TicketStatus selectedStatus;
+    private AgentRole selectedAssignee;
+
+    protected override void OnInitialized()
+    {
+        selectedStatus = Ticket.Status;
+        selectedAssignee = Ticket.AssigneeRole;
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private async Task SaveUpdates()
+    {
+        var updated = Ticket.WithStatus(selectedStatus).WithAssignee(selectedAssignee);
+        TicketStore.UpdateTicket(updated);
+        if (selectedStatus == TicketStatus.Done)
+        {
+            HandoffRouter.AdvanceWorkflowOnTicketCompletion(Ticket.Id);
+        }
+        await OnUpdated.InvokeAsync();
+        await Close();
+    }
+}

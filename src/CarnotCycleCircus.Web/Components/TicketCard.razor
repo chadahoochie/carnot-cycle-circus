@@ -1,0 +1,36 @@
+<div class="ticket-card" @onclick="OnClick">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <span style="font-family: monospace; font-size: 0.78rem; font-weight: 700; color: #38bdf8;">@Ticket.Id</span>
+        <span class="badge" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border-color); font-size: 0.68rem;">@Ticket.Type</span>
+    </div>
+
+    <div style="font-weight: 600; font-size: 0.88rem; color: #f8fafc; margin-bottom: 8px; line-height: 1.3;">
+        @Ticket.Title
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <span>@Ticket.AssigneeRole.ToEmoji()</span>
+            <span style="color: @Ticket.AssigneeRole.ToColorHex(); font-weight: 600;">@Ticket.AssigneeRole.ToDisplayName().Split(' ')[0]</span>
+        </div>
+
+        <div style="display: flex; gap: 6px; align-items: center;">
+            @if (Ticket.DependsOnTicketIds.Count > 0)
+            {
+                <span title="Dependencies: @string.Join(", ", Ticket.DependsOnTicketIds)" style="color: #eab308; font-size: 0.72rem;">🔗 @Ticket.DependsOnTicketIds.Count</span>
+            }
+            @if (Ticket.Deliverables.Count > 0)
+            {
+                <span title="Deliverables: @Ticket.Deliverables.Count" style="color: #22c55e; font-size: 0.72rem;">📦 @Ticket.Deliverables.Count</span>
+            }
+            <span class="badge" style="background: rgba(234, 179, 8, 0.15); color: #eab308; font-size: 0.65rem;">@Ticket.Priority</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TicketItem Ticket { get; set; } = default!;
+    [Parameter] public EventCallback<TicketItem> OnSelect { get; set; }
+
+    private async Task OnClick() => await OnSelect.InvokeAsync(Ticket);
+}
