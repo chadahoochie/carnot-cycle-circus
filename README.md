@@ -4,7 +4,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
 
-**Carnot Cycle Circus** is a high-efficiency Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend. It enables software teams to compose, configure, and orchestrate specialized AI engineering roles across complete software lifecycles.
+> *"Operating at theoretical maximum Carnot thermodynamic efficiency to orchestrate the chaotic 6-ring circus of autonomous engineering agents."*
+>
+> 🎪 **The Squad**: TPM invents fantasy deadlines $\to$ Architect draws cathedral abstractions $\to$ Developer brews caffeine into code $\to$ Security panics over everything $\to$ Optimizer micro-benchmarks nanoseconds $\to$ QA gleefully obliterates developer confidence.
+
+**Carnot Cycle Circus** is a high-efficiency Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend. It enables software teams to compose, configure, and orchestrate specialized AI engineering roles across complete software lifecycles without violating the laws of thermodynamics (or failing quality gates).
 
 ---
 

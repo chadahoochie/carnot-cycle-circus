@@ -4,6 +4,7 @@
     <Company>Carnot Cycle Circus</Company>
     <Copyright>Copyright © 2026-$([System.DateTime]::Now.Year) Carnot Cycle Circus Contributors</Copyright>
     <Product>Carnot Cycle Circus</Product>
+    <Description>Theoretical maximum efficiency autonomous engineering circus in .NET 10 / C# 13: orchestrating TPMs inventing fantasy deadlines, Architects drawing cathedral abstractions, Devs turning caffeine into bugs, Security panicking over everything, Optimizers micro-benchmarking nanoseconds, and QA gleefully destroying developer confidence.</Description>
     <PackageProjectUrl>https://github.com/chadahoochie/carnot-cycle-circus</PackageProjectUrl>
     <RepositoryUrl>https://github.com/chadahoochie/carnot-cycle-circus</RepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
