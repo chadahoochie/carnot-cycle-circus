@@ -63,7 +63,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Title: $"{epicTitle}: Core Engine & Protocols",
             Description: $"TPM Requirement: Implement foundational capabilities, interfaces, and state lifecycle for {epicTitle}.",
             Type: TicketType.Feature,
-            Status: TicketStatus.Ready,
+            Status: TicketStatus.InProgress,
             AssigneeRole: AgentRole.LeadArchitect,
             CreatedByRole: AgentRole.TechnicalProductManager,
             Priority: priority,

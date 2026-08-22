@@ -109,9 +109,13 @@ public class KnowledgeMapService : IKnowledgeMapService
     public IReadOnlyList<KnowledgeNode> SearchNodes(string query)
     {
         if (string.IsNullOrWhiteSpace(query)) return _nodes.Values.ToList();
-        var q = query.ToLowerInvariant();
+        var tokens = query.ToLowerInvariant().Split([' ', '-', '_'], StringSplitOptions.RemoveEmptyEntries);
         return _nodes.Values
-            .Where(n => n.Label.ToLowerInvariant().Contains(q) || n.Summary.ToLowerInvariant().Contains(q) || n.Category.ToLowerInvariant().Contains(q))
+            .Where(n =>
+            {
+                var text = $"{n.Label} {n.Summary} {n.Category}".ToLowerInvariant();
+                return tokens.Any(t => text.Contains(t));
+            })
             .ToList();
     }
 

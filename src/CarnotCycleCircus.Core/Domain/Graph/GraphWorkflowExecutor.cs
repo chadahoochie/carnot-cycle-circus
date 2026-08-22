@@ -138,7 +138,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         // 2. Lead Architect Phase - Architecture & ADR
         var archNode = GetNodeByRole(AgentRole.LeadArchitect);
         var readyTickets = _ticketStore.GetReadyTickets();
-        var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect);
+        var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask)
+            ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect);
 
         if (archNode != null && archTicket != null)
         {
@@ -170,7 +171,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         // 3. Software Developer Phase - Implementation
         var devNode = GetNodeByRole(AgentRole.SoftwareDeveloper);
         readyTickets = _ticketStore.GetReadyTickets();
-        var devTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper);
+        var devTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper && t.Type == TicketType.Subtask)
+            ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper);
 
         if (devNode != null && devTicket != null)
         {
@@ -203,8 +205,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         var secNode = GetNodeByRole(AgentRole.SecurityEngineer);
         var optNode = GetNodeByRole(AgentRole.OptimizationEngineer);
         readyTickets = _ticketStore.GetReadyTickets();
-        var secTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SecurityEngineer);
-        var optTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.OptimizationEngineer);
+        var secTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SecurityEngineer && t.Type == TicketType.Subtask)
+            ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SecurityEngineer);
+        var optTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.OptimizationEngineer && t.Type == TicketType.Subtask)
+            ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.OptimizationEngineer);
 
         if (secNode != null && secTicket != null)
         {
@@ -257,7 +261,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         // 5. Principal QA Phase - Validation & Certification
         var qaNode = GetNodeByRole(AgentRole.PrincipalQAAnalyst);
         readyTickets = _ticketStore.GetReadyTickets();
-        var qaTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst);
+        var qaTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst && t.Type == TicketType.Subtask)
+            ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst);
 
         if (qaNode != null && qaTicket != null)
         {
@@ -272,6 +277,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             await _memoryConsolidation.ConsolidateTaskCompletionAsync(qaTicket, _eventStream.GetHistory(), cancellationToken);
 
             UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "100% Quality Certification Scorecard.", qaTicket.Id);
+        }
+
+        // Mark remaining parent stories/epics as complete
+        foreach (var remaining in _ticketStore.GetAllTickets().Where(t => t.Status != TicketStatus.Done))
+        {
+            _ticketStore.UpdateTicket(remaining.WithStatus(TicketStatus.Done));
         }
 
         _eventStream.Publish(AgentMessage.Create(
