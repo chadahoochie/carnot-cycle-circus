@@ -1,0 +1,149 @@
+@page "/canvas"
+@inject IGraphWorkflowExecutor GraphExecutor
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🎨 Connectable Workflow Canvas & Failure Ports</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Visual DAG orchestration editor with 🟢 Input, 🔵 Output, and 🔴 Failure/Reject circuit breaker ports.</p>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" @onclick="ResetCanvas">🔄 Reset Defaults</button>
+        <a href="dashboard" class="btn btn-primary">⚡ Go to Live Execution Dashboard</a>
+    </div>
+</div>
+
+<div class="glass-card" style="padding: 0; overflow: hidden; position: relative; height: 520px; background: radial-gradient(#1e293b 1px, transparent 1px); background-size: 24px 24px; border: 1px solid var(--border-color); border-radius: 12px;">
+    
+    <!-- SVG Connection Lines -->
+    <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+        <defs>
+            <marker id="arrow-output" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+            </marker>
+            <marker id="arrow-failure" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+            </marker>
+        </defs>
+
+        @foreach (var conn in GraphExecutor.CurrentGraph.Connections)
+        {
+            var src = GraphExecutor.CurrentGraph.Nodes.FirstOrDefault(n => n.Id == conn.SourceNodeId);
+            var tgt = GraphExecutor.CurrentGraph.Nodes.FirstOrDefault(n => n.Id == conn.TargetNodeId);
+
+            if (src != null && tgt != null)
+            {
+                var isFail = conn.SourcePort == PortType.Failure;
+                var x1 = src.X + (isFail ? 70 : 140);
+                var y1 = src.Y + (isFail ? 90 : 45);
+                var x2 = tgt.X;
+                var y2 = tgt.Y + 45;
+
+                var strokeColor = isFail ? "#ef4444" : "#38bdf8";
+                var marker = isFail ? "url(#arrow-failure)" : "url(#arrow-output)";
+                var dash = isFail ? "5,5" : "none";
+
+                <path d="M @x1 @y1 C @((x1+x2)/2) @y1, @((x1+x2)/2) @y2, @x2 @y2"
+                      fill="none"
+                      stroke="@strokeColor"
+                      stroke-width="2.5"
+                      stroke-dasharray="@dash"
+                      marker-end="@marker" />
+            }
+        }
+    </svg>
+
+    <!-- Visual Nodes -->
+    @foreach (var node in GraphExecutor.CurrentGraph.Nodes)
+    {
+        var pulseClass = node.State switch
+        {
+            NodeExecutionState.Running => "pulse-running",
+            NodeExecutionState.Remediating => "pulse-remediating",
+            _ => ""
+        };
+
+        <div style="position: absolute; left: @(node.X)px; top: @(node.Y)px; width: 150px; background: var(--bg-secondary); border: 2px solid @node.Role.ToColorHex(); border-radius: 10px; padding: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.5); cursor: move;"
+             class="@pulseClass">
+            
+            <!-- Input Port (Green) -->
+            <div style="position: absolute; left: -8px; top: 38px; width: 14px; height: 14px; background: #10b981; border: 2px solid #fff; border-radius: 50%;" title="🟢 Input Port"></div>
+
+            <!-- Output Port (Blue) -->
+            <div style="position: absolute; right: -8px; top: 38px; width: 14px; height: 14px; background: #38bdf8; border: 2px solid #fff; border-radius: 50%;" title="🔵 Output Port"></div>
+
+            <!-- Failure Port (Red) -->
+            <div style="position: absolute; bottom: -8px; left: 68px; width: 14px; height: 14px; background: #ef4444; border: 2px solid #fff; border-radius: 50%;" title="🔴 Failure / Reject Port"></div>
+
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                <span>@node.Role.ToEmoji()</span>
+                <div style="font-size: 0.78rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@node.Role.ToDisplayName().Split(' ')[0]</div>
+            </div>
+
+            <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 6px;">@node.Role.ToDisplayName()</div>
+
+            <div style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; text-align: center; font-weight: 600; background: rgba(255,255,255,0.06); color: @(node.State == NodeExecutionState.Completed ? "#22c55e" : node.State == NodeExecutionState.Failed ? "#ef4444" : "#38bdf8");">
+                @node.State
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Graph Topology Details Table -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px;">
+    <div class="glass-card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Port Cable Routing Table</h3>
+        <table style="width: 100%; font-size: 0.82rem; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); text-align: left; color: var(--text-muted);">
+                    <th style="padding: 8px;">Source Node</th>
+                    <th style="padding: 8px;">Port</th>
+                    <th style="padding: 8px;">Target Node</th>
+                    <th style="padding: 8px;">Type</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in GraphExecutor.CurrentGraph.Connections)
+                {
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 8px; font-weight: 600;">@c.SourceNodeId</td>
+                        <td style="padding: 8px; color: @(c.SourcePort == PortType.Failure ? "#ef4444" : "#38bdf8");">@c.SourcePort</td>
+                        <td style="padding: 8px; font-weight: 600;">@c.TargetNodeId</td>
+                        <td style="padding: 8px;">
+                            @(c.SourcePort == PortType.Failure ? "🔴 Remediation Cable" : "🔵 Flow Cable")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="glass-card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Circuit Breaker & Resilience Policies</h3>
+        <div class="form-group">
+            <label class="form-label">Max Remediation Retries Before Circuit Trip</label>
+            <input class="form-control" type="number" value="@GraphExecutor.CurrentGraph.Policy.MaxRetries" disabled />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Circuit Breaker Enabled</label>
+            <input type="checkbox" checked="@GraphExecutor.CurrentGraph.Policy.CircuitBreakerEnabled" disabled />
+            <span style="font-size: 0.85rem; margin-left: 6px; color: var(--text-muted);">Automatically pauses runaway loops</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Fallback Remediation Handler</label>
+            <input class="form-control" value="@GraphExecutor.CurrentGraph.Policy.FallbackRole.ToDisplayName()" disabled />
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        GraphExecutor.OnGraphUpdated += _ => InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetCanvas()
+    {
+        GraphExecutor.SetGraph(WorkflowGraph.CreateDefaultEngineeringCircus());
+    }
+}

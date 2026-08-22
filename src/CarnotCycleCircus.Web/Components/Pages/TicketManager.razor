@@ -1,0 +1,279 @@
+@page "/tickets"
+@inject ITicketStore TicketStore
+@inject IWorkDecompositionEngine DecompositionEngine
+@inject IHandoffRouter HandoffRouter
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">📋 Embedded Ticket Management & Work Decomposition</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Hierarchical task breakdown (Epics $\to$ Subtasks), DAG dependencies, and inter-agent handoff contracts.</p>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+        <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"'>
+            📊 Kanban Board
+        </button>
+        <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"'>
+            🌳 Decomposition Tree
+        </button>
+        <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"'>
+            📦 Handoff Logs (@TicketStore.GetAllHandoffs().Count)
+        </button>
+        <button class="btn btn-success" @onclick="() => showCreateModal = true">
+            ➕ New Epic / Ticket
+        </button>
+    </div>
+</div>
+
+<!-- Quick Decomposition Form -->
+<div class="glass-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+    <div style="flex-grow: 1;">
+        <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">⚡ Quick Autonomous Decomposition Trigger</div>
+        <div style="display: flex; gap: 12px;">
+            <input class="form-control" placeholder="Epic Title (e.g. Build Zero-Allocation Event Bus with Channel<T>)" @bind="quickEpicTitle" />
+            <input class="form-control" placeholder="Description & Goals" @bind="quickEpicDesc" />
+        </div>
+    </div>
+    <button class="btn btn-primary" style="white-space: nowrap; align-self: flex-end;" @onclick="TriggerDecomposition">
+        🎯 Deconstruct with TPM & Architect
+    </button>
+</div>
+
+@if (activeTab == "kanban")
+{
+    <div class="kanban-board">
+        @foreach (var status in Enum.GetValues<TicketStatus>())
+        {
+            var ticketsInCol = TicketStore.GetTicketsByStatus(status);
+            <div class="kanban-column">
+                <div class="kanban-header" style="border-top: 3px solid @status.ToColorHex();">
+                    <span style="color: @status.ToColorHex();">@status</span>
+                    <span class="badge" style="background: rgba(255,255,255,0.08);">@ticketsInCol.Count</span>
+                </div>
+                <div class="kanban-cards">
+                    @foreach (var ticket in ticketsInCol)
+                    {
+                        <TicketCard Ticket="@ticket" OnSelect="SelectTicket" />
+                    }
+                    @if (ticketsInCol.Count == 0)
+                    {
+                        <div style="color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-top: 20px;">
+                            No tickets
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (activeTab == "dag")
+{
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Hierarchical Decomposition DAG Tree</h3>
+        @{
+            var epics = TicketStore.GetAllTickets().Where(t => t.Type == TicketType.Epic).ToList();
+        }
+        @if (epics.Count == 0)
+        {
+            <p style="color: var(--text-muted);">No epics decomposed yet. Click "Deconstruct with TPM & Architect" above.</p>
+        }
+        @foreach (var epic in epics)
+        {
+            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge" style="background: #38bdf8; color: #000; font-weight: 700;">EPIC: @epic.Id</span>
+                        <span style="font-weight: 700; font-size: 1.05rem;">@epic.Title</span>
+                    </div>
+                    <span class="badge" style="background: @epic.Status.ToColorHex(); color: #000;">@epic.Status</span>
+                </div>
+
+                <div style="margin-left: 20px; border-left: 2px solid #334155; padding-left: 16px; display: flex; flex-direction: column; gap: 8px;">
+                    @foreach (var child in TicketStore.GetTicketsByEpic(epic.Id).Where(t => t.Id != epic.Id))
+                    {
+                        <div style="background: var(--bg-tertiary); padding: 10px 14px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); cursor: pointer;" @onclick="() => SelectTicket(child)">
+                            <div>
+                                <span style="font-family: monospace; font-size: 0.8rem; color: #38bdf8; font-weight: 600;">@child.Id</span>
+                                <span style="font-weight: 600; margin-left: 8px;">@child.Title</span>
+                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 10px;">(@child.AssigneeRole.ToDisplayName())</span>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                @if (child.DependsOnTicketIds.Count > 0)
+                                {
+                                    <span style="font-size: 0.72rem; color: #eab308;">Depends on: @string.Join(", ", child.DependsOnTicketIds)</span>
+                                }
+                                <span class="badge" style="background: @child.Status.ToColorHex(); color: #000; font-size: 0.7rem;">@child.Status</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (activeTab == "handoffs")
+{
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Structured Inter-Agent Handoff Log</h3>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            @foreach (var ho in TicketStore.GetAllHandoffs().OrderByDescending(h => h.Timestamp))
+            {
+                <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span class="badge" style="background: #a855f7; color: #fff;">@ho.HandoffId</span>
+                            <span style="font-weight: 700; color: #f8fafc;">@ho.FromAgentRole.ToDisplayName() ➔ @ho.ToAgentRole.ToDisplayName()</span>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">for Ticket @ho.TicketId</span>
+                        </div>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">@ho.Timestamp.ToString("HH:mm:ss")</span>
+                    </div>
+
+                    <div style="font-size: 0.88rem; margin-bottom: 6px; color: #38bdf8;">
+                        @ho.ContextSummary
+                    </div>
+                    <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
+                        <strong>Action Requested:</strong> @ho.ActionRequested
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ho.RemediationNotes))
+                    {
+                        <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; margin-top: 6px;">
+                            🚨 <strong>Remediation Instructions:</strong> @ho.RemediationNotes
+                        </div>
+                    }
+
+                    @if (ho.Artifacts.Count > 0)
+                    {
+                        <div style="margin-top: 8px; font-size: 0.78rem; color: #22c55e;">
+                            📦 Deliverables attached: @string.Join(", ", ho.Artifacts.Select(a => a.Name))
+                        </div>
+                    }
+                </div>
+            }
+            @if (TicketStore.GetAllHandoffs().Count == 0)
+            {
+                <p style="color: var(--text-muted);">No handoffs recorded yet.</p>
+            }
+        </div>
+    </div>
+}
+
+@if (selectedTicket != null)
+{
+    <TicketModal Ticket="@selectedTicket" OnClose="() => selectedTicket = null" OnUpdated="Refresh" />
+}
+
+@if (showCreateModal)
+{
+    <div class="modal-backdrop" @onclick="() => showCreateModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Create New Ticket</h3>
+                <button class="btn btn-secondary" @onclick="() => showCreateModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" @bind="newTitle" placeholder="e.g. Implement DistributedPubSub Cluster" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="3" @bind="newDesc" placeholder="Requirements and scope..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Type</label>
+                    <select class="form-control" @bind="newType">
+                        @foreach (var type in Enum.GetValues<TicketType>())
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Assignee</label>
+                    <select class="form-control" @bind="newAssignee">
+                        @foreach (var role in Enum.GetValues<AgentRole>())
+                        {
+                            <option value="@role">@role.ToDisplayName()</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showCreateModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="CreateTicketManual">Create Ticket</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "kanban";
+    private TicketItem? selectedTicket;
+    private bool showCreateModal;
+    private string quickEpicTitle = "Design and Implement High-Throughput PubSub Event Stream";
+    private string quickEpicDesc = "Build an in-process reactive messaging channel with zero-allocation ValueTask pipelines and circuit-breaker failure ports.";
+
+    private string newTitle = "";
+    private string newDesc = "";
+    private TicketType newType = TicketType.Feature;
+    private AgentRole newAssignee = AgentRole.SoftwareDeveloper;
+
+    protected override void OnInitialized()
+    {
+        TicketStore.OnTicketChanged += _ => InvokeAsync(StateHasChanged);
+        TicketStore.OnHandoffRecorded += _ => InvokeAsync(StateHasChanged);
+
+        // Seed initial tickets if empty
+        if (TicketStore.GetAllTickets().Count == 0)
+        {
+            DecompositionEngine.DeconstructEpic(quickEpicTitle, quickEpicDesc);
+        }
+    }
+
+    private void SelectTicket(TicketItem ticket)
+    {
+        selectedTicket = ticket;
+    }
+
+    private void Refresh()
+    {
+        StateHasChanged();
+    }
+
+    private void TriggerDecomposition()
+    {
+        if (!string.IsNullOrWhiteSpace(quickEpicTitle))
+        {
+            DecompositionEngine.DeconstructEpic(quickEpicTitle, quickEpicDesc);
+            StateHasChanged();
+        }
+    }
+
+    private void CreateTicketManual()
+    {
+        if (string.IsNullOrWhiteSpace(newTitle)) return;
+
+        var id = $"TCK-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var ticket = new TicketItem(
+            Id: id,
+            ParentEpicId: null,
+            Title: newTitle,
+            Description: newDesc,
+            Type: newType,
+            Status: TicketStatus.Ready,
+            AssigneeRole: newAssignee,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.Medium,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Meets implementation standards"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        TicketStore.CreateTicket(ticket);
+        showCreateModal = false;
+        newTitle = "";
+        newDesc = "";
+    }
+}
