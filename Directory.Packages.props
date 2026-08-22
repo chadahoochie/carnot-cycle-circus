@@ -4,7 +4,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <MicrosoftExtensionsVersion>9.0.2</MicrosoftExtensionsVersion>
+    <MicrosoftExtensionsVersion>10.0.11</MicrosoftExtensionsVersion>
   </PropertyGroup>
 
   <ItemGroup Label="App Dependencies">
