@@ -22,23 +22,57 @@ public static class TeamArchetypes
 {
     public static TeamDefinition BalancedCircus => new(
         Id: "archetype-balanced",
-        Name: "Full-Lifecycle Balanced Circus",
-        Description: "Comprehensive 6-agent engineering squad covering requirements, architecture, zero-allocation C# dev, STRIDE security, performance benchmarks, and automated QA.",
+        Name: "🎪 The Full 6-Ring Circus (Balanced)",
+        Description: "The complete engineering squad: TPM invents fantasy deadlines, Architect builds cathedral abstractions, Dev drinks coffee, Security panics, Optimizer counts nanoseconds, and QA destroys everything.",
         ArchetypeName: "Balanced",
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(AgentPersona.CreateDefault(r))).ToList(),
         DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
         CreatedAt: DateTimeOffset.UtcNow
     );
 
+    public static TeamDefinition MoveFastBreakProduction => new(
+        Id: "archetype-cowboy",
+        Name: "🤠 Move Fast & Break Production (Cowboy Mode)",
+        Description: "Who needs QA or Security when you have unyielding confidence? Maximum temperature, zero safety nets, thoughts-and-prayers architecture. Deploys straight to prod on Friday 4:59 PM.",
+        ArchetypeName: "MoveFastBreakProduction",
+        Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
+            AgentPersona.CreateDefault(r) with
+            {
+                DefaultModel = r == AgentRole.SoftwareDeveloper ? "qwen/qwen-2.5-coder-32b-instruct" : "anthropic/claude-3.5-haiku",
+                Temperature = 0.7
+            },
+            IsEnabled: r is AgentRole.SoftwareDeveloper or AgentRole.TechnicalProductManager
+        )).ToList(),
+        DefaultFallbackModel: "qwen/qwen-2.5-coder-32b-instruct",
+        CreatedAt: DateTimeOffset.UtcNow
+    );
+
+    public static TeamDefinition IvoryTowerCathedrals => new(
+        Id: "archetype-cathedral",
+        Name: "🏛️ Ivory Tower Cathedral Builders (Enterprise Edition)",
+        Description: "500 layers of abstraction for a Hello World application. Every boolean flag requires a factory, an interface, and an Architectural Decision Record signed in triplicate.",
+        ArchetypeName: "IvoryTowerCathedrals",
+        Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
+            AgentPersona.CreateDefault(r) with
+            {
+                DefaultModel = "anthropic/claude-3.7-sonnet",
+                Temperature = 0.05
+            }
+        )).ToList(),
+        DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
+        CreatedAt: DateTimeOffset.UtcNow
+    );
+
     public static TeamDefinition SecurityHardened => new(
         Id: "archetype-security",
-        Name: "Zero-Day Security Hardened Squad",
-        Description: "Prioritizes rigorous static/dynamic analysis, STRIDE threat modeling, and defensive coding with reasoning models.",
+        Name: "🛡️ Paranoid Zero-Trust Bunker",
+        Description: "No code will ever be merged, therefore no vulnerabilities can ever exist. Pure mathematical security perfection. Powered by deep reasoning models that assume your query is an advanced persistent threat.",
         ArchetypeName: "SecurityHardened",
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
             AgentPersona.CreateDefault(r) with
             {
-                DefaultModel = r is AgentRole.SecurityEngineer or AgentRole.PrincipalQAAnalyst ? "openai/o3-mini" : AgentRoleExtensions.ToDefaultModel(r)
+                DefaultModel = r is AgentRole.SecurityEngineer or AgentRole.PrincipalQAAnalyst ? "openai/o3-mini" : "deepseek/deepseek-r1",
+                Temperature = 0.0
             }
         )).ToList(),
         DefaultFallbackModel: "openai/o3-mini",
@@ -47,23 +81,43 @@ public static class TeamArchetypes
 
     public static TeamDefinition HighPerformance => new(
         Id: "archetype-performance",
-        Name: "Ultra-Low-Latency Performance Crew",
-        Description: "Optimized for high-throughput messaging, Span/Memory zero allocations, and micro-benchmarking.",
+        Name: "⚡ Zero-Allocation Zealots (Nano-Benchmarkers)",
+        Description: "Garbage collection is outlawed by imperial decree. If you allocate a single byte on the heap, you are exiled. P99 latency target: -2 milliseconds (executes before the user clicks).",
         ArchetypeName: "HighPerformance",
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
             AgentPersona.CreateDefault(r) with
             {
-                DefaultModel = r is AgentRole.OptimizationEngineer or AgentRole.SoftwareDeveloper ? "anthropic/claude-3.7-sonnet" : AgentRoleExtensions.ToDefaultModel(r)
+                DefaultModel = r is AgentRole.OptimizationEngineer or AgentRole.SoftwareDeveloper ? "anthropic/claude-3.7-sonnet" : AgentRoleExtensions.ToDefaultModel(r),
+                Temperature = 0.0
             }
         )).ToList(),
         DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
         CreatedAt: DateTimeOffset.UtcNow
     );
 
+    public static TeamDefinition ChaosMonkeyRodeo => new(
+        Id: "archetype-chaos",
+        Name: "🧪 Chaos Monkey Rodeo (QA Dictatorship)",
+        Description: "Where QA analysts hold absolute totalitarian power. Quinn will feed emojis, 10GB null strings, and negative infinity into every endpoint until the developer breaks down in tears.",
+        ArchetypeName: "ChaosMonkeyRodeo",
+        Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
+            AgentPersona.CreateDefault(r) with
+            {
+                DefaultModel = r == AgentRole.PrincipalQAAnalyst ? "deepseek/deepseek-r1" : AgentRoleExtensions.ToDefaultModel(r),
+                Temperature = r == AgentRole.PrincipalQAAnalyst ? 0.3 : 0.1
+            }
+        )).ToList(),
+        DefaultFallbackModel: "deepseek/deepseek-r1",
+        CreatedAt: DateTimeOffset.UtcNow
+    );
+
     public static IReadOnlyList<TeamDefinition> AllArchetypes => [
         BalancedCircus,
+        MoveFastBreakProduction,
+        IvoryTowerCathedrals,
         SecurityHardened,
-        HighPerformance
+        HighPerformance,
+        ChaosMonkeyRodeo
     ];
 }
 

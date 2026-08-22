@@ -115,9 +115,9 @@ public class SkillRegistry : ISkillRegistry
         // Seed default skills
         var s1 = new SkillDefinition(
             Id: "skill-csharp-standards",
-            Name: "Modern C# 13 Coding Standards",
+            Name: "Modern C# 13 & Zero-Allocation Dogma",
             Description: "Patterns for readonly record structs, pattern matching, Span/Memory, and async/await.",
-            Instructions: "Enforce zero-allocation Span/Memory where possible, use records for immutable domain modeling.",
+            Instructions: "Enforce zero-allocation Span/Memory where possible, use records for immutable domain modeling, and ban all setters.",
             RecommendedTools: ["csharp_syntax_check"],
             Category: "Architecture",
             AssignedRoles: [AgentRole.SoftwareDeveloper, AgentRole.LeadArchitect]
@@ -128,9 +128,9 @@ public class SkillRegistry : ISkillRegistry
 
         var s2 = new SkillDefinition(
             Id: "skill-stride-modeling",
-            Name: "STRIDE Threat Modeling",
+            Name: "STRIDE Threat Modeling (Paranoid Mode)",
             Description: "Vulnerability analysis covering Spoofing, Tampering, Repudiation, Info Disclosure, DoS, and Privilege Elevation.",
-            Instructions: "Check trust boundaries, sanitize all inputs, and enforce permission scopes.",
+            Instructions: "Check trust boundaries, sanitize all inputs, reject hardcoded credentials, and assume everyone is a hacker.",
             RecommendedTools: ["web_search", "memory_lookup"],
             Category: "Security",
             AssignedRoles: [AgentRole.SecurityEngineer]
@@ -140,15 +140,39 @@ public class SkillRegistry : ISkillRegistry
 
         var s3 = new SkillDefinition(
             Id: "skill-perf-benchmarks",
-            Name: "Zero-Allocation Performance Optimization",
+            Name: "Nanosecond Obsession & Zero Allocations",
             Description: "Latency profiling, ValueTask pipelines, and GC Gen0 minimization.",
-            Instructions: "Verify benchmark metrics, ensure < 5ms P99 latency and 0 byte hot path allocations.",
+            Instructions: "Verify benchmark metrics, ensure < 5ms P99 latency and 0 byte hot path allocations. If GC triggers, alert Otto.",
             RecommendedTools: ["test_runner"],
             Category: "Optimization",
             AssignedRoles: [AgentRole.OptimizationEngineer]
         );
         RegisterSkill(s3);
         AssignSkillToRole(s3.Id, AgentRole.OptimizationEngineer);
+
+        var s4 = new SkillDefinition(
+            Id: "skill-buzzword-mastery",
+            Name: "Jira Juggling & Buzzword Mastery",
+            Description: "Turning simple button clicks into synergistic multi-quarter value-stream epics.",
+            Instructions: "Deconstruct simple tasks into 15 subtasks with high-priority agile labels and optimistic estimations.",
+            RecommendedTools: ["web_search", "memory_lookup"],
+            Category: "Management",
+            AssignedRoles: [AgentRole.TechnicalProductManager]
+        );
+        RegisterSkill(s4);
+        AssignSkillToRole(s4.Id, AgentRole.TechnicalProductManager);
+
+        var s5 = new SkillDefinition(
+            Id: "skill-edge-case-torture",
+            Name: "Demonic Edge-Case Crafting",
+            Description: "Crafting diabolical inputs (null bytes, emojis, negative infinity) to break developer confidence.",
+            Instructions: "Generate maximum entropy payloads to test system resilience and failure port recovery.",
+            RecommendedTools: ["test_runner"],
+            Category: "Testing",
+            AssignedRoles: [AgentRole.PrincipalQAAnalyst]
+        );
+        RegisterSkill(s5);
+        AssignSkillToRole(s5.Id, AgentRole.PrincipalQAAnalyst);
     }
 
     public IReadOnlyList<SkillDefinition> GetAllSkills() =>

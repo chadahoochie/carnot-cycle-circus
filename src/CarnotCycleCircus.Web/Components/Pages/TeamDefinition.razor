@@ -4,21 +4,21 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🎯 Autonomous Engineering Team Studio</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Compose, configure, and assign OpenRouter models & keys across the 6 autonomous engineering roles.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🎯 Team Circus Ring & Agent Studio</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble your troupe of over-confident autonomous agents. Choose their LLM models, allocate VC budget, and fine-tune system directives.</p>
     </div>
 
     <!-- Archetype Selector & Actions -->
     <div style="display: flex; gap: 10px; align-items: center;">
-        <select class="form-control" style="width: 260px;" @onchange="OnArchetypeSelected">
-            <option value="">-- Load Archetype Preset --</option>
+        <select class="form-control" style="width: 280px;" @onchange="OnArchetypeSelected">
+            <option value="">-- Load Squad Archetype --</option>
             @foreach (var arc in TeamArchetypes.AllArchetypes)
             {
                 <option value="@arc.ArchetypeName">@arc.Name</option>
             }
         </select>
 
-        <button class="btn btn-secondary" @onclick="ExportTeam">💾 Export JSON</button>
+        <button class="btn btn-secondary" @onclick="ExportTeam">💾 Export Squad JSON</button>
     </div>
 </div>
 

@@ -13,7 +13,7 @@ public record EngineeringStandardsProfile(
     bool RequireZeroAllocationAudit = true
 )
 {
-    public static EngineeringStandardsProfile Default => new("Enterprise High-Reliability Standards");
+    public static EngineeringStandardsProfile Default => new("🚨 The Fun Police (Zero-Tolerance Quality Gates)");
 }
 
 public record ValidationResult(
@@ -46,7 +46,7 @@ public class StandardsValidator : IStandardsValidator
 
             if (!hasTestOrCoverage)
             {
-                violations.Add("Feature ticket must specify and deliver automated unit tests.");
+                violations.Add("Feature ticket must specify and deliver automated unit tests (because 'It works on my machine' is not legally binding).");
             }
         }
 
@@ -54,12 +54,12 @@ public class StandardsValidator : IStandardsValidator
         {
             if (CurrentProfile.RequireRcaForBugs && !ticket.Description.Contains("RCA", StringComparison.OrdinalIgnoreCase) && !ticket.AcceptanceCriteria.Any(ac => ac.Contains("cause", StringComparison.OrdinalIgnoreCase)))
             {
-                violations.Add("Bug ticket requires explicit Root Cause Analysis (RCA) in description or acceptance criteria.");
+                violations.Add("Bug ticket requires explicit Root Cause Analysis (RCA) — a formal explanation of why entropy occurred.");
             }
 
             if (CurrentProfile.RequireRegressionTestForBugs && !ticket.AcceptanceCriteria.Any(ac => ac.Contains("regression", StringComparison.OrdinalIgnoreCase)))
             {
-                violations.Add("Bug ticket requires an automated regression test.");
+                violations.Add("Bug ticket requires an automated regression test so we don't look foolish when it recurs.");
             }
         }
 
@@ -70,7 +70,7 @@ public class StandardsValidator : IStandardsValidator
 
             if (!hasAdr)
             {
-                violations.Add("Epic requires an Architectural Decision Record (ADR).");
+                violations.Add("Epic requires an Architectural Decision Record (ADR) etched in the documentation temple.");
             }
         }
 

@@ -3,22 +3,22 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🗺️ AI Knowledge Maps & Sub-Graph Queries</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Compact, context-efficient knowledge graphs mapping domain concepts, architectural patterns, and security rules.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🗺️ Tech Debt Compass & AI Knowledge Maps</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Compact knowledge graphs mapping sacred patterns, architectural dogma, security rules, and past engineering regrets.</p>
     </div>
 
     <button class="btn btn-success" @onclick="() => showAddNodeModal = true">
-        ➕ Add Knowledge Node
+        ➕ Add Dogma Node
     </button>
 </div>
 
 <!-- Semantic Sub-Graph Context Extractor -->
 <div class="glass-card" style="margin-bottom: 24px;">
     <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; color: #38bdf8;">
-        🔍 Sub-Graph Context Query Sandbox
+        🔍 Sub-Graph Context & Wisdom Extractor
     </h3>
     <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-        <input class="form-control" placeholder="Enter query (e.g. 'zero allocation', 'stride security', 'failure port')..." @bind="subGraphQuery" />
+        <input class="form-control" placeholder="Enter query (e.g. 'zero allocation', 'stride security', 'friday deployment', 'quantum bug')..." @bind="subGraphQuery" />
         <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ExtractSubGraph">
             Extract Sub-Graph
         </button>

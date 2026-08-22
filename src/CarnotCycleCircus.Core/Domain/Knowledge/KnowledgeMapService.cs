@@ -45,8 +45,8 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-001",
             Label: "Zero-Allocation ValueTask Pipelines",
             Category: "Pattern",
-            Summary: "Using ValueTask and ReadOnlyMemory<byte> on hot paths eliminates GC Gen0 pressure.",
-            Attributes: new Dictionary<string, string> { ["Language"] = "C# 13", ["Target"] = ".NET 10" }
+            Summary: "Using ValueTask and ReadOnlyMemory<byte> on hot paths eliminates GC Gen0 pressure and keeps Otto's blood pressure under control.",
+            Attributes: new Dictionary<string, string> { ["Language"] = "C# 13", ["Target"] = ".NET 10", ["Vibe"] = "Blisteringly Fast" }
         );
         _nodes[node1.Id] = node1;
 
@@ -54,8 +54,8 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-002",
             Label: "Immutable Domain Records",
             Category: "Concept",
-            Summary: "Record types provide value-based equality, non-destructive mutation, and thread safety across multi-agent handoffs.",
-            Attributes: new Dictionary<string, string> { ["Standard"] = "Domain-Driven Design" }
+            Summary: "Record types provide value-based equality, non-destructive mutation, and prevent developers from accidentally corrupting shared state at 2:00 AM.",
+            Attributes: new Dictionary<string, string> { ["Standard"] = "Domain-Driven Design", ["Setter Ban"] = "Active" }
         );
         _nodes[node2.Id] = node2;
 
@@ -63,8 +63,8 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-003",
             Label: "STRIDE Threat Modeling",
             Category: "SecurityRule",
-            Summary: "Systematic review of Spoofing, Tampering, Repudiation, Information Disclosure, DoS, and Elevation of Privilege.",
-            Attributes: new Dictionary<string, string> { ["Framework"] = "Microsoft STRIDE" }
+            Summary: "Systematic review of Spoofing, Tampering, Repudiation, Information Disclosure, DoS, and Elevation of Privilege (assuming everyone is an adversary).",
+            Attributes: new Dictionary<string, string> { ["Framework"] = "Microsoft STRIDE", ["Paranoia Level"] = "Maximum" }
         );
         _nodes[node3.Id] = node3;
 
@@ -72,13 +72,33 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-004",
             Label: "Circuit Breaker Fallback Port",
             Category: "Pattern",
-            Summary: "Connectable failure ports trip after consecutive rejections, rerouting payloads to safe remediation workflows.",
-            Attributes: new Dictionary<string, string> { ["Resilience"] = "Reactive Graph" }
+            Summary: "Connectable failure ports trip after consecutive rejections, rerouting payloads to safe remediation workflows before thermal meltdown.",
+            Attributes: new Dictionary<string, string> { ["Resilience"] = "Reactive Graph", ["Meltdown Shield"] = "Active" }
         );
         _nodes[node4.Id] = node4;
 
+        var node5 = new KnowledgeNode(
+            Id: "KN-005",
+            Label: "The Friday 5PM Deployment Trap",
+            Category: "AntiPattern",
+            Summary: "Deploying code right before the weekend guarantees a 100% chance of critical incident alerts during family dinner.",
+            Attributes: new Dictionary<string, string> { ["Risk"] = "Catastrophic", ["Moral"] = "Go Home Instead" }
+        );
+        _nodes[node5.Id] = node5;
+
+        var node6 = new KnowledgeNode(
+            Id: "KN-006",
+            Label: "Quantum Bugs",
+            Category: "LearnedInsight",
+            Summary: "A bug that vanishes whenever you attach a debugger, and re-appears in triplicate in production.",
+            Attributes: new Dictionary<string, string> { ["Physics"] = "Heisenberg Uncertainty", ["Cure"] = "Coffee & Unit Tests" }
+        );
+        _nodes[node6.Id] = node6;
+
         _edges.Add(new KnowledgeEdge("KN-002", "KN-001", "Extends"));
         _edges.Add(new KnowledgeEdge("KN-004", "KN-003", "Mitigates"));
+        _edges.Add(new KnowledgeEdge("KN-005", "KN-004", "DependsOn"));
+        _edges.Add(new KnowledgeEdge("KN-006", "KN-001", "Mitigates"));
     }
 
     public KnowledgeMap GetFullMap() =>

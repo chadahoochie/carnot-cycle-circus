@@ -4,8 +4,8 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">📏 Engineering Standards & Ticket Quality Gates</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Enforce mandatory acceptance criteria, Root Cause Analysis (RCA), and test coverage before deliverables transition to Done.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">📏 The Fun Police Quality Gates & Standards</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Enforce non-negotiable acceptance criteria, mandatory Root Cause Analysis (confessions), and zero-tolerance test coverage.</p>
     </div>
 </div>
 
@@ -15,7 +15,7 @@
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #38bdf8;">Configured Quality Gate Rules</h3>
 
         <div class="form-group">
-            <label class="form-label">Active Profile Name</label>
+            <label class="form-label">Active Enforcement Profile</label>
             <input class="form-control" value="@StandardsValidator.CurrentProfile.Name" disabled />
         </div>
 
@@ -27,34 +27,34 @@
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireUnitTestsForFeatures" @onchange="(e) => ToggleFlag(1, e)" />
-                Require automated unit tests for all Feature tickets
+                Require automated unit tests for all Features (No 'Trust me bro')
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRcaForBugs" @onchange="(e) => ToggleFlag(2, e)" />
-                Require Root Cause Analysis (RCA) on Bug tickets
+                Require Root Cause Analysis (RCA) on Bug tickets (Formal apology)
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRegressionTestForBugs" @onchange="(e) => ToggleFlag(3, e)" />
-                Require regression tests on Bug tickets
+                Require automated regression tests on Bug tickets
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireAdrForEpics" @onchange="(e) => ToggleFlag(4, e)" />
-                Require registered ADR on all Epic tickets
+                Require registered ADR on all Epic tickets (Ivory tower approval)
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireStrideSecurityReview" @onchange="(e) => ToggleFlag(5, e)" />
-                Enforce STRIDE security review for code signoff
+                Enforce paranoid STRIDE security review for code signoff
             </label>
         </div>
     </div>
 
     <!-- Live Compliance Auditor -->
     <div class="glass-card">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #10b981;">Live Ticket Compliance Audit</h3>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #10b981;">Live Ticket Interrogation & Audit</h3>
 
         <div style="display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto;">
             @foreach (var ticket in TicketStore.GetAllTickets())

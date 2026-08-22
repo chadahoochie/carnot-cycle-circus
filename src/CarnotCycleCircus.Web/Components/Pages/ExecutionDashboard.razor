@@ -6,26 +6,26 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">⚡ Real-Time Execution Dashboard</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent orchestration stream, active execution pulses, and dynamic key swapping.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">⚡ Panic & Telemetry Dashboard</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent circus stream, active execution pulses, and mid-flight OpenRouter key swapping.</p>
     </div>
 
     <!-- Live Execution Controls -->
     <div style="display: flex; gap: 8px;">
         <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@GraphExecutor.IsRunning">
-            🚀 Run Epic Workflow
+            🚀 Unleash the Circus
         </button>
         <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning">
-            ⏭️ Step Next Node
+            ⏭️ Poke Next Agent
         </button>
         <button class="btn btn-danger" @onclick="RunFailureSimulation" disabled="@GraphExecutor.IsRunning">
-            🚨 Simulate Failure Loop
+            🚨 Simulate Panic & Meltdown
         </button>
         <button class="btn btn-secondary" @onclick="Reset">
-            🔄 Reset
+            🔄 Sweep the Tent
         </button>
         <button class="btn btn-success" @onclick="ExportReport">
-            📄 Session Report
+            📄 CYA Session Report
         </button>
     </div>
 </div>
@@ -34,12 +34,12 @@
 <div class="glass-card" style="margin-bottom: 20px; padding: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; text-transform: uppercase;">
-            Live Orchestration Topology Status
+            🎪 Ringmaster Live Stage Topology
         </div>
         <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
-            <span>State:</span>
+            <span>Circus State:</span>
             <span class="badge" style="background: @(GraphExecutor.IsRunning ? "#38bdf8" : "#22c55e"); color: #000; font-weight: 700;">
-                @(GraphExecutor.IsRunning ? "RUNNING" : "READY / IDLE")
+                @(GraphExecutor.IsRunning ? "PERFORMING (CHAOS)" : "READY / IDLE")
             </span>
         </div>
     </div>

@@ -109,8 +109,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
         _eventStream.Publish(AgentMessage.Create(
             role: null,
-            senderName: "Workflow Orchestrator",
-            content: $"🚀 Starting Carnot Cycle workflow execution for Epic: '{epicTitle}' (Failure Sim: {(triggerFailureSimulation ? "Enabled" : "Disabled")})",
+            senderName: "🎪 Circus Ringmaster",
+            content: $"🎪 Ladies & Gentlemen! The Carnot Circus is officially running for Epic: '{epicTitle}'! (Panic/Failure Sim: {(triggerFailureSimulation ? "🚨 ARMED" : "😌 Disarmed")})",
             type: MessageType.Alert
         ));
 
@@ -127,7 +127,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.TechnicalProductManager,
                 senderName: AgentRole.TechnicalProductManager.ToDisplayName(),
-                content: $"🎯 TPM Decomposed Epic into {createdTickets.Count - 1} stories & subtasks with acceptance criteria.",
+                content: $"🎯 TPM Tara: Transformed our vague hopes into {createdTickets.Count - 1} heavily bureaucratic stories & subtasks with non-negotiable acceptance criteria. You're welcome!",
                 type: MessageType.Chat,
                 ticketId: epicTicket.Id
             ));
@@ -157,8 +157,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 archTicket.Id,
                 AgentRole.LeadArchitect,
                 AgentRole.SoftwareDeveloper,
-                "ADR-014 Architecture & Topology finalized.",
-                "Proceed with feature implementation",
+                "ADR-014 Architecture & Topology finalized (Contains 12 layers of immutability).",
+                "Devon: Implement feature without mutating a single byte of state.",
                 artifacts
             );
 
@@ -190,8 +190,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 devTicket.Id,
                 AgentRole.SoftwareDeveloper,
                 AgentRole.SecurityEngineer,
-                "Feature implemented with unit tests.",
-                "Perform STRIDE review and performance audit",
+                "Feature implemented with zero-allocations and caffeine-fueled unit tests.",
+                "Sari & Otto: Audit this before my coffee gets cold.",
                 devArtifacts
             );
 
@@ -224,15 +224,15 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     secTicket.Id,
                     AgentRole.SecurityEngineer,
                     AgentRole.SoftwareDeveloper,
-                    "Unsanitized input vector in service layer.",
-                    "Wrap input in ReadOnlySpan<char> and sanitize with allow-list regex."
+                    "Unsanitized input vector in service layer (Did you really trust user input?!).",
+                    "Wrap input in ReadOnlySpan<char> and sanitize with allow-list regex immediately."
                 );
 
                 if (devNode != null)
                 {
                     UpdateNodeState(devNode.Id, NodeExecutionState.Remediating, "Fixing security vulnerability...");
                     await Task.Delay(250, cancellationToken);
-                    UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Vulnerability remediated.");
+                    UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Vulnerability remediated (and ego patched).");
                 }
 
                 UpdateNodeState(secNode.Id, NodeExecutionState.Running, ticketId: secTicket.Id);
@@ -275,9 +275,23 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(qaTicket.Id);
             await _memoryConsolidation.ConsolidateTaskCompletionAsync(qaTicket, _eventStream.GetHistory(), cancellationToken);
+            UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "QA Certification 100% Passed.", qaTicket.Id);
 
-            UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "100% Quality Certification Scorecard.", qaTicket.Id);
+            _eventStream.Publish(AgentMessage.Create(
+                role: AgentRole.PrincipalQAAnalyst,
+                senderName: AgentRole.PrincipalQAAnalyst.ToDisplayName(),
+                content: "🧪 Quinn (QA): Tortured the build with 50,000 demonic edge cases and null payloads. Miraculously, everything passed! Production release certified.",
+                type: MessageType.StateChange,
+                ticketId: qaTicket.Id
+            ));
         }
+
+        _eventStream.Publish(AgentMessage.Create(
+            role: null,
+            senderName: "🎪 Circus Ringmaster",
+            content: $"🏆 Carnot Cycle Epic '{epicTitle}' fully completed with maximum thermodynamic efficiency!",
+            type: MessageType.StateChange
+        ));
 
         // Mark remaining parent stories/epics as complete
         foreach (var remaining in _ticketStore.GetAllTickets().Where(t => t.Status != TicketStatus.Done))

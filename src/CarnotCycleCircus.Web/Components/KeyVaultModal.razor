@@ -4,15 +4,15 @@
     <div class="modal-dialog" @onclick:stopPropagation="true">
         <div class="modal-header">
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 1.3rem;">🔑</span>
-                <h3 style="font-size: 1.15rem; font-weight: 700;">OpenRouter API Key Vault & Quick Swapper</h3>
+                <span style="font-size: 1.3rem;">💰</span>
+                <h3 style="font-size: 1.15rem; font-weight: 700;">OpenRouter Key Ammo Cache & VC Cash Burner</h3>
             </div>
             <button class="btn btn-secondary" @onclick="Close" style="padding: 4px 8px;">✕</button>
         </div>
 
         <div class="modal-body">
             <div style="margin-bottom: 20px;">
-                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: #38bdf8;">Stored API Keys</h4>
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: #38bdf8;">Stored API Key Ammo</h4>
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     @foreach (var key in KeyVaultService.GetAllKeys())
                     {
@@ -34,11 +34,11 @@
                                 @if (!key.IsActive)
                                 {
                                     <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => ActivateKey(key.KeyId)">
-                                        Activate
+                                        Load Key
                                     </button>
                                 }
                                 <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => TestKey(key.RawApiKey)">
-                                    Test Connection
+                                    Ping OpenRouter
                                 </button>
                                 @if (KeyVaultService.GetAllKeys().Count > 1)
                                 {

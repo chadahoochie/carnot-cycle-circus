@@ -3,16 +3,16 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🏛️ Architectural Decision Records (ADRs) & Documentation Hub</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Automated MADR/Nygard records, C4 architecture models, STRIDE threat models, and unified markdown export.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🏛️ Ivory Tower ADRs & Bureaucracy Hub</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Automated MADR/Nygard decision records, C4 system cathedrals, paranoid threat models, and CYA markdown bundles.</p>
     </div>
 
     <div style="display: flex; gap: 10px;">
         <button class="btn btn-secondary" @onclick="ExportBundle">
-            📦 Export Markdown Bundle
+            📦 Export CYA Markdown Bundle
         </button>
         <button class="btn btn-success" @onclick="() => showCreateAdrModal = true">
-            ➕ New ADR
+            ➕ Propose New ADR
         </button>
     </div>
 </div>
@@ -22,10 +22,10 @@
         🏛️ Architectural Decision Records (@AdrManager.GetAllAdrs().Count)
     </button>
     <button class="btn @(activeTab == "c4" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "c4"'>
-        📐 C4 Architecture Models
+        📐 C4 Architecture Cathedrals
     </button>
     <button class="btn @(activeTab == "stride" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "stride"'>
-        🛡️ STRIDE Threat Models
+        🛡️ Paranoid STRIDE Models
     </button>
 </div>
 

@@ -3,13 +3,13 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🎨 Connectable Workflow Canvas & Failure Ports</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Visual DAG orchestration editor with 🟢 Input, 🔵 Output, and 🔴 Failure/Reject circuit breaker ports.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🎨 Rube Goldberg Canvas & Failure Recovery Ports</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Thermodynamically reversible visual DAG editor with 🟢 Input, 🔵 Output, and 🔴 Failure/Blame circuit breaker ports.</p>
     </div>
 
     <div style="display: flex; gap: 10px;">
-        <button class="btn btn-secondary" @onclick="ResetCanvas">🔄 Reset Defaults</button>
-        <a href="dashboard" class="btn btn-primary">⚡ Go to Live Execution Dashboard</a>
+        <button class="btn btn-secondary" @onclick="ResetCanvas">🔄 Untangle Spaghetti</button>
+        <a href="dashboard" class="btn btn-primary">⚡ Go to Panic Dashboard</a>
     </div>
 </div>
 
@@ -67,13 +67,13 @@
              class="@pulseClass">
             
             <!-- Input Port (Green) -->
-            <div style="position: absolute; left: -8px; top: 38px; width: 14px; height: 14px; background: #10b981; border: 2px solid #fff; border-radius: 50%;" title="🟢 Input Port"></div>
+            <div style="position: absolute; left: -8px; top: 38px; width: 14px; height: 14px; background: #10b981; border: 2px solid #fff; border-radius: 50%;" title="🟢 Feed the Beast (Input Port)"></div>
 
             <!-- Output Port (Blue) -->
-            <div style="position: absolute; right: -8px; top: 38px; width: 14px; height: 14px; background: #38bdf8; border: 2px solid #fff; border-radius: 50%;" title="🔵 Output Port"></div>
+            <div style="position: absolute; right: -8px; top: 38px; width: 14px; height: 14px; background: #38bdf8; border: 2px solid #fff; border-radius: 50%;" title="🔵 Miraculous Delivery (Output Port)"></div>
 
             <!-- Failure Port (Red) -->
-            <div style="position: absolute; bottom: -8px; left: 68px; width: 14px; height: 14px; background: #ef4444; border: 2px solid #fff; border-radius: 50%;" title="🔴 Failure / Reject Port"></div>
+            <div style="position: absolute; bottom: -8px; left: 68px; width: 14px; height: 14px; background: #ef4444; border: 2px solid #fff; border-radius: 50%;" title="🔴 Blame Assignment Tube (Failure / Reject Port)"></div>
 
             <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
                 <span>@node.Role.ToEmoji()</span>

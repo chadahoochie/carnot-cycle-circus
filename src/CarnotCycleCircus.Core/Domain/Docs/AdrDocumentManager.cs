@@ -84,19 +84,20 @@ public class AdrDocumentManager : IAdrDocumentManager
             Id: "ADR-001",
             Title: "Adopt Immutable Record Types for Domain & Handoff Payloads",
             Status: AdrStatus.Accepted,
-            Context: "Multi-agent systems pass concurrent state between different autonomous agents. Mutable state risks race conditions and corrupted audit histories.",
-            Decision: "All domain entities, DTOs, and HandoffPacket models must be immutable C# records or readonly record structs.",
+            Context: "Multi-agent systems pass concurrent state between different autonomous agents. Mutable state risks race conditions, corrupted audit histories, and existential developer panic at 2:00 AM.",
+            Decision: "All domain entities, DTOs, and HandoffPacket models must be immutable C# records or readonly record structs. Mutating state is considered a severe character flaw.",
             AlternativesConsidered: [
-                "Mutable POCO classes with setters (rejected due to thread-safety risks)",
-                "F# immutables with C# interop (rejected to maintain single pure C# 13 codebase)"
+                "Mutable POCO classes with setters (rejected: Devon cannot be trusted with setters)",
+                "F# immutables with C# interop (rejected: team refuses to learn another syntax)",
+                "Passing raw unvalidated JSON strings (rejected: Sari threatened a hunger strike)"
             ],
             ConsequencesPositive: [
-                "Thread-safe execution across background channels",
+                "Thread-safe execution across background channels without locks",
                 "Built-in value equality and non-destructive mutation via 'with' expressions",
-                "Tamper-proof event stream audit trails"
+                "Tamper-proof event stream audit trails that make compliance auditors weep with joy"
             ],
             ConsequencesNegative: [
-                "Requires explicit state machine copying during status transitions"
+                "Requires typing 'record' instead of 'class' and coping with immutability"
             ],
             CreatedAt: DateTimeOffset.UtcNow.AddDays(-2),
             UpdatedAt: DateTimeOffset.UtcNow.AddDays(-2)
@@ -107,24 +108,47 @@ public class AdrDocumentManager : IAdrDocumentManager
             Id: "ADR-002",
             Title: "Connectable DAG Workflow Engine with Dedicated Failure Ports",
             Status: AdrStatus.Accepted,
-            Context: "Autonomous workflows frequently fail QA or Security checks. Standard linear pipelines abort completely on failure.",
-            Decision: "Implement a connectable graph topology where every node exposes 🟢 Input, 🔵 Success Output, and 🔴 Failure/Reject ports with automated remediation loopbacks.",
+            Context: "Autonomous engineering workflows frequently fail QA or Security checks. Standard linear pipelines abort completely on failure and waste everyone's morning.",
+            Decision: "Implement a connectable graph topology where every node exposes 🟢 Input, 🔵 Success Output, and 🔴 Failure/Reject ports with automated self-healing loopbacks.",
             AlternativesConsidered: [
-                "Linear waterfall execution (rejected - no automatic recovery)",
-                "Full actor mesh with arbitrary message passing (rejected - lacks deterministic observability)"
+                "Linear waterfall execution (rejected: failure is not a bug, it is our daily lifestyle)",
+                "Full actor mesh with arbitrary gossip protocol (rejected: nobody can debug it)",
+                "Praying that code works on the first try (rejected: mathematically impossible)"
             ],
             ConsequencesPositive: [
                 "Deterministic self-healing loops between QA/Security and Developer",
-                "Visual representation in Blazor Canvas",
-                "Explicit circuit breaking after retry thresholds"
+                "Visual representation in Blazor Canvas with animated pulses",
+                "Explicit circuit breaking before thermal meltdown occurs"
             ],
             ConsequencesNegative: [
-                "Graph cycle detection is required to prevent infinite ping-pong loops"
+                "Graph cycle detection is required so agents don't argue for infinity"
             ],
             CreatedAt: DateTimeOffset.UtcNow.AddDays(-1),
             UpdatedAt: DateTimeOffset.UtcNow.AddDays(-1)
         );
         _adrs[adr2.Id] = adr2;
+
+        var adr3 = new ArchitecturalDecisionRecord(
+            Id: "ADR-003",
+            Title: "Prohibition of Coffee Deprivation for Senior Developers",
+            Status: AdrStatus.Accepted,
+            Context: "Empirical studies in the circus demonstrate that Devon's syntax error rate increases exponentially with cold brew depletion.",
+            Decision: "Mandate continuous automated caffeine injection into developer context before running compilation checks.",
+            AlternativesConsidered: [
+                "Energy drinks (rejected: causes over-engineering of switch statements)",
+                "Meditation (rejected: does not resolve race conditions)"
+            ],
+            ConsequencesPositive: [
+                "Zero Gen0 allocations on hot path",
+                "Morale elevated by 42%"
+            ],
+            ConsequencesNegative: [
+                "Increased typing speed increases keyboard wear-and-tear"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr3.Id] = adr3;
 
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
@@ -154,13 +178,13 @@ public class AdrDocumentManager : IAdrDocumentManager
             Title: "System STRIDE Threat Model",
             Category: "StrideThreatModel",
             ContentMarkdown: """
-            # STRIDE Security Threat Assessment
+            # STRIDE Security Threat Assessment (Paranoid Edition)
 
-            1. **Spoofing**: Agent roles are cryptographically tagged in `HandoffPacket` objects with strict role validation.
+            1. **Spoofing**: Agent roles are cryptographically tagged in `HandoffPacket` objects with strict role validation (no rogue clowns).
             2. **Tampering**: All handoffs and ticket records are immutable C# records.
-            3. **Repudiation**: `IAgentEventStream` provides an append-only in-memory telemetry log.
+            3. **Repudiation**: `IAgentEventStream` provides an append-only in-memory telemetry log of every deed and misdeed.
             4. **Information Disclosure**: API keys are isolated in the client-side `ApiKeyVault` and masked.
-            5. **Denial of Service**: Execution engine enforces DAG depth limits and circuit breakers.
+            5. **Denial of Service**: Execution engine enforces DAG depth limits and circuit breakers before CPU catches fire.
             6. **Elevation of Privilege**: Tool sandbox permissions are strictly partitioned per role.
             """,
             UpdatedAt: DateTimeOffset.UtcNow

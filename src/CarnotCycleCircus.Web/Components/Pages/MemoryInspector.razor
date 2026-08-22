@@ -3,16 +3,16 @@
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🧠 Hierarchical Persistent Memory Layer (OpenViking-Style)</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Multi-tier memory architecture (Working, Episodic, Semantic, Procedural) with embedded vector cosine search & consolidation.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🧠 Existential Brain Scan & Persistent Memory</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Multi-tier memory architecture (Working RAM, Past Trauma Logs, Abstract Dogma, Muscle Memory) with cosine similarity retrieval.</p>
     </div>
 
     <div style="display: flex; gap: 10px;">
         <button class="btn btn-danger" @onclick="PruneMemories">
-            🧹 Prune Decayed Memories
+            🧹 Selective Amnesia (Prune Decayed Braincells)
         </button>
         <button class="btn btn-success" @onclick="() => showAddModal = true">
-            ➕ Add Memory Entry
+            ➕ Inject Memory
         </button>
     </div>
 </div>
@@ -21,8 +21,8 @@
 <div class="glass-card" style="margin-bottom: 20px;">
     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
         <div>
-            <label class="form-label">Semantic Cosine Search Query</label>
-            <input class="form-control" placeholder="Search patterns, ADR decisions, or lessons learned..." @bind="searchQuery" @bind:event="oninput" @bind:after="PerformSearch" />
+            <label class="form-label">Semantic Cosine Vibe Check</label>
+            <input class="form-control" placeholder="Search patterns, past regrets, or lessons learned..." @bind="searchQuery" @bind:event="oninput" @bind:after="PerformSearch" />
         </div>
         <div>
             <label class="form-label">Filter by Memory Type</label>
