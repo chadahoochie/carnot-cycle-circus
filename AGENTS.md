@@ -1,6 +1,6 @@
 # Carnot Cycle Circus - Autonomous Agent & Assistant Guide 🎪🤖
 
-> Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with interactive **Blazor** UI.
+> Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** — operating at theoretical maximum Carnot efficiency to tame the 6-ring circus of autonomous AI engineering roles.
 
 ## 🗺️ Documentation Portal & LLM System Specification
 - 📖 **Documentation Portal**: [`docs/README.md`](docs/README.md)

@@ -1,6 +1,6 @@
 # Carnot Cycle Circus Documentation Portal 🎪⚡
 
-Welcome to the comprehensive documentation suite for **Carnot Cycle Circus**, an Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend.
+Welcome to the comprehensive documentation suite for **Carnot Cycle Circus**, an Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend — operating at theoretical maximum Carnot thermodynamic efficiency to tame the chaotic 6-ring circus of autonomous engineering agents.
 
 This documentation is designed to enable both **human engineers** (rapid onboarding, architectural comprehension, extension recipes) and **Large Language Models / Autonomous Agents** (deterministic context retrieval, explicit coding contracts, machine-readable schemas).
 
