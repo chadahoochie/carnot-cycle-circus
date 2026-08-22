@@ -12,12 +12,12 @@ Each agent role represents a specialized engineering discipline with distinct pe
 
 ```mermaid
 graph TD
-    TPM["🎯 Technical Product Manager<br/>(Tara)"]
-    Arch["🏛️ Lead Architect<br/>(Archibald)"]
-    Dev["💻 Software Developer<br/>(Devon)"]
-    Sec["🛡️ Security Engineer<br/>(Sari)"]
-    Opt["⚡ Optimization Engineer<br/>(Otto)"]
-    QA["🧪 Principal QA Analyst<br/>(Quinn)"]
+    TPM["🎯 Technical Product Manager<br/>(Barnum B. Buzzword)"]
+    Arch["🏛️ Lead Architect<br/>(Archduke Archibald Abstraction-o)"]
+    Dev["💻 Software Developer<br/>(Devon Crashdump)"]
+    Sec["🛡️ Security Engineer<br/>(Sari Sandbox)"]
+    Opt["⚡ Optimization Engineer<br/>(Otto-Cycle Overclock)"]
+    QA["🧪 Principal QA Analyst<br/>(Quinn the Build-Executioner)"]
 
     TPM -->|Deconstructed Stories & AC| Arch
     Arch -->|ADR, API Specs, & DAG Subtasks| Dev
@@ -33,12 +33,12 @@ graph TD
 
 | Role (`AgentRole`) | Persona Name | Default OpenRouter Model | Temp | Allowed Tools | Primary Technical Output |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Technical Product Manager** | **Tara** | `openai/gpt-4o` | `0.2` | `web_search`, `memory_lookup` | Product Requirements Documents (PRDs), Epics, User Stories, Acceptance Criteria |
-| **Lead Architect** | **Archibald** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs), C4 Diagrams, Domain Boundaries, Technical Subtask Breakdown |
-| **Software Developer** | **Devon** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Production C# 13 Source Code, Zero-Allocation Services, xUnit Test Suites |
-| **Security Engineer** | **Sari** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models, Vulnerability Assessments, Permission Scopes, Secret Audits |
-| **Optimization Engineer** | **Otto** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
-| **Principal QA Analyst** | **Quinn** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Edge-Case Verification Matrices, Acceptance Criteria Scorecards, Certification |
+| **Technical Product Manager** | **Barnum B. Buzzword** | `openai/gpt-4o` | `0.2` | `web_search`, `memory_lookup` | Product Requirements Documents (PRDs), Epics, User Stories, Acceptance Criteria |
+| **Lead Architect** | **Archduke Archibald Abstraction-o** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs), C4 Diagrams, Domain Boundaries, Technical Subtask Breakdown |
+| **Software Developer** | **Devon "Coldbrew" Crashdump** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Production C# 13 Source Code, Zero-Allocation Services, xUnit Test Suites |
+| **Security Engineer** | **Sari "Tinfoil" Sandbox** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models, Vulnerability Assessments, Permission Scopes, Secret Audits |
+| **Optimization Engineer** | **Otto-Cycle Overclock** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
+| **Principal QA Analyst** | **Quinn the Build-Executioner** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Edge-Case Verification Matrices, Acceptance Criteria Scorecards, Certification |
 
 ---
 
@@ -54,7 +54,7 @@ A defining architectural feature of Carnot Cycle Circus is the **Deliverable Iso
 #### Conversational Log (Allowed Banter)
 ```json
 {
-  "sender": "Tara (TPM)",
+  "sender": "Barnum B. Buzzword (TPM)",
   "content": "🎯 Transformed our vague management hopes into 5 heavily bureaucratic stories with non-negotiable acceptance criteria. You're welcome!"
 }
 ```

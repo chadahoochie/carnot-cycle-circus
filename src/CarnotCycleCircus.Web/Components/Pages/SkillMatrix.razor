@@ -40,7 +40,7 @@
                     {
                         var isAssigned = SkillRegistry.GetSkillsForRole(role).Any(s => s.Id == skill.Id);
                         <td style="padding: 12px; text-align: center;">
-                            <input type="checkbox" checked="@isAssigned" @onchange="(e) => ToggleSkill(skill.Id, role, e)" style="cursor: pointer; transform: scale(1.2);" />
+                            <input @key="@($"{skill.Id}-{role}")" type="checkbox" checked="@isAssigned" @onchange="(e) => ToggleSkill(skill.Id, role, e)" style="cursor: pointer; transform: scale(1.2);" />
                         </td>
                     }
                 </tr>

@@ -34,12 +34,12 @@
 
 | Role (`AgentRole` enum) | Persona Name | Default Model | Allowed Tools | Primary Deliverables |
 | :--- | :--- | :--- | :--- | :--- |
-| `TechnicalProductManager` | Tara (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown, Epics, User Stories, Acceptance Criteria |
-| `LeadArchitect` | Archibald (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Technical Subtasks |
-| `SoftwareDeveloper` | Devon (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
-| `SecurityEngineer` | Sari (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
-| `OptimizationEngineer` | Otto (Optimization Eng) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet reports, latency audits, allocation profiles |
-| `PrincipalQAAnalyst` | Quinn (Principal QA) | `deepseek/deepseek-r1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | Test strategies, boundary matrices, quality scorecards, certification |
+| `TechnicalProductManager` | Barnum B. Buzzword (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown, Epics, User Stories, Acceptance Criteria |
+| `LeadArchitect` | Archduke Archibald Abstraction-o (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Technical Subtasks |
+| `SoftwareDeveloper` | Devon "Coldbrew" Crashdump (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
+| `SecurityEngineer` | Sari "Tinfoil" Sandbox (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
+| `OptimizationEngineer` | Otto-Cycle Overclock (Optimization Eng) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet reports, latency audits, allocation profiles |
+| `PrincipalQAAnalyst` | Quinn the Build-Executioner (Principal QA) | `deepseek/deepseek-r1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | Test strategies, boundary matrices, quality scorecards, certification |
 
 ---
 

@@ -1,4 +1,5 @@
 @page "/dashboard"
+@implements IDisposable
 @inject IGraphWorkflowExecutor GraphExecutor
 @inject IAgentEventStream EventStream
 @inject IApiKeyVaultService KeyVaultService
@@ -195,8 +196,17 @@
 
     protected override void OnInitialized()
     {
-        EventStream.OnMessagePublished += _ => InvokeAsync(StateHasChanged);
-        GraphExecutor.OnGraphUpdated += _ => InvokeAsync(StateHasChanged);
+        EventStream.OnMessagePublished += HandleMessagePublished;
+        GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
+    }
+
+    private void HandleMessagePublished(AgentMessage _) => InvokeAsync(StateHasChanged);
+    private void HandleGraphUpdated(WorkflowGraph _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        EventStream.OnMessagePublished -= HandleMessagePublished;
+        GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
     }
 
     private async Task RunFullWorkflow()

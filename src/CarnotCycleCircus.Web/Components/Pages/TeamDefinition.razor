@@ -1,4 +1,5 @@
 @page "/"
+@implements IDisposable
 @inject ITeamDefinitionManager TeamManager
 @inject IApiKeyVaultService KeyVaultService
 
@@ -10,7 +11,7 @@
 
     <!-- Archetype Selector & Actions -->
     <div style="display: flex; gap: 10px; align-items: center;">
-        <select class="form-control" style="width: 280px;" @onchange="OnArchetypeSelected">
+        <select class="form-control" style="width: 280px;" value="@selectedArchetype" @onchange="OnArchetypeSelected">
             <option value="">-- Load Squad Archetype --</option>
             @foreach (var arc in TeamArchetypes.AllArchetypes)
             {
@@ -32,7 +33,7 @@
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px;">
     @foreach (var member in currentTeam.Members)
     {
-        <div class="glass-card" style="border-top: 4px solid @member.Persona.Role.ToColorHex(); display: flex; flex-direction: column; justify-content: space-between;">
+        <div @key="@($"{currentTeam.Id}-{member.Persona.Role}")" class="glass-card" style="border-top: 4px solid @member.Persona.Role.ToColorHex(); display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
@@ -113,17 +114,20 @@
 @code {
     private EngineeringTeam currentTeam = default!;
     private string? statusMessage;
+    private string selectedArchetype = "";
     private bool showExportModal;
     private string exportedJson = "";
 
     protected override void OnInitialized()
     {
         currentTeam = TeamManager.GetCurrentTeam();
-        TeamManager.OnCurrentTeamChanged += team =>
-        {
-            currentTeam = team;
-            InvokeAsync(StateHasChanged);
-        };
+        TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
+    }
+
+    private void HandleTeamChanged(EngineeringTeam team)
+    {
+        currentTeam = team;
+        InvokeAsync(StateHasChanged);
     }
 
     private void OnArchetypeSelected(ChangeEventArgs e)
@@ -131,6 +135,7 @@
         var archetype = e.Value?.ToString();
         if (!string.IsNullOrEmpty(archetype))
         {
+            selectedArchetype = archetype;
             TeamManager.LoadArchetype(archetype);
             statusMessage = $"Loaded preset archetype '{archetype}' successfully.";
         }
@@ -180,5 +185,10 @@
     {
         exportedJson = TeamManager.ExportToJson(currentTeam.Id);
         showExportModal = true;
+    }
+
+    public void Dispose()
+    {
+        TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
     }
 }

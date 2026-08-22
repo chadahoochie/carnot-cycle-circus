@@ -113,7 +113,7 @@
     private TicketStatus selectedStatus;
     private AgentRole selectedAssignee;
 
-    protected override void OnInitialized()
+    protected override void OnParametersSet()
     {
         selectedStatus = Ticket.Status;
         selectedAssignee = Ticket.AssigneeRole;

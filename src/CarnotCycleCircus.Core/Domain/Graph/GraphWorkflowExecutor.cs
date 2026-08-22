@@ -126,8 +126,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.TechnicalProductManager,
-                senderName: AgentRole.TechnicalProductManager.ToDisplayName(),
-                content: $"🎯 TPM Tara: Transformed our vague hopes into {createdTickets.Count - 1} heavily bureaucratic stories & subtasks with non-negotiable acceptance criteria. You're welcome!",
+                senderName: "Barnum B. Buzzword (TPM)",
+                content: $"🎯 TPM Barnum B. Buzzword: Transformed our vague hopes into {createdTickets.Count - 1} heavily bureaucratic stories & subtasks with non-negotiable acceptance criteria. You're welcome!",
                 type: MessageType.Chat,
                 ticketId: epicTicket.Id
             ));
@@ -157,7 +157,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 archTicket.Id,
                 AgentRole.LeadArchitect,
                 AgentRole.SoftwareDeveloper,
-                "ADR-014 Architecture & Topology finalized (Contains 12 layers of immutability).",
+                "ADR-014 Architecture & Topology finalized (Contains 18 layers of pure abstraction).",
                 "Devon: Implement feature without mutating a single byte of state.",
                 artifacts
             );
@@ -190,8 +190,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 devTicket.Id,
                 AgentRole.SoftwareDeveloper,
                 AgentRole.SecurityEngineer,
-                "Feature implemented with zero-allocations and caffeine-fueled unit tests.",
-                "Sari & Otto: Audit this before my coffee gets cold.",
+                "Feature implemented with zero-allocations and coldbrew-fueled unit tests.",
+                "Sari & Otto: Audit this before my cold brew gets warm.",
                 devArtifacts
             );
 
@@ -279,8 +279,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.PrincipalQAAnalyst,
-                senderName: AgentRole.PrincipalQAAnalyst.ToDisplayName(),
-                content: "🧪 Quinn (QA): Tortured the build with 50,000 demonic edge cases and null payloads. Miraculously, everything passed! Production release certified.",
+                senderName: "Quinn the Build-Executioner (Principal QA)",
+                content: "🧪 Quinn the Build-Executioner (QA): Tortured the build with 50,000 demonic edge cases and null payloads. Miraculously, everything passed! Production release certified.",
                 type: MessageType.StateChange,
                 ticketId: qaTicket.Id
             ));

@@ -124,14 +124,14 @@ sequenceDiagram
     autonumber
     actor User as User / Operator
     participant Executor as GraphWorkflowExecutor
-    participant TPM as TPM (Tara)
+    participant TPM as TPM (Barnum B. Buzzword)
     participant Decomp as WorkDecompositionEngine
     participant Store as TicketStore
-    participant Arch as Architect (Archibald)
-    participant Dev as Developer (Devon)
-    participant Sec as Security (Sari)
-    participant Opt as Optimizer (Otto)
-    participant QA as QA Analyst (Quinn)
+    participant Arch as Architect (Archduke Archibald)
+    participant Dev as Developer (Devon Crashdump)
+    participant Sec as Security (Sari Sandbox)
+    participant Opt as Optimizer (Otto-Cycle Overclock)
+    participant QA as QA Analyst (Quinn Build-Executioner)
     participant Handoff as HandoffRouter
     participant Mem as MemorySystem
     participant Bus as AgentEventStream

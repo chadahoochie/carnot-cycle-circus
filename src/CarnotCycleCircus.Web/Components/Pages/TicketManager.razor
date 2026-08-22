@@ -1,4 +1,5 @@
 @page "/tickets"
+@implements IDisposable
 @inject ITicketStore TicketStore
 @inject IWorkDecompositionEngine DecompositionEngine
 @inject IHandoffRouter HandoffRouter
@@ -236,14 +237,23 @@ else if (activeTab == "handoffs")
 
     protected override void OnInitialized()
     {
-        TicketStore.OnTicketChanged += _ => InvokeAsync(StateHasChanged);
-        TicketStore.OnHandoffRecorded += _ => InvokeAsync(StateHasChanged);
+        TicketStore.OnTicketChanged += HandleTicketChanged;
+        TicketStore.OnHandoffRecorded += HandleHandoffRecorded;
 
         // Seed initial tickets if empty
         if (TicketStore.GetAllTickets().Count == 0)
         {
             DecompositionEngine.DeconstructEpic(quickEpicTitle, quickEpicDesc);
         }
+    }
+
+    private void HandleTicketChanged(TicketItem _) => InvokeAsync(StateHasChanged);
+    private void HandleHandoffRecorded(HandoffPacket _) => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        TicketStore.OnTicketChanged -= HandleTicketChanged;
+        TicketStore.OnHandoffRecorded -= HandleHandoffRecorded;
     }
 
     private void SelectTicket(TicketItem ticket)
