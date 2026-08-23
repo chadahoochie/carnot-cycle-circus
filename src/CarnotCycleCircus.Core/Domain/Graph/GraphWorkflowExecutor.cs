@@ -38,6 +38,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     private readonly ISimulatedScenarioEngine _scenarioEngine;
     private readonly IAgentEventStream _eventStream;
     private readonly IMemoryConsolidationEngine _memoryConsolidation;
+    private readonly Learning.ISelfImprovementEngine? _selfImprovement;
     private bool _isRunning;
 
     public WorkflowGraph CurrentGraph => _graph;
@@ -52,7 +53,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         IHandoffRouter handoffRouter,
         ISimulatedScenarioEngine scenarioEngine,
         IAgentEventStream eventStream,
-        IMemoryConsolidationEngine memoryConsolidation)
+        IMemoryConsolidationEngine memoryConsolidation,
+        Learning.ISelfImprovementEngine? selfImprovement = null)
     {
         _graph = WorkflowGraph.CreateDefaultEngineeringCircus();
         _ticketStore = ticketStore;
@@ -61,6 +63,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _scenarioEngine = scenarioEngine;
         _eventStream = eventStream;
         _memoryConsolidation = memoryConsolidation;
+        _selfImprovement = selfImprovement;
     }
 
     public void SetGraph(WorkflowGraph graph)
@@ -305,6 +308,19 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             content: $"🏆 Workflow Completed Successfully! All 6 engineering phases passed.",
             type: MessageType.Alert
         ));
+
+        // Trigger autonomous post-workflow self-improvement cycle
+        if (_selfImprovement != null)
+        {
+            try
+            {
+                await _selfImprovement.RunSelfImprovementCycleAsync(cancellationToken);
+            }
+            catch
+            {
+                // Non-fatal learning cycle error
+            }
+        }
 
         _isRunning = false;
         return true;

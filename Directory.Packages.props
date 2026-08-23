@@ -9,6 +9,7 @@
 
   <ItemGroup Label="App Dependencies">
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
   </ItemGroup>
 
   <ItemGroup Label="Test Dependencies">

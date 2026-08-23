@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Knowledge;
 
@@ -37,8 +38,59 @@ public class KnowledgeMapService : IKnowledgeMapService
 {
     private readonly ConcurrentDictionary<string, KnowledgeNode> _nodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentBag<KnowledgeEdge> _edges = new();
+    private readonly IPersistentStorageService? _storageService;
+    private const string StorageFileName = "knowledgemap.json";
 
-    public KnowledgeMapService()
+    public KnowledgeMapService(IPersistentStorageService? storageService = null)
+    {
+        _storageService = storageService;
+
+        var loaded = LoadFromStorage();
+        if (!loaded)
+        {
+            SeedDefaults();
+            SaveToStorage();
+        }
+    }
+
+    private bool LoadFromStorage()
+    {
+        if (_storageService == null) return false;
+        try
+        {
+            var saved = _storageService.LoadJsonAsync<KnowledgeMap>(StorageFileName).GetAwaiter().GetResult();
+            if (saved != null && saved.Nodes.Count > 0)
+            {
+                foreach (var n in saved.Nodes) _nodes[n.Id] = n;
+                foreach (var e in saved.Edges) _edges.Add(e);
+                return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var map = new KnowledgeMap(_nodes.Values.OrderBy(n => n.Label).ToList(), _edges.ToList());
+                await _storageService.SaveJsonAsync(StorageFileName, map);
+            }
+            catch
+            {
+                // Ignore transient write error
+            }
+        });
+    }
+
+    private void SeedDefaults()
     {
         // Seed default domain knowledge nodes
         var node1 = new KnowledgeNode(
@@ -110,14 +162,21 @@ public class KnowledgeMapService : IKnowledgeMapService
     public KnowledgeNode AddOrUpdateNode(KnowledgeNode node)
     {
         _nodes[node.Id] = node;
+        SaveToStorage();
         return node;
     }
 
-    public bool DeleteNode(string id) => _nodes.TryRemove(id, out _);
+    public bool DeleteNode(string id)
+    {
+        var removed = _nodes.TryRemove(id, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public void AddEdge(string sourceId, string targetId, string relationship)
     {
         _edges.Add(new KnowledgeEdge(sourceId, targetId, relationship));
+        SaveToStorage();
     }
 
     public bool RemoveEdge(string sourceId, string targetId, string relationship)

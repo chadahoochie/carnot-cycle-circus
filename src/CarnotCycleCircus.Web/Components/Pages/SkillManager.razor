@@ -2,50 +2,111 @@
 @inject ISkillRegistry SkillRegistry
 @inject ISkillImporter SkillImporter
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">🧩 Dynamic Skill Importer (Downloading Overconfidence)</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Import and register engineering capabilities from Web URLs, raw SKILL.md documents, or JSON manifests into agent brains.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🧩 Dynamic Skill Importer & Capability Studio</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Import, author, and fine-tune engineering capabilities injected into agent cognitive contexts.</p>
     </div>
 
-    <div style="display: flex; gap: 10px;">
+    <div style="display: flex; gap: 10px; align-items: center;">
         <a href="skills/matrix" class="btn btn-secondary">📊 Dunning-Kruger Matrix</a>
-        <button class="btn btn-success" @onclick="() => showImportModal = true">
-            ➕ Download New Skill
+        <button class="btn btn-success" @onclick="OpenAddModal">
+            ➕ Download / Add Skill
         </button>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(statusMessage))
 {
-    <div style="padding: 10px; border-radius: 8px; margin-bottom: 16px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.85rem;">
-        @statusMessage
+    <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>@statusMessage</span>
+        <button style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-weight: bold;" @onclick="() => statusMessage = null">✕</button>
     </div>
 }
 
+<!-- Search & Category Filter Bar -->
+<div class="glass-card" style="margin-bottom: 20px; padding: 14px 18px;">
+    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <div style="flex-grow: 1; min-width: 240px;">
+            <input class="form-control" placeholder="Search skills by name, description, or instructions..." @bind="searchQuery" @bind:event="oninput" />
+        </div>
+        <div style="min-width: 180px;">
+            <select class="form-control" @bind="selectedCategory">
+                <option value="">All Categories (@SkillRegistry.GetAllSkills().Count)</option>
+                @foreach (var cat in GetDistinctCategories())
+                {
+                    <option value="@cat">@cat</option>
+                }
+            </select>
+        </div>
+        <div style="min-width: 180px;">
+            <select class="form-control" @bind="selectedRoleFilter">
+                <option value="">All Assigned Roles</option>
+                @foreach (var role in Enum.GetValues<AgentRole>())
+                {
+                    <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Skill Cards Grid -->
 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px;">
-    @foreach (var skill in SkillRegistry.GetAllSkills())
+    @foreach (var skill in GetFilteredSkills())
     {
-        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        var roles = skill.AssignedRoles ?? SkillRegistry.GetRolesForSkill(skill.Id);
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
             <div>
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                <!-- Top Row: Badge, ID, Actions -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
                     <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8;">@skill.Category</span>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@skill.Id</span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@skill.Id</span>
+                        <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" title="Edit Skill" @onclick="() => StartEditSkill(skill)">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;" title="Delete Skill" @onclick="() => DeleteSkill(skill.Id, skill.Name)">
+                            🗑️
+                        </button>
+                    </div>
                 </div>
 
                 <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-bottom: 6px;">@skill.Name</h3>
                 <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;">@skill.Description</p>
 
-                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; font-size: 0.8rem; font-family: monospace; color: #94a3b8; max-height: 100px; overflow-y: auto; margin-bottom: 12px;">
+                <!-- Instructions Preview -->
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; font-size: 0.8rem; font-family: monospace; color: #94a3b8; max-height: 110px; overflow-y: auto; margin-bottom: 12px; border: 1px solid var(--border-color); white-space: pre-wrap;">
                     @skill.Instructions
                 </div>
 
-                <div>
+                <!-- Recommended Tools -->
+                <div style="margin-bottom: 10px;">
                     <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Recommended Tools:</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 4px;">
                         @foreach (var t in skill.RecommendedTools)
                         {
-                            <span style="font-size: 0.7rem; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; color: #38bdf8;">⚙️ @t</span>
+                            <span style="font-size: 0.7rem; background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.2);">⚙️ @t</span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Assigned Roles -->
+                <div>
+                    <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Assigned Squad Roles:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                        @if (roles.Count > 0)
+                        {
+                            @foreach (var r in roles)
+                            {
+                                <span class="badge" style="background: @r.ToColorHex(); color: #000; font-size: 0.68rem; font-weight: 700;">
+                                    @r.ToEmoji() @r.ToDisplayName().Split(' ')[0]
+                                </span>
+                            }
+                        }
+                        else
+                        {
+                            <span style="font-size: 0.72rem; color: var(--text-muted); font-style: italic;">No roles assigned (Unassigned)</span>
                         }
                     </div>
                 </div>
@@ -54,33 +115,184 @@
     }
 </div>
 
-@if (showImportModal)
+@if (GetFilteredSkills().Count == 0)
 {
-    <div class="modal-backdrop" @onclick="() => showImportModal = false">
-        <div class="modal-dialog" @onclick:stopPropagation="true">
+    <div class="glass-card" style="text-align: center; color: var(--text-muted); padding: 40px; margin-top: 20px;">
+        No skills found matching your filters.
+    </div>
+}
+
+<!-- Edit Skill Modal -->
+@if (showEditModal && editingSkill != null)
+{
+    <div class="modal-backdrop" @onclick="() => showEditModal = false">
+        <div class="modal-dialog" style="max-width: 650px;" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700;">Import Dynamic Skill</h3>
-                <button class="btn btn-secondary" @onclick="() => showImportModal = false" style="padding: 4px 8px;">✕</button>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">✏️</span>
+                    <h3 style="font-size: 1.1rem; font-weight: 700;">Edit Skill: @editName</h3>
+                </div>
+                <button class="btn btn-secondary" @onclick="() => showEditModal = false" style="padding: 4px 8px;">✕</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">Import from Web URL (Raw SKILL.md)</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input class="form-control" placeholder="https://raw.githubusercontent.com/.../SKILL.md" @bind="importUrl" />
-                        <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ImportFromUrl">Fetch</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label">Skill ID (Immutable Identifier)</label>
+                        <input class="form-control" value="@editId" disabled />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <input class="form-control" @bind="editCategory" placeholder="e.g. Architecture, Security, Testing..." />
                     </div>
                 </div>
 
-                <div style="text-align: center; margin: 12px 0; color: var(--text-muted); font-size: 0.8rem;">— OR PASTE RAW SKILL.MD CONTENT —</div>
+                <div class="form-group">
+                    <label class="form-label">Skill Name</label>
+                    <input class="form-control" @bind="editName" placeholder="e.g. Modern C# 13 & Zero-Allocation Dogma" />
+                </div>
 
                 <div class="form-group">
-                    <label class="form-label">Raw Markdown / YAML Frontmatter</label>
-                    <textarea class="form-control" rows="8" @bind="rawMarkdown" placeholder="---&#10;name: My Custom Skill&#10;description: Skill description&#10;---&#10;# Instructions..."></textarea>
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" rows="2" @bind="editDescription" placeholder="Summary of capability..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Instructions / Cognitive Directives</label>
+                    <textarea class="form-control" rows="6" style="font-family: monospace; font-size: 0.82rem;" @bind="editInstructions" placeholder="Detailed instructions injected into agent prompts..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Recommended Tools (Comma-separated)</label>
+                    <input class="form-control" @bind="editTools" placeholder="csharp_syntax_check, web_search, test_runner..." />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Assigned Squad Roles</label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; background: var(--bg-primary); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        @foreach (var role in Enum.GetValues<AgentRole>())
+                        {
+                            var isAssigned = editAssignedRoles.Contains(role);
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: #f8fafc;">
+                                <input type="checkbox" checked="@isAssigned" @onchange="(e) => ToggleEditRole(role, e)" />
+                                <span>@role.ToEmoji() @role.ToDisplayName()</span>
+                            </label>
+                        }
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showEditModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="SaveSkillEdits">💾 Save Changes</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Download / Add Skill Modal -->
+@if (showImportModal)
+{
+    <div class="modal-backdrop" @onclick="() => showImportModal = false">
+        <div class="modal-dialog" style="max-width: 680px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Download / Add Engineering Skill</h3>
+                <button class="btn btn-secondary" @onclick="() => showImportModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+
+            <!-- Modal Sub-Tabs -->
+            <div style="display: flex; border-bottom: 1px solid var(--border-color); padding: 0 20px; background: var(--bg-primary);">
+                <button class="btn @(importTab == "url" ? "btn-primary" : "btn-secondary")" style="border-radius: 0; border: none; background: @(importTab == "url" ? "var(--bg-secondary)" : "transparent");" @onclick='() => importTab = "url"'>
+                    🌐 Web URL Fetch
+                </button>
+                <button class="btn @(importTab == "raw" ? "btn-primary" : "btn-secondary")" style="border-radius: 0; border: none; background: @(importTab == "raw" ? "var(--bg-secondary)" : "transparent");" @onclick='() => importTab = "raw"'>
+                    📝 Paste SKILL.md
+                </button>
+                <button class="btn @(importTab == "manual" ? "btn-primary" : "btn-secondary")" style="border-radius: 0; border: none; background: @(importTab == "manual" ? "var(--bg-secondary)" : "transparent");" @onclick='() => importTab = "manual"'>
+                    ✨ Author Custom
+                </button>
+            </div>
+
+            <div class="modal-body">
+                @if (importTab == "url")
+                {
+                    <div class="form-group">
+                        <label class="form-label">Import from Web URL (Raw SKILL.md / GitHub Raw URL)</label>
+                        <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+                            Fetches the markdown document, parses YAML frontmatter, detects unique capability slugs without collisions, and registers the skill.
+                        </p>
+                        <div style="display: flex; gap: 8px;">
+                            <input class="form-control" placeholder="https://raw.githubusercontent.com/.../testing-evidence-collector/SKILL.md" @bind="importUrl" />
+                            <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ImportFromUrl" disabled="@isFetching">
+                                @(isFetching ? "Fetching..." : "Fetch & Register")
+                            </button>
+                        </div>
+                    </div>
+                }
+                else if (importTab == "raw")
+                {
+                    <div class="form-group">
+                        <label class="form-label">Raw Markdown with Optional YAML Frontmatter</label>
+                        <textarea class="form-control" rows="10" style="font-family: monospace; font-size: 0.82rem;" @bind="rawMarkdown" placeholder="---&#10;name: Evidence Collector&#10;description: Screenshot-obsessed QA specialist&#10;category: Testing&#10;---&#10;# Instructions&#10;Always verify visual proof with automated captures..."></textarea>
+                    </div>
+                }
+                else if (importTab == "manual")
+                {
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Skill ID / Slug (Optional)</label>
+                            <input class="form-control" @bind="manualId" placeholder="e.g. skill-api-contract-tester" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Category</label>
+                            <input class="form-control" @bind="manualCategory" placeholder="e.g. Testing, Security..." />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Skill Name</label>
+                        <input class="form-control" @bind="manualName" placeholder="e.g. API Contract & Wire Protocol Validator" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" rows="2" @bind="manualDescription" placeholder="High-level description of this capability..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Instructions / System Directives</label>
+                        <textarea class="form-control" rows="4" style="font-family: monospace; font-size: 0.82rem;" @bind="manualInstructions" placeholder="Instructions injected into agent system prompt..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Recommended Tools (Comma-separated)</label>
+                        <input class="form-control" @bind="manualTools" placeholder="csharp_syntax_check, web_search, test_runner" />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Assign to Squad Roles</label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; background: var(--bg-primary); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            @foreach (var role in Enum.GetValues<AgentRole>())
+                            {
+                                var isAssigned = manualAssignedRoles.Contains(role);
+                                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: #f8fafc;">
+                                    <input type="checkbox" checked="@isAssigned" @onchange="(e) => ToggleManualRole(role, e)" />
+                                    <span>@role.ToEmoji() @role.ToDisplayName()</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer">
                 <button class="btn btn-secondary" @onclick="() => showImportModal = false">Cancel</button>
-                <button class="btn btn-success" @onclick="ImportFromRaw">Register Skill</button>
+                @if (importTab == "raw")
+                {
+                    <button class="btn btn-success" @onclick="ImportFromRaw">Register Markdown Skill</button>
+                }
+                else if (importTab == "manual")
+                {
+                    <button class="btn btn-success" @onclick="CreateManualSkill">Create & Register Skill</button>
+                }
             </div>
         </div>
     </div>
@@ -88,33 +300,228 @@
 
 @code {
     private bool showImportModal;
+    private bool showEditModal;
+    private string importTab = "url";
     private string importUrl = "";
     private string rawMarkdown = "";
+    private bool isFetching = false;
     private string? statusMessage;
+
+    // Filters
+    private string searchQuery = "";
+    private string selectedCategory = "";
+    private string selectedRoleFilter = "";
+
+    // Edit Modal State
+    private SkillDefinition? editingSkill;
+    private string editId = "";
+    private string editName = "";
+    private string editCategory = "General";
+    private string editDescription = "";
+    private string editInstructions = "";
+    private string editTools = "";
+    private HashSet<AgentRole> editAssignedRoles = new();
+
+    // Manual Creation State
+    private string manualId = "";
+    private string manualName = "";
+    private string manualCategory = "Engineering";
+    private string manualDescription = "";
+    private string manualInstructions = "";
+    private string manualTools = "csharp_syntax_check, web_search, test_runner";
+    private HashSet<AgentRole> manualAssignedRoles = new();
+
+    private IEnumerable<string> GetDistinctCategories() =>
+        SkillRegistry.GetAllSkills().Select(s => s.Category).Where(c => !string.IsNullOrEmpty(c)).Distinct().OrderBy(c => c);
+
+    private IReadOnlyList<SkillDefinition> GetFilteredSkills()
+    {
+        var all = SkillRegistry.GetAllSkills();
+        var query = all.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            query = query.Where(s =>
+                s.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Description.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Instructions.Contains(searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                s.Id.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedCategory))
+        {
+            query = query.Where(s => string.Equals(s.Category, selectedCategory, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selectedRoleFilter) && Enum.TryParse<AgentRole>(selectedRoleFilter, true, out var role))
+        {
+            query = query.Where(s =>
+            {
+                var roles = s.AssignedRoles ?? SkillRegistry.GetRolesForSkill(s.Id);
+                return roles.Contains(role);
+            });
+        }
+
+        return query.ToList();
+    }
+
+    private void OpenAddModal()
+    {
+        importTab = "url";
+        importUrl = "";
+        rawMarkdown = "";
+        manualId = "";
+        manualName = "";
+        manualCategory = "Engineering";
+        manualDescription = "";
+        manualInstructions = "";
+        manualTools = "csharp_syntax_check, web_search, test_runner";
+        manualAssignedRoles.Clear();
+        showImportModal = true;
+    }
+
+    private void StartEditSkill(SkillDefinition skill)
+    {
+        editingSkill = skill;
+        editId = skill.Id;
+        editName = skill.Name;
+        editCategory = skill.Category;
+        editDescription = skill.Description;
+        editInstructions = skill.Instructions;
+        editTools = string.Join(", ", skill.RecommendedTools);
+        
+        var roles = skill.AssignedRoles ?? SkillRegistry.GetRolesForSkill(skill.Id);
+        editAssignedRoles = new HashSet<AgentRole>(roles);
+        showEditModal = true;
+    }
+
+    private void ToggleEditRole(AgentRole role, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? true);
+        if (isChecked) editAssignedRoles.Add(role);
+        else editAssignedRoles.Remove(role);
+    }
+
+    private void ToggleManualRole(AgentRole role, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? true);
+        if (isChecked) manualAssignedRoles.Add(role);
+        else manualAssignedRoles.Remove(role);
+    }
+
+    private void SaveSkillEdits()
+    {
+        if (editingSkill == null || string.IsNullOrWhiteSpace(editName)) return;
+
+        var toolsList = editTools.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => !string.IsNullOrEmpty(t))
+            .ToList();
+
+        if (toolsList.Count == 0)
+        {
+            toolsList = ["csharp_syntax_check", "web_search", "memory_lookup"];
+        }
+
+        var updated = new SkillDefinition(
+            Id: editId,
+            Name: editName.Trim(),
+            Description: editDescription.Trim(),
+            Instructions: editInstructions.Trim(),
+            RecommendedTools: toolsList,
+            Category: string.IsNullOrWhiteSpace(editCategory) ? "General" : editCategory.Trim(),
+            AssignedRoles: editAssignedRoles.ToList()
+        );
+
+        SkillRegistry.RegisterSkill(updated);
+        SkillRegistry.UpdateSkillRoles(updated.Id, editAssignedRoles);
+
+        showEditModal = false;
+        editingSkill = null;
+        statusMessage = $"Successfully updated skill '{updated.Name}'.";
+    }
+
+    private void DeleteSkill(string id, string name)
+    {
+        SkillRegistry.UnregisterSkill(id);
+        statusMessage = $"Unregistered skill '{name}' ({id}).";
+    }
 
     private async Task ImportFromUrl()
     {
         if (string.IsNullOrWhiteSpace(importUrl)) return;
+        isFetching = true;
+        statusMessage = "Fetching skill manifest...";
+        StateHasChanged();
+
         try
         {
             var skill = await SkillImporter.ImportFromUrlAsync(importUrl);
             SkillRegistry.RegisterSkill(skill);
             showImportModal = false;
-            statusMessage = $"Successfully imported skill '{skill.Name}' from URL.";
+            importUrl = "";
+            statusMessage = $"Successfully imported skill '{skill.Name}' ({skill.Id}) from URL.";
         }
         catch (Exception ex)
         {
             statusMessage = $"Failed to fetch skill: {ex.Message}";
+        }
+        finally
+        {
+            isFetching = false;
         }
     }
 
     private void ImportFromRaw()
     {
         if (string.IsNullOrWhiteSpace(rawMarkdown)) return;
-        var skill = SkillImporter.ParseSkillMarkdown(rawMarkdown);
+        try
+        {
+            var skill = SkillImporter.ParseSkillMarkdown(rawMarkdown);
+            SkillRegistry.RegisterSkill(skill);
+            showImportModal = false;
+            rawMarkdown = "";
+            statusMessage = $"Registered skill '{skill.Name}' ({skill.Id}).";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to parse markdown: {ex.Message}";
+        }
+    }
+
+    private void CreateManualSkill()
+    {
+        if (string.IsNullOrWhiteSpace(manualName)) return;
+
+        var id = !string.IsNullOrWhiteSpace(manualId)
+            ? CarnotCycleCircus.Core.Domain.Skills.SkillImporter.EnsureSkillIdPrefix(manualId)
+            : $"skill-{CarnotCycleCircus.Core.Domain.Skills.SkillImporter.Slugify(manualName)}";
+
+        var toolsList = manualTools.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => !string.IsNullOrEmpty(t))
+            .ToList();
+
+        if (toolsList.Count == 0)
+        {
+            toolsList = ["csharp_syntax_check", "web_search", "memory_lookup"];
+        }
+
+        var skill = new SkillDefinition(
+            Id: id,
+            Name: manualName.Trim(),
+            Description: manualDescription.Trim(),
+            Instructions: manualInstructions.Trim(),
+            RecommendedTools: toolsList,
+            Category: string.IsNullOrWhiteSpace(manualCategory) ? "General" : manualCategory.Trim(),
+            AssignedRoles: manualAssignedRoles.ToList()
+        );
+
         SkillRegistry.RegisterSkill(skill);
+        SkillRegistry.UpdateSkillRoles(skill.Id, manualAssignedRoles);
+
         showImportModal = false;
-        rawMarkdown = "";
-        statusMessage = $"Registered skill '{skill.Name}'.";
+        statusMessage = $"Created and registered custom skill '{skill.Name}' ({skill.Id}).";
     }
 }
+

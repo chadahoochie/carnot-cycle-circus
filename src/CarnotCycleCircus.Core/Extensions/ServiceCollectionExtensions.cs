@@ -3,20 +3,29 @@ using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Graph;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Knowledge;
+using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Skills;
 using CarnotCycleCircus.Core.Domain.Standards;
+using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using CarnotCycleCircus.Core.Domain.Tools;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace CarnotCycleCircus.Core.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddCarnotCycleCircusCore(this IServiceCollection services)
+    public static IServiceCollection AddCarnotCycleCircusCore(this IServiceCollection services, Action<CarnotStorageOptions>? configureOptions = null)
     {
+        // Persistent Storage Options & Service
+        var storageOptions = new CarnotStorageOptions();
+        configureOptions?.Invoke(storageOptions);
+        services.AddSingleton(storageOptions);
+        services.AddSingleton<IPersistentStorageService, FilePersistentStorageService>();
+
         // Event Stream & Message Bus
         services.AddSingleton<IAgentEventStream, AgentEventStream>();
 
@@ -59,6 +68,10 @@ public static class ServiceCollectionExtensions
         // Skills & Importer
         services.AddSingleton<ISkillImporter, SkillImporter>();
         services.AddSingleton<ISkillRegistry, SkillRegistry>();
+
+        // Autonomous Self-Improvement & Continuous Learning Engine
+        services.AddSingleton<ISelfImprovementEngine, SelfImprovementEngine>();
+        services.AddHostedService<AutonomousSelfImprovementWorker>();
 
         // Graph Orchestrator & Workflow Executor
         services.AddSingleton<IGraphWorkflowExecutor, GraphWorkflowExecutor>();

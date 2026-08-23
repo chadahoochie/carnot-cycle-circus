@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Docs;
 
@@ -76,10 +77,76 @@ public class AdrDocumentManager : IAdrDocumentManager
 {
     private readonly ConcurrentDictionary<string, ArchitecturalDecisionRecord> _adrs = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ProjectDocument> _docs = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IPersistentStorageService? _storageService;
+    private const string AdrsFileName = "adrs.json";
+    private const string DocsFileName = "docs.json";
 
-    public AdrDocumentManager()
+    public AdrDocumentManager(IPersistentStorageService? storageService = null)
     {
-        // Seed default ADRs
+        _storageService = storageService;
+
+        var loadedFromStorage = LoadFromStorage();
+        if (!loadedFromStorage)
+        {
+            SeedDefaults();
+            SaveToStorage();
+        }
+    }
+
+    private bool LoadFromStorage()
+    {
+        if (_storageService == null) return false;
+        try
+        {
+            var savedAdrs = _storageService.LoadJsonAsync<List<ArchitecturalDecisionRecord>>(AdrsFileName).GetAwaiter().GetResult();
+            var savedDocs = _storageService.LoadJsonAsync<List<ProjectDocument>>(DocsFileName).GetAwaiter().GetResult();
+
+            var loadedAny = false;
+            if (savedAdrs != null && savedAdrs.Count > 0)
+            {
+                foreach (var a in savedAdrs) _adrs[a.Id] = a;
+                loadedAny = true;
+            }
+
+            if (savedDocs != null && savedDocs.Count > 0)
+            {
+                foreach (var d in savedDocs) _docs[d.Id] = d;
+                loadedAny = true;
+            }
+
+            return loadedAny;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _storageService.SaveJsonAsync(AdrsFileName, _adrs.Values.ToList());
+                await _storageService.SaveJsonAsync(DocsFileName, _docs.Values.ToList());
+
+                // Also persist markdown versions in artifacts directory
+                foreach (var adr in _adrs.Values)
+                {
+                    await _storageService.SaveTextAsync($"artifacts/adrs/{adr.Id}.md", adr.ToMarkdown());
+                }
+            }
+            catch
+            {
+                // Ignore transient write errors
+            }
+        });
+    }
+
+    private void SeedDefaults()
+    {
         var adr1 = new ArchitecturalDecisionRecord(
             Id: "ADR-001",
             Title: "Adopt Immutable Record Types for Domain & Handoff Payloads",
@@ -201,10 +268,16 @@ public class AdrDocumentManager : IAdrDocumentManager
     public ArchitecturalDecisionRecord SaveAdr(ArchitecturalDecisionRecord adr)
     {
         _adrs[adr.Id] = adr;
+        SaveToStorage();
         return adr;
     }
 
-    public bool DeleteAdr(string id) => _adrs.TryRemove(id, out _);
+    public bool DeleteAdr(string id)
+    {
+        var removed = _adrs.TryRemove(id, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public IReadOnlyList<ProjectDocument> GetAllDocs() =>
         _docs.Values.OrderBy(d => d.Title).ToList();
@@ -215,10 +288,16 @@ public class AdrDocumentManager : IAdrDocumentManager
     public ProjectDocument SaveDoc(ProjectDocument doc)
     {
         _docs[doc.Id] = doc;
+        SaveToStorage();
         return doc;
     }
 
-    public bool DeleteDoc(string id) => _docs.TryRemove(id, out _);
+    public bool DeleteDoc(string id)
+    {
+        var removed = _docs.TryRemove(id, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public string ExportCompleteMarkdownBundle()
     {

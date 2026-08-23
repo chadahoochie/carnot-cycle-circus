@@ -1,0 +1,246 @@
+@page "/persistence"
+@page "/evolution"
+@implements IDisposable
+@inject ISelfImprovementEngine SelfImprovementEngine
+@inject IPersistentStorageService StorageService
+@inject IKnowledgeMapService KnowledgeMapService
+@inject IAgentEventStream EventStream
+
+<PageTitle>Autonomous Self-Improvement & Persistent Volume Stack - Carnot Circus</PageTitle>
+
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div>
+        <h1 style="font-size: 1.8rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">
+            🌱 Autonomous Self-Improvement & Persistent Storage Stack
+        </h1>
+        <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">
+            Named Docker volumes preserve memories, tickets, ADRs, and skills across container restarts — while the autonomous learning loop continuously distills failures and successes into permanent knowledge.
+        </p>
+    </div>
+
+    <button class="btn btn-primary" @onclick="TriggerEvolutionCycle" disabled="@isExecuting" style="display: flex; align-items: center; gap: 8px;">
+        @if (isExecuting)
+        {
+            <span>🔄</span>
+            <span>Distilling Insights...</span>
+        }
+        else
+        {
+            <span>⚡</span>
+            <span>Run Self-Improvement Cycle</span>
+        }
+    </button>
+</div>
+
+<!-- Storage Health & Self-Improvement Key Metric Cards -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+    <div class="card" style="padding: 16px; border-left: 4px solid #10b981;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Persistent Volume Health</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #10b981; margin: 6px 0;">
+            @(storageHealth?.IsHealthy == true ? "🟢 Active & Healthy" : "🟡 In-Memory / Initializing")
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">
+            @TruncatePath(storageHealth?.RootDirectory ?? StorageService.Options.DataDirectory)
+        </div>
+    </div>
+
+    <div class="card" style="padding: 16px; border-left: 4px solid #38bdf8;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Learning Cycles Run</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #38bdf8; margin: 6px 0;">
+            @latestReport.TotalCyclesRun
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+            Auto-trigger: every @(StorageService.Options.SelfImprovementIntervalSeconds)s
+        </div>
+    </div>
+
+    <div class="card" style="padding: 16px; border-left: 4px solid #a855f7;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Distilled Insights</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #a855f7; margin: 6px 0;">
+            @latestReport.InsightsDistilledCount
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+            +@latestReport.ProceduralRecipesGenerated procedural recipes
+        </div>
+    </div>
+
+    <div class="card" style="padding: 16px; border-left: 4px solid #f59e0b;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Volume Storage Footprint</div>
+        <div style="font-size: 1.4rem; font-weight: 700; color: #f59e0b; margin: 6px 0;">
+            @FormatBytes(storageHealth?.TotalSizeBytes ?? 0)
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+            @(storageHealth?.TotalFilesCount ?? 0) persisted data files
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px;">
+    <!-- Left Column: Distilled Knowledge & Self-Improvement Feed -->
+    <div style="display: flex; direction: ltr; flex-direction: column; gap: 20px;">
+        <div class="card" style="padding: 20px;">
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <span>💡</span> Distilled Lessons & Remediation Rules
+            </h2>
+
+            @if (latestReport.DistilledInsights.Count == 0)
+            {
+                <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+                    No insights distilled yet. Click <strong>"Run Self-Improvement Cycle"</strong> or execute a workflow to begin autonomous knowledge distillation!
+                </div>
+            }
+            else
+            {
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    @foreach (var insight in latestReport.DistilledInsights)
+                    {
+                        <div style="padding: 12px 16px; background: rgba(30, 41, 59, 0.6); border-radius: 8px; border-left: 3px solid #38bdf8; font-size: 0.88rem; color: #e2e8f0; line-height: 1.5;">
+                            @insight
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Knowledge Graph Integration -->
+        <div class="card" style="padding: 20px;">
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <span>🗺️</span> Self-Evolved Knowledge Map Sub-Graph
+            </h2>
+            @{
+                var fullMap = KnowledgeMapService.GetFullMap();
+                var learnedNodes = fullMap.Nodes.Where(n => n.Category is "LearnedInsight" or "Pattern").ToList();
+            }
+
+            @if (learnedNodes.Count == 0)
+            {
+                <div style="color: var(--text-muted); font-size: 0.85rem;">No dynamic patterns evolved yet.</div>
+            }
+            else
+            {
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    @foreach (var node in learnedNodes)
+                    {
+                        <div style="background: rgba(15, 23, 42, 0.6); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                <span style="font-weight: 600; color: #38bdf8; font-size: 0.88rem;">@node.Label</span>
+                                <span class="badge" style="font-size: 0.7rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8;">@node.Category</span>
+                            </div>
+                            <p style="margin: 0; font-size: 0.82rem; color: #94a3b8; line-height: 1.4;">@node.Summary</p>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Right Column: Persistent Files & Docker Volume Status -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="card" style="padding: 20px;">
+            <h2 style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <span>📁</span> Docker Volume File Manifest
+            </h2>
+
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+                Root Mount: <code style="color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px;">@(storageHealth?.RootDirectory ?? StorageService.Options.DataDirectory)</code>
+            </div>
+
+            @if (storageHealth == null || storageHealth.Files.Count == 0)
+            {
+                <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    Volume initialized. Data files will appear automatically upon writes.
+                </div>
+            }
+            else
+            {
+                <div style="max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                    @foreach (var file in storageHealth.Files)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(15, 23, 42, 0.4); border-radius: 6px; font-size: 0.82rem; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <span>📄</span>
+                                <span style="font-family: monospace; color: #cbd5e1;">@file.RelativePath</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="color: #64748b; font-size: 0.75rem;">@file.LastModified.ToString("HH:mm:ss")</span>
+                                <span style="font-family: monospace; color: #f59e0b; font-size: 0.75rem; font-weight: 600;">@FormatBytes(file.SizeInBytes)</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="card" style="padding: 20px; border-top: 3px solid #10b981;">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #f8fafc; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <span>🐳</span> Docker Compose Mounts
+            </h3>
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+                To run Carnot Cycle Circus with persistent named volumes in Docker:
+            </p>
+            <pre style="background: #0f172a; padding: 12px; border-radius: 6px; font-size: 0.78rem; color: #38bdf8; overflow-x: auto; border: 1px solid var(--border-color);"><code>docker compose up -d</code></pre>
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 8px;">
+                Named volumes: <code style="color: #10b981;">carnot_data</code>, <code style="color: #10b981;">carnot_artifacts</code>, <code style="color: #10b981;">carnot_skills</code>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private SelfImprovementReport latestReport = null!;
+    private StorageHealthReport? storageHealth;
+    private bool isExecuting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        latestReport = SelfImprovementEngine.GetLatestReport();
+        storageHealth = await StorageService.GetStorageHealthAsync();
+
+        SelfImprovementEngine.OnSelfImprovementCompleted += HandleReportUpdated;
+    }
+
+    private void HandleReportUpdated(SelfImprovementReport report)
+    {
+        latestReport = report;
+        _ = RefreshStorageHealth();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshStorageHealth()
+    {
+        storageHealth = await StorageService.GetStorageHealthAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task TriggerEvolutionCycle()
+    {
+        isExecuting = true;
+        try
+        {
+            latestReport = await SelfImprovementEngine.RunSelfImprovementCycleAsync();
+            storageHealth = await StorageService.GetStorageHealthAsync();
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F2} MB";
+    }
+
+    private static string TruncatePath(string path)
+    {
+        if (path.Length <= 35) return path;
+        return "..." + path[^32..];
+    }
+
+    public void Dispose()
+    {
+        SelfImprovementEngine.OnSelfImprovementCompleted -= HandleReportUpdated;
+    }
+}

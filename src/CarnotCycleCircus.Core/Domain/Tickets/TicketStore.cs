@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Tickets;
 
@@ -28,9 +29,58 @@ public class TicketStore : ITicketStore
 {
     private readonly ConcurrentDictionary<string, TicketItem> _tickets = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentQueue<HandoffPacket> _handoffs = new();
+    private readonly IPersistentStorageService? _storageService;
+    private const string TicketsFileName = "tickets.json";
+    private const string HandoffsFileName = "handoffs.json";
 
     public event Action<TicketItem>? OnTicketChanged;
     public event Action<HandoffPacket>? OnHandoffRecorded;
+
+    public TicketStore(IPersistentStorageService? storageService = null)
+    {
+        _storageService = storageService;
+        LoadFromStorage();
+    }
+
+    private void LoadFromStorage()
+    {
+        if (_storageService == null) return;
+        try
+        {
+            var savedTickets = _storageService.LoadJsonAsync<List<TicketItem>>(TicketsFileName).GetAwaiter().GetResult();
+            if (savedTickets != null)
+            {
+                foreach (var t in savedTickets) _tickets[t.Id] = t;
+            }
+
+            var savedHandoffs = _storageService.LoadJsonAsync<List<HandoffPacket>>(HandoffsFileName).GetAwaiter().GetResult();
+            if (savedHandoffs != null)
+            {
+                foreach (var h in savedHandoffs) _handoffs.Enqueue(h);
+            }
+        }
+        catch
+        {
+            // Fallback to empty store
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _storageService.SaveJsonAsync(TicketsFileName, _tickets.Values.ToList());
+                await _storageService.SaveJsonAsync(HandoffsFileName, _handoffs.ToList());
+            }
+            catch
+            {
+                // Non-fatal write failure
+            }
+        });
+    }
 
     public IReadOnlyList<TicketItem> GetAllTickets() =>
         _tickets.Values.OrderBy(t => t.CreatedAt).ToList();
@@ -51,6 +101,7 @@ public class TicketStore : ITicketStore
     {
         _tickets[ticket.Id] = ticket;
         OnTicketChanged?.Invoke(ticket);
+        SaveToStorage();
         return ticket;
     }
 
@@ -58,6 +109,7 @@ public class TicketStore : ITicketStore
     {
         _tickets[ticket.Id] = ticket;
         OnTicketChanged?.Invoke(ticket);
+        SaveToStorage();
         return ticket;
     }
 
@@ -67,6 +119,7 @@ public class TicketStore : ITicketStore
         if (removed && deleted != null)
         {
             OnTicketChanged?.Invoke(deleted);
+            SaveToStorage();
         }
         return removed;
     }
@@ -103,6 +156,7 @@ public class TicketStore : ITicketStore
     {
         _handoffs.Enqueue(handoff);
         OnHandoffRecorded?.Invoke(handoff);
+        SaveToStorage();
     }
 
     public IReadOnlyList<HandoffPacket> GetHandoffsForTicket(string ticketId) =>
@@ -115,5 +169,6 @@ public class TicketStore : ITicketStore
     {
         _tickets.Clear();
         while (_handoffs.TryDequeue(out _)) { }
+        SaveToStorage();
     }
 }

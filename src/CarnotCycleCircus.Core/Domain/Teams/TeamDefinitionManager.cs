@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Teams;
 
@@ -140,17 +141,72 @@ public class TeamDefinitionManager : ITeamDefinitionManager
 {
     private readonly ConcurrentDictionary<string, TeamDefinition> _teams = new(StringComparer.OrdinalIgnoreCase);
     private EngineeringTeam _currentTeam;
+    private readonly IPersistentStorageService? _storageService;
+    private const string TeamsFileName = "teams.json";
+    private const string ActiveTeamFileName = "active-team-id.json";
 
     public event Action<EngineeringTeam>? OnCurrentTeamChanged;
 
-    public TeamDefinitionManager()
+    public TeamDefinitionManager(IPersistentStorageService? storageService = null)
     {
-        foreach (var archetype in TeamArchetypes.AllArchetypes)
-        {
-            _teams[archetype.Id] = archetype;
-        }
+        _storageService = storageService;
 
-        _currentTeam = TeamArchetypes.BalancedCircus.ToEngineeringTeam();
+        var loaded = LoadFromStorage();
+        if (!loaded)
+        {
+            foreach (var archetype in TeamArchetypes.AllArchetypes)
+            {
+                _teams[archetype.Id] = archetype;
+            }
+            _currentTeam = TeamArchetypes.BalancedCircus.ToEngineeringTeam();
+            SaveToStorage();
+        }
+        else
+        {
+            _currentTeam ??= _teams.Values.FirstOrDefault()?.ToEngineeringTeam() ?? TeamArchetypes.BalancedCircus.ToEngineeringTeam();
+        }
+    }
+
+    private bool LoadFromStorage()
+    {
+        if (_storageService == null) return false;
+        try
+        {
+            var saved = _storageService.LoadJsonAsync<List<TeamDefinition>>(TeamsFileName).GetAwaiter().GetResult();
+            var activeId = _storageService.LoadJsonAsync<string>(ActiveTeamFileName).GetAwaiter().GetResult();
+
+            if (saved != null && saved.Count > 0)
+            {
+                foreach (var t in saved) _teams[t.Id] = t;
+                if (!string.IsNullOrEmpty(activeId) && _teams.TryGetValue(activeId, out var activeTeam))
+                {
+                    _currentTeam = activeTeam.ToEngineeringTeam();
+                }
+                return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _storageService.SaveJsonAsync(TeamsFileName, _teams.Values.ToList());
+                await _storageService.SaveJsonAsync(ActiveTeamFileName, _currentTeam.Id);
+            }
+            catch
+            {
+                // Ignore transient write error
+            }
+        });
     }
 
     public IReadOnlyList<TeamDefinition> GetAllTeams() =>
@@ -167,10 +223,16 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             _currentTeam = team.ToEngineeringTeam();
             OnCurrentTeamChanged?.Invoke(_currentTeam);
         }
+        SaveToStorage();
         return team;
     }
 
-    public bool DeleteTeam(string id) => _teams.TryRemove(id, out _);
+    public bool DeleteTeam(string id)
+    {
+        var removed = _teams.TryRemove(id, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public TeamDefinition LoadArchetype(string archetypeName)
     {
@@ -195,6 +257,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
     {
         _currentTeam = team.ToEngineeringTeam();
         OnCurrentTeamChanged?.Invoke(_currentTeam);
+        SaveToStorage();
     }
 
     public string ExportToJson(string teamId)
