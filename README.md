@@ -164,7 +164,7 @@ flowchart TB
 ### Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/) (`10.0.300+`)
 
-### Building & Running
+### Building & Running Locally
 
 ```bash
 # Clone repository
@@ -181,7 +181,36 @@ dotnet test CarnotCycleCircus.slnx
 dotnet run --project src/CarnotCycleCircus.Web
 ```
 
-Open `http://localhost:5000` (or the console URL) in your browser.
+Open `http://localhost:5000` in your browser.
+
+---
+
+### 🐳 Running with Docker Persistent Stack & Self-Improvement
+
+The application includes a self-healing persistent Docker stack with named volumes for memories, tickets, ADRs, and skills:
+
+```bash
+# Start Docker stack with persistent volumes
+docker compose up --build -d
+
+# Or use the convenience script
+./scripts/docker-run.sh up
+
+# View stack health and volume metrics
+./scripts/docker-run.sh health
+
+# Follow live logs
+./scripts/docker-run.sh logs
+```
+
+#### Persistent Volumes Overview
+- `carnot_data`: Stores JSON databases (`memories.json`, `tickets.json`, `handoffs.json`, `knowledgemap.json`, `skills.json`, `teams.json`, `adrs.json`, `keys.json`).
+- `carnot_artifacts`: Stores exported ADR markdown bundles, PRDs, and generated artifacts.
+- `carnot_skills`: Stores imported YAML/Markdown skill definitions.
+- `carnot_redis`: Distributed caching and high-speed memory connector.
+
+#### 🌱 Continuous Autonomous Self-Improvement
+The stack runs a background distillation engine (`AutonomousSelfImprovementWorker`) that periodically (and after every workflow completion) analyzes failure remediations and execution metrics, extracting new defensive rules and procedural recipes to improve system accuracy and velocity over time. View the live manifest and learning metrics at `http://localhost:5000/persistence`.
 
 ---
 

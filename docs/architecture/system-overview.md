@@ -88,9 +88,11 @@ carnot-cycle-circus/
 │   │   │   ├── Graph/                  # WorkflowGraph, GraphWorkflowExecutor, Ports
 │   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, SimulatedScenarioEngine
 │   │   │   ├── Knowledge/              # KnowledgeMapService, KnowledgeNode, KnowledgeEdge
+│   │   │   ├── Learning/               # SelfImprovementEngine, AutonomousSelfImprovementWorker
 │   │   │   ├── Memory/                 # MemoryEntry, PersistentMemoryStore, MemoryServices
 │   │   │   ├── Skills/                 # SkillRegistry, SkillImporter, SkillDefinition
 │   │   │   ├── Standards/              # StandardsValidator, EngineeringStandardsProfile
+│   │   │   ├── Storage/                # CarnotStorageOptions, FilePersistentStorageService
 │   │   │   ├── Teams/                  # TeamDefinitionManager, TeamArchetypes
 │   │   │   ├── Tickets/                # TicketItem, TicketStore, WorkDecompositionEngine, HandoffRouter
 │   │   │   └── Tools/                  # IToolDefinition, WebSearch, CSharpSyntaxCheck, TestRunner

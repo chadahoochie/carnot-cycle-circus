@@ -17,6 +17,7 @@ ADRs record key architectural decisions, the context behind them, alternatives e
 | [**ADR-0005**](0005-deliverable-isolation-contract-for-agent-personas.md) | Deliverable Isolation Contract for Agent Personas | **Accepted** | 2026-08-21 | Strict separation: agent banter and cynical dialogue are restricted to chat/thought streams, while technical deliverables must remain 100% professional and standard-compliant. |
 | [**ADR-0006**](0006-in-memory-reactive-event-stream-for-real-time-telemetry.md) | In-Memory Reactive Event Stream for Real-Time Telemetry | **Accepted** | 2026-08-21 | High-throughput, thread-safe message bus (`IAgentEventStream`) for live Blazor UI updates, session recording, and audit replay. |
 | [**ADR-0007**](0007-embedded-ticket-management-and-dag-decomposition.md) | Embedded Ticket Management & DAG Work Decomposition | **Accepted** | 2026-08-21 | First-class ticket management ($Epics \to Stories \to Subtasks$) with automated TPM/Architect decomposition and structured `HandoffPacket` payloads. |
+| [**ADR-0008**](0008-persistent-volume-stack-and-autonomous-self-improvement.md) | Persistent Storage Engine & Autonomous Self-Improvement Docker Stack | **Accepted** | 2026-08-22 | File-backed atomic persistent storage across named Docker volumes (`carnot_data`, `carnot_artifacts`, `carnot_skills`) and continuous autonomous self-improvement loop. |
 
 ---
 

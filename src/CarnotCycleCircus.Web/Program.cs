@@ -1,3 +1,4 @@
+using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Extensions;
 using CarnotCycleCircus.Web.Components;
 
@@ -17,11 +18,35 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
-    app.UseHttpsRedirection();
 }
 
 app.UseAntiforgery();
 app.UseStaticFiles();
+
+// Container health check endpoints
+app.MapGet("/health", async (IPersistentStorageService storage) =>
+{
+    var health = await storage.GetStorageHealthAsync();
+    return Results.Ok(new
+    {
+        status = health.IsHealthy ? "Healthy" : "Degraded",
+        timestamp = DateTimeOffset.UtcNow,
+        entropyEfficiency = "99.9%",
+        storage = new
+        {
+            directory = health.RootDirectory,
+            totalFiles = health.TotalFilesCount,
+            totalSizeBytes = health.TotalSizeBytes,
+            isHealthy = health.IsHealthy
+        }
+    });
+});
+
+app.MapGet("/api/storage/health", async (IPersistentStorageService storage) =>
+{
+    var health = await storage.GetStorageHealthAsync();
+    return Results.Ok(health);
+});
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

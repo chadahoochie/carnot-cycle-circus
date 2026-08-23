@@ -3,6 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using CarnotCycleCircus.Core.Domain.Agents;
 
+using CarnotCycleCircus.Core.Domain.Storage;
+
 namespace CarnotCycleCircus.Core.Domain.Memory;
 
 public record MemorySearchResult(
@@ -26,7 +28,52 @@ public interface IPersistentMemoryStore
 public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
 {
     private readonly ConcurrentDictionary<string, MemoryEntry> _store = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IPersistentStorageService? _storageService;
     private const int EmbeddingDimensions = 64;
+    private const string StorageFileName = "memories.json";
+
+    public EmbeddedVectorMemoryStore(IPersistentStorageService? storageService = null)
+    {
+        _storageService = storageService;
+        LoadFromStorage();
+    }
+
+    private void LoadFromStorage()
+    {
+        if (_storageService == null) return;
+        try
+        {
+            var entries = _storageService.LoadJsonAsync<List<MemoryEntry>>(StorageFileName).GetAwaiter().GetResult();
+            if (entries != null)
+            {
+                foreach (var entry in entries)
+                {
+                    _store[entry.Id] = entry;
+                }
+            }
+        }
+        catch
+        {
+            // Transient read exception fallback
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var list = _store.Values.ToList();
+                await _storageService.SaveJsonAsync(StorageFileName, list);
+            }
+            catch
+            {
+                // Error handled gracefully
+            }
+        });
+    }
 
     public Task StoreAsync(MemoryEntry entry, CancellationToken cancellationToken = default)
     {
@@ -37,6 +84,7 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
         }
 
         _store[effectiveEntry.Id] = effectiveEntry;
+        SaveToStorage();
         return Task.CompletedTask;
     }
 
@@ -127,6 +175,11 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
             }
         }
 
+        if (removedCount > 0)
+        {
+            SaveToStorage();
+        }
+
         return Task.FromResult(removedCount);
     }
 
@@ -139,6 +192,7 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
         _store.Clear();
+        SaveToStorage();
         return Task.CompletedTask;
     }
 

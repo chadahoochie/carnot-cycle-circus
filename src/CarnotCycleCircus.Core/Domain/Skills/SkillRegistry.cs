@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Skills;
 
@@ -12,7 +13,11 @@ public record SkillDefinition(
     IReadOnlyList<string> RecommendedTools,
     string Category = "General",
     IReadOnlyList<AgentRole>? AssignedRoles = null
-);
+)
+{
+    public SkillDefinition WithAssignedRoles(IReadOnlyList<AgentRole> roles) =>
+        this with { AssignedRoles = roles };
+}
 
 public interface ISkillImporter
 {
@@ -36,6 +41,9 @@ public class SkillImporter : ISkillImporter
         var description = "Custom imported capability";
         var instructions = content;
         var category = "Engineering";
+        string? explicitId = null;
+        var recommendedTools = new List<string>();
+        var assignedRoles = new List<AgentRole>();
 
         if (content.StartsWith("---"))
         {
@@ -48,30 +56,82 @@ public class SkillImporter : ISkillImporter
                 foreach (var line in yaml.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmed = line.Trim();
-                    if (trimmed.StartsWith("name:", StringComparison.OrdinalIgnoreCase))
+                    if (trimmed.StartsWith("name:", StringComparison.OrdinalIgnoreCase) ||
+                        trimmed.StartsWith("title:", StringComparison.OrdinalIgnoreCase))
                     {
-                        name = trimmed[5..].Trim();
+                        var idx = trimmed.IndexOf(':');
+                        name = trimmed[(idx + 1)..].Trim().Trim('"', '\'');
                     }
-                    else if (trimmed.StartsWith("description:", StringComparison.OrdinalIgnoreCase))
+                    else if (trimmed.StartsWith("id:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("skill_id:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("slug:", StringComparison.OrdinalIgnoreCase))
                     {
-                        description = trimmed[12..].Trim();
+                        var idx = trimmed.IndexOf(':');
+                        explicitId = trimmed[(idx + 1)..].Trim().Trim('"', '\'');
+                    }
+                    else if (trimmed.StartsWith("description:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("summary:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("vibe:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var idx = trimmed.IndexOf(':');
+                        description = trimmed[(idx + 1)..].Trim().Trim('"', '\'');
                     }
                     else if (trimmed.StartsWith("category:", StringComparison.OrdinalIgnoreCase))
                     {
-                        category = trimmed[9..].Trim();
+                        var idx = trimmed.IndexOf(':');
+                        category = trimmed[(idx + 1)..].Trim().Trim('"', '\'');
+                    }
+                    else if (trimmed.StartsWith("tools:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("recommended_tools:", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.StartsWith("recommendedTools:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var idx = trimmed.IndexOf(':');
+                        var toolsStr = trimmed[(idx + 1)..].Trim().Trim('[', ']');
+                        foreach (var t in toolsStr.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            var clean = t.Trim().Trim('"', '\'');
+                            if (!string.IsNullOrEmpty(clean)) recommendedTools.Add(clean);
+                        }
                     }
                 }
             }
         }
 
-        var id = sourceId ?? $"skill-{Guid.NewGuid().ToString("N")[..6]}";
+        if (recommendedTools.Count == 0)
+        {
+            recommendedTools = ["csharp_syntax_check", "web_search", "memory_lookup"];
+        }
+
+        string id;
+        if (!string.IsNullOrWhiteSpace(explicitId))
+        {
+            id = EnsureSkillIdPrefix(explicitId);
+        }
+        else if (!string.IsNullOrWhiteSpace(sourceId) && !IsGenericSlug(sourceId))
+        {
+            id = EnsureSkillIdPrefix(sourceId);
+        }
+        else if (!string.IsNullOrWhiteSpace(name) && !name.Equals("Imported Skill", StringComparison.OrdinalIgnoreCase))
+        {
+            id = $"skill-{Slugify(name)}";
+        }
+        else if (!string.IsNullOrWhiteSpace(sourceId))
+        {
+            id = EnsureSkillIdPrefix(sourceId);
+        }
+        else
+        {
+            id = $"skill-{Guid.NewGuid().ToString("N")[..6]}";
+        }
+
         return new SkillDefinition(
             Id: id,
             Name: name,
             Description: description,
             Instructions: instructions,
-            RecommendedTools: ["csharp_syntax_check", "web_search", "memory_lookup"],
-            Category: category
+            RecommendedTools: recommendedTools,
+            Category: category,
+            AssignedRoles: assignedRoles.Count > 0 ? assignedRoles : null
         );
     }
 
@@ -88,9 +148,53 @@ public class SkillImporter : ISkillImporter
 
         var text = await _httpClient.GetStringAsync(url, cts.Token);
         var uri = new Uri(url);
-        var slug = uri.Segments.LastOrDefault()?.Replace(".md", "") ?? "web-skill";
 
-        return ParseSkillMarkdown(text, $"skill-{slug}");
+        var segments = uri.Segments
+            .Select(s => s.Trim('/', ' '))
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+
+        string? urlSlug = null;
+        for (int i = segments.Count - 1; i >= 0; i--)
+        {
+            var seg = segments[i];
+            var cleanSeg = seg.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+                ? seg[..^3]
+                : (seg.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? seg[..^5] : seg);
+
+            if (!IsGenericSlug(cleanSeg))
+            {
+                urlSlug = cleanSeg;
+                break;
+            }
+        }
+
+        return ParseSkillMarkdown(text, urlSlug != null ? $"skill-{urlSlug}" : null);
+    }
+
+    public static string Slugify(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "custom";
+        var clean = text.ToLowerInvariant().Trim();
+        var chars = clean.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var slug = new string(chars);
+        while (slug.Contains("--")) slug = slug.Replace("--", "-");
+        return slug.Trim('-');
+    }
+
+    public static string EnsureSkillIdPrefix(string id)
+    {
+        var clean = Slugify(id);
+        return clean.StartsWith("skill-", StringComparison.OrdinalIgnoreCase)
+            ? clean
+            : $"skill-{clean}";
+    }
+
+    public static bool IsGenericSlug(string slug)
+    {
+        var s = slug.Trim().ToLowerInvariant();
+        if (s.StartsWith("skill-")) s = s[6..];
+        return s is "skill" or "skills" or "readme" or "index" or "main" or "master" or "raw" or "blob" or "web-skill" or "";
     }
 }
 
@@ -103,14 +207,81 @@ public interface ISkillRegistry
     void AssignSkillToRole(string skillId, AgentRole role);
     void UnassignSkillFromRole(string skillId, AgentRole role);
     IReadOnlyList<SkillDefinition> GetSkillsForRole(AgentRole role);
+    IReadOnlyList<AgentRole> GetRolesForSkill(string skillId);
+    void UpdateSkillRoles(string skillId, IEnumerable<AgentRole> roles);
 }
 
 public class SkillRegistry : ISkillRegistry
 {
     private readonly ConcurrentDictionary<string, SkillDefinition> _skills = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, HashSet<AgentRole>> _roleAssignments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IPersistentStorageService? _storageService;
+    private const string StorageFileName = "skills.json";
 
-    public SkillRegistry(ISkillImporter importer)
+    public SkillRegistry(ISkillImporter importer, IPersistentStorageService? storageService = null)
+    {
+        _storageService = storageService;
+
+        var loaded = LoadFromStorage();
+        if (!loaded)
+        {
+            SeedDefaults();
+            SaveToStorage();
+        }
+    }
+
+    private bool LoadFromStorage()
+    {
+        if (_storageService == null) return false;
+        try
+        {
+            var saved = _storageService.LoadJsonAsync<List<SkillDefinition>>(StorageFileName).GetAwaiter().GetResult();
+            if (saved != null && saved.Count > 0)
+            {
+                foreach (var s in saved)
+                {
+                    _skills[s.Id] = s;
+                    if (s.AssignedRoles != null && s.AssignedRoles.Count > 0)
+                    {
+                        var set = _roleAssignments.GetOrAdd(s.Id, _ => new HashSet<AgentRole>());
+                        foreach (var r in s.AssignedRoles) set.Add(r);
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var list = GetAllSkills();
+                await _storageService.SaveJsonAsync(StorageFileName, list);
+
+                // Also save skill markdown documents in skills directory
+                foreach (var s in list)
+                {
+                    var md = $"---\nname: {s.Name}\nid: {s.Id}\ndescription: {s.Description}\ncategory: {s.Category}\ntools: [{string.Join(", ", s.RecommendedTools)}]\n---\n\n{s.Instructions}";
+                    await _storageService.SaveTextAsync($"skills/{s.Id}.md", md);
+                }
+            }
+            catch
+            {
+                // Ignore transient write error
+            }
+        });
+    }
+
+    private void SeedDefaults()
     {
         // Seed default skills
         var s1 = new SkillDefinition(
@@ -123,8 +294,6 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.SoftwareDeveloper, AgentRole.LeadArchitect]
         );
         RegisterSkill(s1);
-        AssignSkillToRole(s1.Id, AgentRole.SoftwareDeveloper);
-        AssignSkillToRole(s1.Id, AgentRole.LeadArchitect);
 
         var s2 = new SkillDefinition(
             Id: "skill-stride-modeling",
@@ -136,7 +305,6 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.SecurityEngineer]
         );
         RegisterSkill(s2);
-        AssignSkillToRole(s2.Id, AgentRole.SecurityEngineer);
 
         var s3 = new SkillDefinition(
             Id: "skill-perf-benchmarks",
@@ -148,7 +316,6 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.OptimizationEngineer]
         );
         RegisterSkill(s3);
-        AssignSkillToRole(s3.Id, AgentRole.OptimizationEngineer);
 
         var s4 = new SkillDefinition(
             Id: "skill-buzzword-mastery",
@@ -160,7 +327,6 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.TechnicalProductManager]
         );
         RegisterSkill(s4);
-        AssignSkillToRole(s4.Id, AgentRole.TechnicalProductManager);
 
         var s5 = new SkillDefinition(
             Id: "skill-edge-case-torture",
@@ -172,32 +338,86 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.PrincipalQAAnalyst]
         );
         RegisterSkill(s5);
-        AssignSkillToRole(s5.Id, AgentRole.PrincipalQAAnalyst);
     }
 
-    public IReadOnlyList<SkillDefinition> GetAllSkills() =>
-        _skills.Values.OrderBy(s => s.Name).ToList();
+    public IReadOnlyList<SkillDefinition> GetAllSkills()
+    {
+        return _skills.Values
+            .Select(s =>
+            {
+                if (_roleAssignments.TryGetValue(s.Id, out var roles))
+                {
+                    lock (roles)
+                    {
+                        return s with { AssignedRoles = roles.OrderBy(r => r).ToList() };
+                    }
+                }
+                return s;
+            })
+            .OrderBy(s => s.Name)
+            .ToList();
+    }
 
-    public SkillDefinition? GetSkill(string id) =>
-        _skills.TryGetValue(id, out var skill) ? skill : null;
+    public SkillDefinition? GetSkill(string id)
+    {
+        if (_skills.TryGetValue(id, out var skill))
+        {
+            if (_roleAssignments.TryGetValue(id, out var roles))
+            {
+                lock (roles)
+                {
+                    return skill with { AssignedRoles = roles.OrderBy(r => r).ToList() };
+                }
+            }
+            return skill;
+        }
+        return null;
+    }
 
     public SkillDefinition RegisterSkill(SkillDefinition skill)
     {
-        _skills[skill.Id] = skill;
         if (skill.AssignedRoles != null)
         {
             var set = _roleAssignments.GetOrAdd(skill.Id, _ => new HashSet<AgentRole>());
-            foreach (var r in skill.AssignedRoles) set.Add(r);
+            lock (set)
+            {
+                set.Clear();
+                foreach (var r in skill.AssignedRoles) set.Add(r);
+            }
         }
+        else if (_roleAssignments.TryGetValue(skill.Id, out var existingRoles))
+        {
+            lock (existingRoles)
+            {
+                skill = skill with { AssignedRoles = existingRoles.OrderBy(r => r).ToList() };
+            }
+        }
+
+        _skills[skill.Id] = skill;
+        SaveToStorage();
         return skill;
     }
 
-    public bool UnregisterSkill(string id) => _skills.TryRemove(id, out _);
+    public bool UnregisterSkill(string id)
+    {
+        _roleAssignments.TryRemove(id, out _);
+        var removed = _skills.TryRemove(id, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public void AssignSkillToRole(string skillId, AgentRole role)
     {
         var set = _roleAssignments.GetOrAdd(skillId, _ => new HashSet<AgentRole>());
         lock (set) { set.Add(role); }
+        if (_skills.TryGetValue(skillId, out var skill))
+        {
+            lock (set)
+            {
+                _skills[skillId] = skill with { AssignedRoles = set.OrderBy(r => r).ToList() };
+            }
+        }
+        SaveToStorage();
     }
 
     public void UnassignSkillFromRole(string skillId, AgentRole role)
@@ -205,7 +425,45 @@ public class SkillRegistry : ISkillRegistry
         if (_roleAssignments.TryGetValue(skillId, out var set))
         {
             lock (set) { set.Remove(role); }
+            if (_skills.TryGetValue(skillId, out var skill))
+            {
+                lock (set)
+                {
+                    _skills[skillId] = skill with { AssignedRoles = set.OrderBy(r => r).ToList() };
+                }
+            }
+            SaveToStorage();
         }
+    }
+
+    public IReadOnlyList<AgentRole> GetRolesForSkill(string skillId)
+    {
+        if (_roleAssignments.TryGetValue(skillId, out var set))
+        {
+            lock (set)
+            {
+                return set.OrderBy(r => r).ToList();
+            }
+        }
+        return Array.Empty<AgentRole>();
+    }
+
+    public void UpdateSkillRoles(string skillId, IEnumerable<AgentRole> roles)
+    {
+        var set = _roleAssignments.GetOrAdd(skillId, _ => new HashSet<AgentRole>());
+        lock (set)
+        {
+            set.Clear();
+            foreach (var r in roles) set.Add(r);
+        }
+        if (_skills.TryGetValue(skillId, out var skill))
+        {
+            lock (set)
+            {
+                _skills[skillId] = skill with { AssignedRoles = set.OrderBy(r => r).ToList() };
+            }
+        }
+        SaveToStorage();
     }
 
     public IReadOnlyList<SkillDefinition> GetSkillsForRole(AgentRole role)
@@ -217,10 +475,10 @@ public class SkillRegistry : ISkillRegistry
             {
                 if (kvp.Value.Contains(role) && _skills.TryGetValue(kvp.Key, out var skill))
                 {
-                    result.Add(skill);
+                    result.Add(skill with { AssignedRoles = kvp.Value.OrderBy(r => r).ToList() });
                 }
             }
         }
-        return result;
+        return result.OrderBy(s => s.Name).ToList();
     }
 }

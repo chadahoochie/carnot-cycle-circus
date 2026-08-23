@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Inference;
 
@@ -33,23 +34,66 @@ public class ApiKeyVaultService : IApiKeyVaultService
 {
     private readonly ConcurrentDictionary<string, ApiKeyVaultEntry> _keys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HttpClient _httpClient;
+    private readonly IPersistentStorageService? _storageService;
+    private const string StorageFileName = "keys.json";
 
     public event Action<ApiKeyVaultEntry>? OnKeyUpdated;
 
-    public ApiKeyVaultService(HttpClient? httpClient = null)
+    public ApiKeyVaultService(HttpClient? httpClient = null, IPersistentStorageService? storageService = null)
     {
         _httpClient = httpClient ?? new HttpClient();
+        _storageService = storageService;
 
-        // Seed with a default simulated sandbox key
-        var defaultKey = new ApiKeyVaultEntry(
-            KeyId: "key-circus-sandbox",
-            KeyName: "Default OpenRouter Sandbox (Simulation Mode)",
-            RawApiKey: "sk-or-v1-sandbox-mock-carnot-circus-0001",
-            Provider: "OpenRouter",
-            IsActive: true,
-            CreatedAt: DateTimeOffset.UtcNow
-        );
-        _keys[defaultKey.KeyId] = defaultKey;
+        var loaded = LoadFromStorage();
+        if (!loaded)
+        {
+            // Seed with a default simulated sandbox key
+            var defaultKey = new ApiKeyVaultEntry(
+                KeyId: "key-circus-sandbox",
+                KeyName: "Default OpenRouter Sandbox (Simulation Mode)",
+                RawApiKey: "sk-or-v1-sandbox-mock-carnot-circus-0001",
+                Provider: "OpenRouter",
+                IsActive: true,
+                CreatedAt: DateTimeOffset.UtcNow
+            );
+            _keys[defaultKey.KeyId] = defaultKey;
+            SaveToStorage();
+        }
+    }
+
+    private bool LoadFromStorage()
+    {
+        if (_storageService == null) return false;
+        try
+        {
+            var saved = _storageService.LoadJsonAsync<List<ApiKeyVaultEntry>>(StorageFileName).GetAwaiter().GetResult();
+            if (saved != null && saved.Count > 0)
+            {
+                foreach (var k in saved) _keys[k.KeyId] = k;
+                return true;
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private void SaveToStorage()
+    {
+        if (_storageService == null) return;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _storageService.SaveJsonAsync(StorageFileName, _keys.Values.ToList());
+            }
+            catch
+            {
+                // Ignore transient write error
+            }
+        });
     }
 
     public IReadOnlyList<ApiKeyVaultEntry> GetAllKeys() =>
@@ -85,10 +129,16 @@ public class ApiKeyVaultService : IApiKeyVaultService
 
         _keys[keyId] = entry;
         OnKeyUpdated?.Invoke(entry);
+        SaveToStorage();
         return entry;
     }
 
-    public bool DeleteKey(string keyId) => _keys.TryRemove(keyId, out _);
+    public bool DeleteKey(string keyId)
+    {
+        var removed = _keys.TryRemove(keyId, out _);
+        if (removed) SaveToStorage();
+        return removed;
+    }
 
     public void SetActiveKey(string keyId)
     {
@@ -101,6 +151,7 @@ public class ApiKeyVaultService : IApiKeyVaultService
                 OnKeyUpdated?.Invoke(_keys[kvp.Key]);
             }
         }
+        SaveToStorage();
     }
 
     public async Task<bool> TestKeyConnectionAsync(string rawApiKey, CancellationToken cancellationToken = default)
