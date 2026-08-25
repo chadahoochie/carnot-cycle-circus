@@ -217,6 +217,30 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr3.Id] = adr3;
 
+        var adr9 = new ArchitecturalDecisionRecord(
+            Id: "ADR-009",
+            Title: "Secure Key Storage, AEAD Envelope Encryption, and Master Key Derivation",
+            Status: AdrStatus.Accepted,
+            Context: "API credentials stored on disk or transferred across multi-agent pipelines risk exfiltration, tampering, or unauthorized harvesting.",
+            Decision: "Implement AES-256-GCM AEAD envelope encryption at rest, PBKDF2-HMAC-SHA256 (310,000 iter) master key derivation, zero-downtime key rotation, and encrypted backup export packages.",
+            AlternativesConsidered: [
+                "Plaintext JSON storage (rejected: critical security violation)",
+                "Windows-only DPAPI (rejected: breaks Linux container compatibility)",
+                "Unauthenticated AES-CBC (rejected: vulnerable to padding oracles and lacks AEAD integrity verification)"
+            ],
+            ConsequencesPositive: [
+                "Cryptographic confidentiality and integrity guaranteed at rest via AES-256-GCM AEAD",
+                "Cross-platform support in Linux/Docker and air-gapped environments",
+                "Master key rotation and encrypted backup export/import tools built-in"
+            ],
+            ConsequencesNegative: [
+                "Master key loss makes stored credentials unrecoverable without original secrets"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr9.Id] = adr9;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

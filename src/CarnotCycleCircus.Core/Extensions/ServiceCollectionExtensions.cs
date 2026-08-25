@@ -5,6 +5,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Skills;
 using CarnotCycleCircus.Core.Domain.Standards;
 using CarnotCycleCircus.Core.Domain.Storage;
@@ -39,6 +40,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IExternalMemoryConnector, ExternalMemoryConnector>();
         services.AddSingleton<IMemoryConsolidationEngine, MemoryConsolidationEngine>();
         services.AddSingleton<IContextAwareMemoryInjector, ContextAwareMemoryInjector>();
+
+        // Cryptographic Security & Envelope Encryption
+        services.AddSingleton<IMasterKeyProvider, MasterKeyProvider>();
+        services.AddSingleton<ISecureKeyEncryptor, AesGcmKeyEncryptor>();
 
         // Inference & Key Vault
         services.AddSingleton<IApiKeyVaultService, ApiKeyVaultService>();

@@ -35,6 +35,42 @@ public class ApiKeyVaultTests
     }
 
     [Fact]
+    public void DeleteKey_ShouldRemoveFromVault()
+    {
+        var key = _vault.AddOrUpdateKey("Temporary Key", "sk-or-v1-temp12345678", isActive: false);
+        _vault.GetKey(key.KeyId).Should().NotBeNull();
+
+        var deleted = _vault.DeleteKey(key.KeyId);
+        deleted.Should().BeTrue();
+
+        _vault.GetKey(key.KeyId).Should().BeNull();
+    }
+
+    [Fact]
+    public void KeyUpdatedEvent_ShouldTriggerOnAddAndActiveChange()
+    {
+        ApiKeyVaultEntry? lastUpdated = null;
+        _vault.OnKeyUpdated += entry => lastUpdated = entry;
+
+        var key = _vault.AddOrUpdateKey("Event Key", "sk-or-v1-eventkey12345", isActive: true);
+        lastUpdated.Should().NotBeNull();
+        lastUpdated!.KeyId.Should().Be(key.KeyId);
+
+        var key2 = _vault.AddOrUpdateKey("Event Key 2", "sk-or-v1-eventkey67890", isActive: false);
+        _vault.SetActiveKey(key2.KeyId);
+
+        lastUpdated.KeyId.Should().Be(key2.KeyId);
+        lastUpdated.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TestKeyConnectionAsync_WithSandboxKey_ShouldReturnTrue()
+    {
+        var result = await _vault.TestKeyConnectionAsync("sk-or-v1-sandbox-mock-carnot-circus-0001");
+        result.Should().BeTrue();
+    }
+
+    [Fact]
     public void AgentInferenceResolver_ShouldResolveCorrectModelAndKey()
     {
         var customKey = _vault.AddOrUpdateKey("Custom Key", "sk-or-v1-customkey123", isActive: false);

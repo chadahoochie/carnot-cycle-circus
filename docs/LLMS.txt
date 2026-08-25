@@ -75,8 +75,10 @@
   - `StepNextNodeAsync(ct)`: Executes the next pending ready ticket in single-step mode.
   - Circuit Breakers: Configurable `FailurePolicy` tripping on excessive retries.
 
-### 4.4 Inference & Key Vault (`CarnotCycleCircus.Core.Domain.Inference`)
-- `IApiKeyVaultService`: Client-side key storage supporting named OpenRouter API keys with active key toggling, role-level key overrides, and connection validation.
+### 4.4 Cryptographic Security & Key Vault (`CarnotCycleCircus.Core.Domain.Security`, `Inference`)
+- `ISecureKeyEncryptor` / `AesGcmKeyEncryptor`: Authenticated AES-256-GCM AEAD envelope encryption with 96-bit nonces, 128-bit integrity tags, associated authenticated data (AAD) context binding, and zero-allocation span operations.
+- `IMasterKeyProvider` / `MasterKeyProvider`: Multi-tier master encryption key derivation (Environment Variable -> Host-bound `.carnot.master.key` (0600) -> PBKDF2-HMAC-SHA256 310k iterations -> In-memory ephemeral).
+- `IApiKeyVaultService`: Encrypted-at-rest credential storage (`keys.vault.json`), key rotation (`RotateMasterKeyAsync`), passphrase-encrypted export/import (`ExportEncryptedVaultAsync` / `ImportEncryptedVaultAsync`), active key swapping, legacy `keys.json` migration, and security health audit.
 - `IOpenRouterClient`: Multi-model chat completion client with fallback to local simulation mode when using sandbox/mock keys.
 - `IAgentInferenceResolver`: Resolves effective model and API key per agent member with team inheritance.
 - `ISimulatedScenarioEngine`: Generates deterministic, high-quality engineering deliverables when operating in offline/sandbox mode.
@@ -114,6 +116,7 @@ src/
 │   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs
 │   │   ├── Knowledge/   # KnowledgeMapService.cs
 │   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
+│   │   ├── Security/    # EncryptedPayload.cs, IMasterKeyProvider.cs, ISecureKeyEncryptor.cs
 │   │   ├── Skills/      # SkillRegistry.cs
 │   │   ├── Standards/   # StandardsValidator.cs
 │   │   ├── Teams/       # TeamDefinitionManager.cs

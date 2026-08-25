@@ -54,13 +54,21 @@ graph LR
 
 ---
 
-## 3. Client-Side API Key Vault (`ApiKeyVaultService`)
+## 3. Client-Side API Key Vault & Cryptographic Storage (`ApiKeyVaultService`)
 
-To safeguard sensitive API credentials:
-1. **Isolated Key Storage**: Keys are held in memory during operation and never written to plain server logs.
-2. **Masked Representations**: All UI views display masked key strings (e.g. `sk-or...4f9a`).
-3. **Live Mid-Flight Swapping**: Operators can switch the active API key directly from the top navigation bar or Key Vault modal without restarting running workflows.
-4. **Key Connectivity Testing**: Built-in endpoint validation tests key validity against `https://openrouter.ai/api/v1/auth/key`.
+To safeguard sensitive API credentials, the platform enforces hardware-accelerated **Envelope Encryption (ADR-0009)**:
+1. **Authenticated Encryption at Rest (AES-256-GCM AEAD)**: Keys persisted to disk in `keys.vault.json` are encrypted using authenticated AES-256-GCM with 96-bit random nonces and 128-bit integrity tags.
+2. **Context-Bound Associated Data (AAD)**: Ciphertext is cryptographically bound to key identifiers (`carnot:vault:v1:{KeyId}:{Provider}`) to prevent ciphertext transplantation or swapping.
+3. **Multi-Tier Master Key Provider (`IMasterKeyProvider`)**:
+   - `CARNOT_VAULT_MASTER_KEY` / `CARNOT_MASTER_KEY` environment variable.
+   - Host-bound persistent key file (`.carnot.master.key` with POSIX `0600` permissions).
+   - PBKDF2-HMAC-SHA256 derivation with 310,000 iterations and cryptographic salts.
+4. **Memory Hygiene & Zeroization**: Cryptographic buffers and intermediate secret spans are wiped via `CryptographicOperations.ZeroMemory`.
+5. **Key Masking**: UI representations display masked strings (`sk-or...4f9a`), and logs strip authentication headers.
+6. **Master Key Rotation & Backup Export**:
+   - Operators can rotate master encryption keys (`RotateMasterKeyAsync`), which re-encrypts all stored secrets under a new key.
+   - Encrypted backup bundles can be exported and imported with password-based encryption (`ExportEncryptedVaultAsync` / `ImportEncryptedVaultAsync`).
+7. **Transparent Migration**: Automatically detects and migrates legacy plaintext `keys.json` files to encrypted `keys.vault.json`, removing the cleartext file immediately.
 
 ### 3.1 Key Resolution Hierarchy (`AgentInferenceResolver`)
 
@@ -117,8 +125,8 @@ The platform adheres to strict security controls across all boundaries:
 | STRIDE Category | Threat Vector | Mitigation Strategy | Verification In Code |
 | :--- | :--- | :--- | :--- |
 | **Spoofing** | Rogue agent impersonation | All `HandoffPacket` and `AgentMessage` records carry strongly-typed `AgentRole` identities and immutable IDs. | `HandoffPacket.cs` |
-| **Tampering** | In-flight payload mutation | Domain models are declared as C# `record` types; setters are banned. | `TicketItem.cs` |
+| **Tampering** | In-flight payload mutation / disk manipulation | Domain models are immutable C# `record` types; persisted key vaults use AES-256-GCM AEAD authentication tags. | `TicketItem.cs`, `AesGcmKeyEncryptor.cs` |
 | **Repudiation** | Disputed handoff history | `IAgentEventStream` logs an append-only in-memory telemetry trail. | `AgentEventStream.cs` |
-| **Information Disclosure** | API key leakage | Key Vault masks credentials; logs strip raw authentication tokens. | `ApiKeyVaultService.cs` |
+| **Information Disclosure** | API key leakage & disk exfiltration | Keys are encrypted at rest with AES-256-GCM; memory is sanitized via `CryptographicOperations.ZeroMemory`; UI displays masked credentials. | `ApiKeyVaultService.cs`, `MasterKeyProvider.cs` |
 | **Denial of Service** | Infinite retry loops & runaway tokens | `FailurePolicy` enforces `MaxRetries` and trips circuit breakers on repeated rejection. | `WorkflowGraph.cs` |
 | **Elevation of Privilege**| Unauthorized tool execution | Tools are sandboxed via `IToolDefinition` with strict per-role `AllowedToolNames` access control. | `AgentPersona.cs` |
