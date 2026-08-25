@@ -284,8 +284,12 @@ public class EndToEndSystemVerificationTests : IDisposable
         semanticMemories.Should().NotBeEmpty();
         semanticMemories.Should().Contain(m => m.Content.Contains("Reinforced Rule"));
 
-        // Allow async storage flush
-        await Task.Delay(250);
+        // Allow explicit storage flush
+        await skillRegistry.FlushAsync();
+        await teamManager.FlushAsync();
+        await ticketStore.FlushAsync();
+        await knowledgeMap.FlushAsync();
+        await memoryStore.FlushAsync();
 
         // =========================================================================
         // PILLAR 7: COLD-START RESTART & 100% PERSISTENCE VERIFICATION
@@ -423,7 +427,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         var roles = registry.GetRolesForSkill("skill-e2e-matrix-test");
         roles.Should().Contain([AgentRole.LeadArchitect, AgentRole.SoftwareDeveloper, AgentRole.OptimizationEngineer]);
 
-        await Task.Delay(150);
+        await registry.FlushAsync();
 
         // Cold-start reload
         var reloadedRegistry = new SkillRegistry(importer, _storageService);
@@ -509,7 +513,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         finalTicket!.Status.Should().Be(TicketStatus.Done);
         finalTicket.Deliverables.Should().HaveCount(2);
 
-        await Task.Delay(150);
+        await ticketStore.FlushAsync();
 
         // Cold reload validation
         var reloadedStore = new TicketStore(_storageService);
@@ -548,7 +552,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         node.Should().NotBeNull();
         node!.Summary.Should().Contain("GeneratedRegexAttribute");
 
-        await Task.Delay(150);
+        await knowledgeMap.FlushAsync();
 
         // Verify across reload
         var reloadedKnowledgeMap = new KnowledgeMapService(_storageService);

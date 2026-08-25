@@ -209,6 +209,7 @@ public interface ISkillRegistry
     IReadOnlyList<SkillDefinition> GetSkillsForRole(AgentRole role);
     IReadOnlyList<AgentRole> GetRolesForSkill(string skillId);
     void UpdateSkillRoles(string skillId, IEnumerable<AgentRole> roles);
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class SkillRegistry : ISkillRegistry
@@ -216,6 +217,7 @@ public class SkillRegistry : ISkillRegistry
     private readonly ConcurrentDictionary<string, SkillDefinition> _skills = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, HashSet<AgentRole>> _roleAssignments = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string StorageFileName = "skills.json";
 
     public SkillRegistry(ISkillImporter importer, IPersistentStorageService? storageService = null)
@@ -257,27 +259,38 @@ public class SkillRegistry : ISkillRegistry
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var list = GetAllSkills();
+            await _storageService.SaveJsonAsync(StorageFileName, list, cancellationToken);
+
+            // Also save skill markdown documents in skills directory
+            foreach (var s in list)
+            {
+                var md = $"---\nname: {s.Name}\nid: {s.Id}\ndescription: {s.Description}\ncategory: {s.Category}\ntools: [{string.Join(", ", s.RecommendedTools)}]\n---\n\n{s.Instructions}";
+                await _storageService.SaveTextAsync($"skills/{s.Id}.md", md, cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ignore transient write error
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                var list = GetAllSkills();
-                await _storageService.SaveJsonAsync(StorageFileName, list);
-
-                // Also save skill markdown documents in skills directory
-                foreach (var s in list)
-                {
-                    var md = $"---\nname: {s.Name}\nid: {s.Id}\ndescription: {s.Description}\ncategory: {s.Category}\ntools: [{string.Join(", ", s.RecommendedTools)}]\n---\n\n{s.Instructions}";
-                    await _storageService.SaveTextAsync($"skills/{s.Id}.md", md);
-                }
-            }
-            catch
-            {
-                // Ignore transient write error
-            }
+            await FlushAsync();
         });
     }
 

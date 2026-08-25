@@ -204,6 +204,11 @@ public class SelfImprovementEngine : ISelfImprovementEngine
 
             _latestReport = report;
 
+            // Flush dependent subsystems to storage
+            await _knowledgeMap.FlushAsync(cancellationToken);
+            await _memoryStore.FlushAsync(cancellationToken);
+            await _ticketStore.FlushAsync(cancellationToken);
+
             // Persist report & markdown artifact
             if (_storageService != null)
             {

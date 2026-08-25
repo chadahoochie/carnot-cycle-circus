@@ -145,6 +145,7 @@ public interface ITeamDefinitionManager
     void AddMemberToCurrentTeam(AgentMember member);
     bool RemoveMemberFromCurrentTeam(string memberId);
     void UpdateMemberInCurrentTeam(AgentMember member);
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     event Action<EngineeringTeam>? OnCurrentTeamChanged;
 }
@@ -154,6 +155,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
     private readonly ConcurrentDictionary<string, TeamDefinition> _teams = new(StringComparer.OrdinalIgnoreCase);
     private EngineeringTeam _currentTeam;
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string TeamsFileName = "teams.json";
     private const string ActiveTeamFileName = "active-team-id.json";
 
@@ -204,20 +206,31 @@ public class TeamDefinitionManager : ITeamDefinitionManager
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _storageService.SaveJsonAsync(TeamsFileName, _teams.Values.ToList(), cancellationToken);
+            await _storageService.SaveJsonAsync(ActiveTeamFileName, _currentTeam.Id, cancellationToken);
+        }
+        catch
+        {
+            // Ignore transient write error
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                await _storageService.SaveJsonAsync(TeamsFileName, _teams.Values.ToList());
-                await _storageService.SaveJsonAsync(ActiveTeamFileName, _currentTeam.Id);
-            }
-            catch
-            {
-                // Ignore transient write error
-            }
+            await FlushAsync();
         });
     }
 

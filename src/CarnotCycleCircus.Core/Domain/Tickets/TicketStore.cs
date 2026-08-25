@@ -20,6 +20,7 @@ public interface ITicketStore
     IReadOnlyList<HandoffPacket> GetHandoffsForTicket(string ticketId);
     IReadOnlyList<HandoffPacket> GetAllHandoffs();
     void Clear();
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     event Action<TicketItem>? OnTicketChanged;
     event Action<HandoffPacket>? OnHandoffRecorded;
@@ -30,6 +31,7 @@ public class TicketStore : ITicketStore
     private readonly ConcurrentDictionary<string, TicketItem> _tickets = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentQueue<HandoffPacket> _handoffs = new();
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string TicketsFileName = "tickets.json";
     private const string HandoffsFileName = "handoffs.json";
 
@@ -65,20 +67,31 @@ public class TicketStore : ITicketStore
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _storageService.SaveJsonAsync(TicketsFileName, _tickets.Values.ToList(), cancellationToken);
+            await _storageService.SaveJsonAsync(HandoffsFileName, _handoffs.ToList(), cancellationToken);
+        }
+        catch
+        {
+            // Non-fatal write failure
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                await _storageService.SaveJsonAsync(TicketsFileName, _tickets.Values.ToList());
-                await _storageService.SaveJsonAsync(HandoffsFileName, _handoffs.ToList());
-            }
-            catch
-            {
-                // Non-fatal write failure
-            }
+            await FlushAsync();
         });
     }
 
