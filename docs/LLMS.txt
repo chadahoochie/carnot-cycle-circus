@@ -102,6 +102,11 @@
 ### 4.10 Real-Time Telemetry Stream (`CarnotCycleCircus.Core.Domain.Events`)
 - `IAgentEventStream`: In-memory thread-safe pub/sub bus publishing `AgentMessage` items (Chat, Thought, ToolCall, ToolOutput, Handoff, StateChange, Alert, ArtifactCreated) with bounded 1,000-message buffer.
 
+### 4.11 Project Blueprints, Harvester & Showcase (`CarnotCycleCircus.Core.Domain.Blueprints`, `Harvester`, `Showcase`)
+- `IProjectBlueprintService`: 1-click curated architectural blueprints (IoT Ingestion, E-Commerce Saga, Zero-Trust Identity, Distributed CQRS, Chaos Benchmark Arena) and custom project ignition. Auto-decomposes Epics, registers initial ADRs, populates knowledge maps, and switches squad archetype.
+- `ICodebaseHarvesterService`: Scans local solutions/directories, discovers project boundaries, extracts dependencies, detects architecture patterns, audits tech debt, and generates prioritized improvement tickets.
+- `IShowcaseDemoService`: Zero-setup 1-click interactive demo runner for live swarm execution, failure remediation loopbacks, and nanosecond optimization benchmarking without API keys.
+
 ---
 
 ## 5. File & Directory Reference
@@ -110,15 +115,20 @@ src/
 ├── CarnotCycleCircus.Core/
 │   ├── Domain/
 │   │   ├── Agents/      # AgentRole.cs, AgentPersona.cs, EngineeringTeam.cs
+│   │   ├── Blueprints/  # ProjectBlueprintService.cs
 │   │   ├── Docs/        # AdrDocumentManager.cs
 │   │   ├── Events/      # AgentEventStream.cs, ArtifactItem.cs
 │   │   ├── Graph/       # WorkflowGraph.cs, GraphWorkflowExecutor.cs
+│   │   ├── Harvester/   # CodebaseHarvesterService.cs
 │   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs
 │   │   ├── Knowledge/   # KnowledgeMapService.cs
+│   │   ├── Learning/    # SelfImprovementEngine.cs, AutonomousSelfImprovementWorker.cs
 │   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
 │   │   ├── Security/    # EncryptedPayload.cs, IMasterKeyProvider.cs, ISecureKeyEncryptor.cs
+│   │   ├── Showcase/    # ShowcaseDemoService.cs
 │   │   ├── Skills/      # SkillRegistry.cs
 │   │   ├── Standards/   # StandardsValidator.cs
+│   │   ├── Storage/     # FilePersistentStorageService.cs
 │   │   ├── Teams/       # TeamDefinitionManager.cs
 │   │   ├── Tickets/     # TicketEnums.cs, TicketItem.cs, TicketStore.cs, WorkDecompositionEngine.cs, HandoffRouter.cs
 │   │   └── Tools/       # IToolDefinition.cs, StandardTools.cs
@@ -127,11 +137,12 @@ src/
 ├── CarnotCycleCircus.Web/
 │   ├── Components/
 │   │   ├── App.razor, Routes.razor, _Imports.razor
-│   │   ├── KeyVaultModal.razor, TicketCard.razor, TicketModal.razor
+│   │   ├── KeyVaultModal.razor, ProjectIgnitionModal.razor, CodebaseHarvesterModal.razor, ShowcaseModal.razor
+│   │   ├── QuickstartRingmasterBanner.razor, TicketCard.razor, TicketModal.razor
 │   │   ├── Layout/      # MainLayout.razor, NavMenu.razor
-│   │   └── Pages/       # TicketManager, WorkflowCanvas, ExecutionDashboard, MemoryInspector, TeamDefinition, DocsAndAdrs, StandardsManager, KnowledgeMapExplorer, SkillManager, SkillMatrix
+│   │   └── Pages/       # TicketManager, WorkflowCanvas, ExecutionDashboard, MemoryInspector, TeamDefinition, DocsAndAdrs, StandardsManager, KnowledgeMapExplorer, SkillManager, SkillMatrix, SelfImprovementStudio
 │   └── Program.cs
 │
 tests/
-└── CarnotCycleCircus.Tests/ # xUnit test suites for all Core domain services
+└── CarnotCycleCircus.Tests/ # 17 xUnit test suites for all Core domain services
 ```

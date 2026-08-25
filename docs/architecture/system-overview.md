@@ -56,6 +56,8 @@ C4Container
         }
     }
 
+    System_Ext(openrouter, "OpenRouter API Gateway", "Unified multi-model LLM inference provider (Claude 3.7, GPT-4o, DeepSeek-R1, Qwen 2.5 Coder, o3-mini).")
+
     Rel(user, web, "Navigates & interacts", "HTTPS")
     Rel(web, orchestrator, "Triggers workflow runs", "In-Process C#")
     Rel(web, tickets, "Queries & updates tickets", "In-Process C#")
@@ -132,7 +134,7 @@ sequenceDiagram
     participant Arch as Architect (Archduke Archibald)
     participant Dev as Developer (Devon Crashdump)
     participant Sec as Security (Sari Sandbox)
-    participant Opt as Optimizer (Otto-Cycle Overclock)
+    participant Optimizer as Optimizer (Otto-Cycle Overclock)
     participant QA as QA Analyst (Quinn Build-Executioner)
     participant Handoff as HandoffRouter
     participant Mem as MemorySystem
@@ -179,9 +181,9 @@ sequenceDiagram
         Sec->>Sec: Produce STRIDE Threat Model Matrix (Approved)
         Sec->>Handoff: AdvanceWorkflowOnTicketCompletion(Subtask 3 -> Done)
     and Optimization Review
-        Executor->>Opt: Activate Optimizer Node (Subtask 4)
-        Opt->>Opt: Benchmark hot paths (< 5ms P99, 0 Gen0 Allocations)
-        Opt->>Handoff: AdvanceWorkflowOnTicketCompletion(Subtask 4 -> Done)
+        Executor->>Optimizer: Activate Optimizer Node (Subtask 4)
+        Optimizer->>Optimizer: Benchmark hot paths (< 5ms P99, 0 Gen0 Allocations)
+        Optimizer->>Handoff: AdvanceWorkflowOnTicketCompletion(Subtask 4 -> Done)
     end
 
     %% 5. QA Phase

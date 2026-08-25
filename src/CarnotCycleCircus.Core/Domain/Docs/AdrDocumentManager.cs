@@ -264,6 +264,29 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr10.Id] = adr10;
 
+        var adr11 = new ArchitecturalDecisionRecord(
+            Id: "ADR-011",
+            Title: "Project Ignition Wizard, Codebase Harvester, and Zero-Setup Showcase Arena",
+            Status: AdrStatus.Accepted,
+            Context: "Technical users require frictionless onboarding with time-to-first-dopamine under 60 seconds, supporting both greenfield blueprints and brownfield codebase harvesting.",
+            Decision: "Implement IProjectBlueprintService for 1-click curated project ignition, ICodebaseHarvesterService for local repo scanning and tech debt backlog generation, and IShowcaseDemoService for instant 0-key interactive swarm simulations.",
+            AlternativesConsidered: [
+                "Manual ticket creation only (rejected: high friction for new users)",
+                "External CLI tool only (rejected: breaks web UI first-class discoverability)"
+            ],
+            ConsequencesPositive: [
+                "Sub-60s onboarding time for technical users",
+                "Automated ingestion of local repositories into 4-tier vector memory and knowledge graph",
+                "Zero-key offline showcase arena for immediate evaluation"
+            ],
+            ConsequencesNegative: [
+                "Local file system inspection requires directory read permissions"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr11.Id] = adr11;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

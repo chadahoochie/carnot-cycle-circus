@@ -1,0 +1,189 @@
+@inject ICodebaseHarvesterService HarvesterService
+@inject NavigationManager Navigation
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-content" style="max-width: 860px; max-height: 90vh; overflow-y: auto;" @onclick:stopPropagation="true">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.8rem;">🔍</span>
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
+                        Codebase Harvester (Existing Project)
+                    </h3>
+                    <div style="font-size: 0.8rem; color: #38bdf8;">
+                        Scan any local repository to auto-extract tech stack, build knowledge maps, audit debt, and generate action items.
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.9rem;" @onclick="Close">✕</button>
+        </div>
+
+        <!-- Scan Input Form -->
+        <div class="glass-card" style="margin-bottom: 20px;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 6px;">
+                Target Codebase / Solution Directory Path
+            </label>
+            <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                <input class="form-control" style="font-family: monospace;" placeholder="/path/to/my-solution" @bind="targetDirectory" />
+                <button class="btn btn-secondary" style="white-space: nowrap;" @onclick="UseCurrentWorkspace">
+                    📍 Current Repo
+                </button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); cursor: pointer;">
+                    <input type="checkbox" @bind="autoGenerateBacklog" />
+                    <span>Automatically generate STRIDE security, performance, and test backlog tickets</span>
+                </label>
+
+                <button class="btn btn-primary" @onclick="RunHarvest" disabled="@isScanning">
+                    @(isScanning ? "⏳ Harvesting Architecture..." : "🚀 Scan & Ingest Codebase")
+                </button>
+            </div>
+        </div>
+
+        @if (harvestReport != null)
+        {
+            <!-- Harvest Report Results -->
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Summary KPI Cards -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Solution</div>
+                        <div style="font-size: 1.05rem; font-weight: 700; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            @harvestReport.SolutionName
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">C# Files</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #10b981;">
+                            @harvestReport.CSharpFilesCount
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Test Suites</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">
+                            @harvestReport.TestFilesCount files
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Generated Tickets</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #a855f7;">
+                            @harvestReport.GeneratedTicketIds.Count items
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Patterns -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #38bdf8; margin-bottom: 10px;">
+                        🏛️ Detected Architectural Patterns & Frameworks
+                    </h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        @foreach (var pattern in harvestReport.DetectedPatterns)
+                        {
+                            <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.8rem; padding: 4px 8px;">
+                                @pattern
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Quality & Tech Debt Insights -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #f59e0b; margin-bottom: 10px;">
+                        📊 Tech Debt Radar & Quality Insights
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        @foreach (var insight in harvestReport.QualityInsights)
+                        {
+                            <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                                <span>@insight</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Discovered Projects List -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #f8fafc; margin-bottom: 10px;">
+                        📦 Discovered Project Modules (@harvestReport.Projects.Count)
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach (var proj in harvestReport.Projects)
+                        {
+                            <div style="background: var(--bg-primary); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 700; color: #f8fafc; font-size: 0.9rem;">@proj.Name</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@proj.RelativePath</div>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; font-size: 0.72rem;">
+                                        @proj.TargetFramework
+                                    </span>
+                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem;">
+                                        @proj.ProjectType
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Action Navigation Buttons -->
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                    <button class="btn btn-secondary" @onclick='() => NavigateTo("/knowledge")'>
+                        🗺️ View Knowledge Map
+                    </button>
+                    <button class="btn btn-primary" @onclick='() => NavigateTo("/tickets")'>
+                        📋 View Backlog on Kanban
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string targetDirectory = Directory.GetCurrentDirectory();
+    private bool autoGenerateBacklog = true;
+    private bool isScanning = false;
+    private CodebaseHarvestReport? harvestReport;
+
+    protected override void OnInitialized()
+    {
+        harvestReport = HarvesterService.GetLatestReport();
+    }
+
+    private void UseCurrentWorkspace()
+    {
+        targetDirectory = Directory.GetCurrentDirectory();
+    }
+
+    private async Task RunHarvest()
+    {
+        isScanning = true;
+        try
+        {
+            harvestReport = await HarvesterService.HarvestDirectoryAsync(targetDirectory, autoGenerateBacklog);
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    private async Task NavigateTo(string path)
+    {
+        Navigation.NavigateTo(path);
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}

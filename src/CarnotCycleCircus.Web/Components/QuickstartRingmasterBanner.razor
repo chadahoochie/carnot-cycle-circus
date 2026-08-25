@@ -1,0 +1,129 @@
+<div class="glass-card" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(56, 189, 248, 0.3); padding: 20px; margin-bottom: 24px; position: relative; overflow: hidden;">
+    <!-- Background circus glow -->
+    <div style="position: absolute; top: -40px; right: -40px; width: 140px; height: 140px; background: radial-gradient(circle, rgba(56, 189, 248, 0.2) 0%, transparent 70%); border-radius: 50%; pointer-events: none;"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 2.4rem;">🎪</span>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 style="font-size: 1.3rem; font-weight: 800; color: #f8fafc; margin-bottom: 0;">
+                        Circus Ringmaster Quickstart & Project Ignition
+                    </h3>
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.7rem;">
+                        ⚡ Time to Dopamine: &lt; 60s
+                    </span>
+                </div>
+                <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px; margin-bottom: 0;">
+                    Choose your track below to get productive immediately. Whether building greenfield or upgrading an existing repo:
+                </p>
+            </div>
+        </div>
+
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; color: var(--text-muted);" @onclick="ToggleCollapsed">
+            @(isCollapsed ? "▼ Show Quickstart" : "▲ Collapse")
+        </button>
+    </div>
+
+    @if (!isCollapsed)
+    {
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+            <!-- Track 1: Scratch -->
+            <div class="glass-card" style="border: 1px solid rgba(56, 189, 248, 0.4); background: rgba(15, 23, 42, 0.6); cursor: pointer; transition: transform 0.15s, border-color 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
+                 @onclick="OpenIgnition"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#38bdf8';"
+                 onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(56, 189, 248, 0.4)';">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 1.6rem;">🌱</span>
+                        <div>
+                            <div style="font-weight: 700; color: #38bdf8; font-size: 1rem;">Track A: Greenfield Project</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">From Scratch / Blueprints</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin-bottom: 12px;">
+                        Select curated architecture blueprints (IoT Ingestion, E-Commerce, Identity Vault, CQRS) or describe your vision. Auto-generates Epics, DAG tasks, and initial ADR.
+                    </p>
+                </div>
+                <button class="btn btn-primary" style="width: 100%; font-size: 0.85rem; padding: 6px 12px;" @onclick="OpenIgnition" @onclick:stopPropagation="true">
+                    🚀 Launch Ignition Wizard
+                </button>
+            </div>
+
+            <!-- Track 2: Existing Codebase -->
+            <div class="glass-card" style="border: 1px solid rgba(16, 185, 129, 0.4); background: rgba(15, 23, 42, 0.6); cursor: pointer; transition: transform 0.15s, border-color 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
+                 @onclick="OpenHarvester"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#10b981';"
+                 onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(16, 185, 129, 0.4)';">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 1.6rem;">🔍</span>
+                        <div>
+                            <div style="font-weight: 700; color: #10b981; font-size: 1rem;">Track B: Existing Codebase</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">Repo Harvester & Debt Radar</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin-bottom: 12px;">
+                        Point Carnot to your solution or local repository. Auto-extracts modules, builds AI knowledge maps, detects test gaps, and generates prioritized improvement tickets.
+                    </p>
+                </div>
+                <button class="btn btn-success" style="width: 100%; font-size: 0.85rem; padding: 6px 12px;" @onclick="OpenHarvester" @onclick:stopPropagation="true">
+                    📂 Harvest Existing Repo
+                </button>
+            </div>
+
+            <!-- Track 3: Instant 0-Key Showcase -->
+            <div class="glass-card" style="border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(15, 23, 42, 0.6); cursor: pointer; transition: transform 0.15s, border-color 0.15s; display: flex; flex-direction: column; justify-content: space-between;"
+                 @onclick="OpenShowcase"
+                 onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='#f59e0b';"
+                 onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='rgba(245, 158, 11, 0.4)';">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 1.6rem;">🍿</span>
+                        <div>
+                            <div style="font-weight: 700; color: #f59e0b; font-size: 1rem;">Track C: Live 30s Showcase</div>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">Zero API Keys Needed</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin-bottom: 12px;">
+                        Watch all 6 autonomous roles execute an end-to-end sprint or witness the hilarious Friday 4:59 PM panic & remediation loopback with live telemetry pulses.
+                    </p>
+                </div>
+                <button class="btn btn-secondary" style="width: 100%; font-size: 0.85rem; padding: 6px 12px; color: #f59e0b; border-color: #f59e0b;" @onclick="OpenShowcase" @onclick:stopPropagation="true">
+                    ⚡ Watch Swarm in Action
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (showIgnitionModal)
+{
+    <ProjectIgnitionModal OnClose="() => showIgnitionModal = false" />
+}
+
+@if (showHarvesterModal)
+{
+    <CodebaseHarvesterModal OnClose="() => showHarvesterModal = false" />
+}
+
+@if (showShowcaseModal)
+{
+    <ShowcaseModal OnClose="() => showShowcaseModal = false" />
+}
+
+@code {
+    private bool isCollapsed = false;
+    private bool showIgnitionModal = false;
+    private bool showHarvesterModal = false;
+    private bool showShowcaseModal = false;
+
+    private void ToggleCollapsed()
+    {
+        isCollapsed = !isCollapsed;
+    }
+
+    private void OpenIgnition() => showIgnitionModal = true;
+    private void OpenHarvester() => showHarvesterModal = true;
+    private void OpenShowcase() => showShowcaseModal = true;
+}

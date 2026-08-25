@@ -27,11 +27,11 @@ graph TD
     Story --> Sub4
     Story --> Sub5
 
-    Sub1 -->|DependsOn: []| Sub2
-    Sub2 -->|DependsOn: [Sub1]| Sub3
-    Sub2 -->|DependsOn: [Sub1]| Sub4
-    Sub3 -->|DependsOn: [Sub2]| Sub5
-    Sub4 -->|DependsOn: [Sub2]| Sub5
+    Sub1 -->|"DependsOn: []"| Sub2
+    Sub2 -->|"DependsOn: [Sub1]"| Sub3
+    Sub2 -->|"DependsOn: [Sub1]"| Sub4
+    Sub3 -->|"DependsOn: [Sub2]"| Sub5
+    Sub4 -->|"DependsOn: [Sub2]"| Sub5
 ```
 
 ### 2.1 Ticket Types & Priorities
