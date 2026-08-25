@@ -55,18 +55,18 @@ public class FilePersistentStorageService : IPersistentStorageService
 
         var json = JsonSerializer.Serialize(data, _jsonOptions);
 
-        await _lock.WaitAsync(cancellationToken);
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_options.EnableAtomicWrites)
             {
                 var tempPath = $"{fullPath}.tmp.{Guid.NewGuid():N}";
-                await File.WriteAllTextAsync(tempPath, json, cancellationToken);
+                await File.WriteAllTextAsync(tempPath, json, cancellationToken).ConfigureAwait(false);
                 File.Move(tempPath, fullPath, overwrite: true);
             }
             else
             {
-                await File.WriteAllTextAsync(fullPath, json, cancellationToken);
+                await File.WriteAllTextAsync(fullPath, json, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -83,10 +83,10 @@ public class FilePersistentStorageService : IPersistentStorageService
             return default;
         }
 
-        await _lock.WaitAsync(cancellationToken);
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var json = await File.ReadAllTextAsync(fullPath, cancellationToken);
+            var json = await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(json))
             {
                 return default;
@@ -113,18 +113,18 @@ public class FilePersistentStorageService : IPersistentStorageService
             Directory.CreateDirectory(dir);
         }
 
-        await _lock.WaitAsync(cancellationToken);
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_options.EnableAtomicWrites)
             {
                 var tempPath = $"{fullPath}.tmp.{Guid.NewGuid():N}";
-                await File.WriteAllTextAsync(tempPath, content, cancellationToken);
+                await File.WriteAllTextAsync(tempPath, content, cancellationToken).ConfigureAwait(false);
                 File.Move(tempPath, fullPath, overwrite: true);
             }
             else
             {
-                await File.WriteAllTextAsync(fullPath, content, cancellationToken);
+                await File.WriteAllTextAsync(fullPath, content, cancellationToken).ConfigureAwait(false);
             }
         }
         finally
@@ -141,10 +141,10 @@ public class FilePersistentStorageService : IPersistentStorageService
             return null;
         }
 
-        await _lock.WaitAsync(cancellationToken);
+        await _lock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await File.ReadAllTextAsync(fullPath, cancellationToken);
+            return await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
