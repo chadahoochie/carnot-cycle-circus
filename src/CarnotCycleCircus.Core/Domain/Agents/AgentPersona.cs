@@ -7,9 +7,12 @@ public record AgentPersona(
     string DefaultModel,
     string FallbackModel,
     double Temperature,
-    IReadOnlyList<string> AllowedToolNames
+    IReadOnlyList<string> AllowedToolNames,
+    IReadOnlyList<string>? AssignedSkillIds = null
 )
 {
+    public IReadOnlyList<string> AssignedSkillIds { get; init; } = AssignedSkillIds ?? Array.Empty<string>();
+
     public static AgentPersona CreateDefault(AgentRole role) => role switch
     {
         AgentRole.TechnicalProductManager => new(

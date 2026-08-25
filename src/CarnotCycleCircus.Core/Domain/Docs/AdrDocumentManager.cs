@@ -241,6 +241,29 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr9.Id] = adr9;
 
+        var adr10 = new ArchitecturalDecisionRecord(
+            Id: "ADR-010",
+            Title: "Dynamic Agent Troupe Lifecycle and Skill-Infused Agent Naming Engine",
+            Status: AdrStatus.Accepted,
+            Context: "Static 6-agent troupes prevented users from customizing troupe composition, creating multi-specialist squads, or infusing assigned skills into cognitive directives.",
+            Decision: "Implement dynamic agent addition/removal, unique member IDs, skill-infused absurd circus agent name generation, and automated prompt synthesis enforcing the Deliverable Isolation Contract.",
+            AlternativesConsidered: [
+                "Static pre-baked name lists (rejected: cannot dynamically reflect custom imported skills)",
+                "Pure LLM name generation on startup (rejected: adds latency and fails in air-gapped environments)"
+            ],
+            ConsequencesPositive: [
+                "Dynamic troupe composition with atomic persistent storage",
+                "Theatrical skill-infused circus names and cognitive prompts",
+                "Strict deliverable isolation maintained across all personas"
+            ],
+            ConsequencesNegative: [
+                "Dynamic troupe sizing requires UI handling for variable team sizes"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr10.Id] = adr10;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

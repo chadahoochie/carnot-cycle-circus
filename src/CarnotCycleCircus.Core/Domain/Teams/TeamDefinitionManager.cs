@@ -17,6 +17,15 @@ public record TeamDefinition(
 {
     public EngineeringTeam ToEngineeringTeam() =>
         new(Id, Name, Description, Members, DefaultFallbackModel);
+
+    public TeamDefinition AddMember(AgentMember member) =>
+        this with { Members = [.. Members, member] };
+
+    public TeamDefinition RemoveMember(string memberId) =>
+        this with { Members = Members.Where(m => m.Id != memberId && m.Persona.Name != memberId).ToList() };
+
+    public TeamDefinition UpdateMember(AgentMember member) =>
+        this with { Members = Members.Select(m => m.Id == member.Id ? member : m).ToList() };
 }
 
 public static class TeamArchetypes
@@ -133,6 +142,9 @@ public interface ITeamDefinitionManager
     TeamDefinition ImportFromJson(string json);
     EngineeringTeam GetCurrentTeam();
     void SetCurrentTeam(TeamDefinition team);
+    void AddMemberToCurrentTeam(AgentMember member);
+    bool RemoveMemberFromCurrentTeam(string memberId);
+    void UpdateMemberInCurrentTeam(AgentMember member);
 
     event Action<EngineeringTeam>? OnCurrentTeamChanged;
 }
@@ -258,6 +270,60 @@ public class TeamDefinitionManager : ITeamDefinitionManager
         _currentTeam = team.ToEngineeringTeam();
         OnCurrentTeamChanged?.Invoke(_currentTeam);
         SaveToStorage();
+    }
+
+    public void AddMemberToCurrentTeam(AgentMember member)
+    {
+        var current = GetTeam(_currentTeam.Id) ?? new TeamDefinition(
+            Id: _currentTeam.Id,
+            Name: _currentTeam.Name,
+            Description: _currentTeam.Description,
+            ArchetypeName: "Custom",
+            Members: _currentTeam.Members,
+            DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var updated = current.AddMember(member);
+        SaveTeam(updated);
+        SetCurrentTeam(updated);
+    }
+
+    public bool RemoveMemberFromCurrentTeam(string memberId)
+    {
+        var current = GetTeam(_currentTeam.Id) ?? new TeamDefinition(
+            Id: _currentTeam.Id,
+            Name: _currentTeam.Name,
+            Description: _currentTeam.Description,
+            ArchetypeName: "Custom",
+            Members: _currentTeam.Members,
+            DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var updated = current.RemoveMember(memberId);
+        if (updated.Members.Count == current.Members.Count) return false;
+
+        SaveTeam(updated);
+        SetCurrentTeam(updated);
+        return true;
+    }
+
+    public void UpdateMemberInCurrentTeam(AgentMember member)
+    {
+        var current = GetTeam(_currentTeam.Id) ?? new TeamDefinition(
+            Id: _currentTeam.Id,
+            Name: _currentTeam.Name,
+            Description: _currentTeam.Description,
+            ArchetypeName: "Custom",
+            Members: _currentTeam.Members,
+            DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var updated = current.UpdateMember(member);
+        SaveTeam(updated);
+        SetCurrentTeam(updated);
     }
 
     public string ExportToJson(string teamId)

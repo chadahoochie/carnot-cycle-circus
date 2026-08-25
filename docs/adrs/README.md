@@ -19,6 +19,7 @@ ADRs record key architectural decisions, the context behind them, alternatives e
 | [**ADR-0007**](0007-embedded-ticket-management-and-dag-decomposition.md) | Embedded Ticket Management & DAG Work Decomposition | **Accepted** | 2026-08-21 | First-class ticket management ($Epics \to Stories \to Subtasks$) with automated TPM/Architect decomposition and structured `HandoffPacket` payloads. |
 | [**ADR-0008**](0008-persistent-volume-stack-and-autonomous-self-improvement.md) | Persistent Storage Engine & Autonomous Self-Improvement Docker Stack | **Accepted** | 2026-08-22 | File-backed atomic persistent storage across named Docker volumes (`carnot_data`, `carnot_artifacts`, `carnot_skills`) and continuous autonomous self-improvement loop. |
 | [**ADR-0009**](0009-secure-key-vault-storage-and-envelope-encryption.md) | Secure Key Storage, AEAD Envelope Encryption, and Master Key Derivation | **Accepted** | 2026-08-22 | Authenticated AES-256-GCM AEAD envelope encryption at rest, PBKDF2-HMAC-SHA256 master key derivation with 310,000 iterations, master key rotation, and encrypted backup export. |
+| [**ADR-0010**](0010-dynamic-agent-lifecycle-and-skill-infused-naming.md) | Dynamic Agent Troupe Lifecycle and Skill-Infused Agent Naming Engine | **Accepted** | 2026-08-24 | Enable dynamic addition/removal of agents, unique member IDs, skill-infused absurd circus agent name generation, and automated prompt synthesis. |
 
 ---
 

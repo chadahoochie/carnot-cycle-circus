@@ -1,3 +1,4 @@
+using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Docs;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Graph;
@@ -67,7 +68,8 @@ public static class ServiceCollectionExtensions
         // AI Knowledge Maps
         services.AddSingleton<IKnowledgeMapService, KnowledgeMapService>();
 
-        // Teams & Archetypes
+        // Teams, Archetypes & Agent Generator
+        services.AddSingleton<IAgentNameGenerator, AgentNameGenerator>();
         services.AddSingleton<ITeamDefinitionManager, TeamDefinitionManager>();
 
         // Skills & Importer
