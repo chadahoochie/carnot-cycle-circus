@@ -23,12 +23,14 @@ public interface IPersistentMemoryStore
     Task<IReadOnlyList<MemoryEntry>> GetAllAsync(CancellationToken cancellationToken = default);
     Task ClearAsync(CancellationToken cancellationToken = default);
     IReadOnlyList<float> GenerateEmbedding(string text);
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
 {
     private readonly ConcurrentDictionary<string, MemoryEntry> _store = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const int EmbeddingDimensions = 64;
     private const string StorageFileName = "memories.json";
 
@@ -58,24 +60,35 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var list = _store.Values.ToList();
+            await _storageService.SaveJsonAsync(StorageFileName, list, cancellationToken);
+        }
+        catch
+        {
+            // Error handled gracefully
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                var list = _store.Values.ToList();
-                await _storageService.SaveJsonAsync(StorageFileName, list);
-            }
-            catch
-            {
-                // Error handled gracefully
-            }
+            await FlushAsync();
         });
     }
 
-    public Task StoreAsync(MemoryEntry entry, CancellationToken cancellationToken = default)
+    public async Task StoreAsync(MemoryEntry entry, CancellationToken cancellationToken = default)
     {
         var effectiveEntry = entry;
         if (entry.Embedding == null || entry.Embedding.Count == 0)
@@ -84,8 +97,7 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
         }
 
         _store[effectiveEntry.Id] = effectiveEntry;
-        SaveToStorage();
-        return Task.CompletedTask;
+        await FlushAsync(cancellationToken);
     }
 
     public Task<MemoryEntry?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
@@ -158,7 +170,7 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
         return Task.FromResult<IReadOnlyList<MemorySearchResult>>(topResults);
     }
 
-    public Task<int> PruneAsync(float minImportanceThreshold, TimeSpan olderThan, CancellationToken cancellationToken = default)
+    public async Task<int> PruneAsync(float minImportanceThreshold, TimeSpan olderThan, CancellationToken cancellationToken = default)
     {
         var cutoff = DateTimeOffset.UtcNow - olderThan;
         var toRemove = _store.Values
@@ -177,10 +189,10 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
 
         if (removedCount > 0)
         {
-            SaveToStorage();
+            await FlushAsync(cancellationToken);
         }
 
-        return Task.FromResult(removedCount);
+        return removedCount;
     }
 
     public Task<IReadOnlyList<MemoryEntry>> GetAllAsync(CancellationToken cancellationToken = default)
@@ -189,11 +201,10 @@ public class EmbeddedVectorMemoryStore : IPersistentMemoryStore
         return Task.FromResult<IReadOnlyList<MemoryEntry>>(list);
     }
 
-    public Task ClearAsync(CancellationToken cancellationToken = default)
+    public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
         _store.Clear();
-        SaveToStorage();
-        return Task.CompletedTask;
+        await FlushAsync(cancellationToken);
     }
 
     public IReadOnlyList<float> GenerateEmbedding(string text)

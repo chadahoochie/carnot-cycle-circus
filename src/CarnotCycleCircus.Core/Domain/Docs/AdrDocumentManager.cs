@@ -217,6 +217,76 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr3.Id] = adr3;
 
+        var adr9 = new ArchitecturalDecisionRecord(
+            Id: "ADR-009",
+            Title: "Secure Key Storage, AEAD Envelope Encryption, and Master Key Derivation",
+            Status: AdrStatus.Accepted,
+            Context: "API credentials stored on disk or transferred across multi-agent pipelines risk exfiltration, tampering, or unauthorized harvesting.",
+            Decision: "Implement AES-256-GCM AEAD envelope encryption at rest, PBKDF2-HMAC-SHA256 (310,000 iter) master key derivation, zero-downtime key rotation, and encrypted backup export packages.",
+            AlternativesConsidered: [
+                "Plaintext JSON storage (rejected: critical security violation)",
+                "Windows-only DPAPI (rejected: breaks Linux container compatibility)",
+                "Unauthenticated AES-CBC (rejected: vulnerable to padding oracles and lacks AEAD integrity verification)"
+            ],
+            ConsequencesPositive: [
+                "Cryptographic confidentiality and integrity guaranteed at rest via AES-256-GCM AEAD",
+                "Cross-platform support in Linux/Docker and air-gapped environments",
+                "Master key rotation and encrypted backup export/import tools built-in"
+            ],
+            ConsequencesNegative: [
+                "Master key loss makes stored credentials unrecoverable without original secrets"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr9.Id] = adr9;
+
+        var adr10 = new ArchitecturalDecisionRecord(
+            Id: "ADR-010",
+            Title: "Dynamic Agent Troupe Lifecycle and Skill-Infused Agent Naming Engine",
+            Status: AdrStatus.Accepted,
+            Context: "Static 6-agent troupes prevented users from customizing troupe composition, creating multi-specialist squads, or infusing assigned skills into cognitive directives.",
+            Decision: "Implement dynamic agent addition/removal, unique member IDs, skill-infused absurd circus agent name generation, and automated prompt synthesis enforcing the Deliverable Isolation Contract.",
+            AlternativesConsidered: [
+                "Static pre-baked name lists (rejected: cannot dynamically reflect custom imported skills)",
+                "Pure LLM name generation on startup (rejected: adds latency and fails in air-gapped environments)"
+            ],
+            ConsequencesPositive: [
+                "Dynamic troupe composition with atomic persistent storage",
+                "Theatrical skill-infused circus names and cognitive prompts",
+                "Strict deliverable isolation maintained across all personas"
+            ],
+            ConsequencesNegative: [
+                "Dynamic troupe sizing requires UI handling for variable team sizes"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr10.Id] = adr10;
+
+        var adr11 = new ArchitecturalDecisionRecord(
+            Id: "ADR-011",
+            Title: "Project Ignition Wizard, Codebase Harvester, and Zero-Setup Showcase Arena",
+            Status: AdrStatus.Accepted,
+            Context: "Technical users require frictionless onboarding with time-to-first-dopamine under 60 seconds, supporting both greenfield blueprints and brownfield codebase harvesting.",
+            Decision: "Implement IProjectBlueprintService for 1-click curated project ignition, ICodebaseHarvesterService for local repo scanning and tech debt backlog generation, and IShowcaseDemoService for instant 0-key interactive swarm simulations.",
+            AlternativesConsidered: [
+                "Manual ticket creation only (rejected: high friction for new users)",
+                "External CLI tool only (rejected: breaks web UI first-class discoverability)"
+            ],
+            ConsequencesPositive: [
+                "Sub-60s onboarding time for technical users",
+                "Automated ingestion of local repositories into 4-tier vector memory and knowledge graph",
+                "Zero-key offline showcase arena for immediate evaluation"
+            ],
+            ConsequencesNegative: [
+                "Local file system inspection requires directory read permissions"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr11.Id] = adr11;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

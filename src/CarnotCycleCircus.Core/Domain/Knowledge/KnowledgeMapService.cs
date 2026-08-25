@@ -32,6 +32,7 @@ public interface IKnowledgeMapService
     bool RemoveEdge(string sourceId, string targetId, string relationship);
     IReadOnlyList<KnowledgeNode> SearchNodes(string query);
     string ExtractSubGraphContext(string conceptQuery);
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class KnowledgeMapService : IKnowledgeMapService
@@ -39,6 +40,7 @@ public class KnowledgeMapService : IKnowledgeMapService
     private readonly ConcurrentDictionary<string, KnowledgeNode> _nodes = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentBag<KnowledgeEdge> _edges = new();
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string StorageFileName = "knowledgemap.json";
 
     public KnowledgeMapService(IPersistentStorageService? storageService = null)
@@ -73,20 +75,31 @@ public class KnowledgeMapService : IKnowledgeMapService
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var map = new KnowledgeMap(_nodes.Values.OrderBy(n => n.Label).ToList(), _edges.ToList());
+            await _storageService.SaveJsonAsync(StorageFileName, map, cancellationToken);
+        }
+        catch
+        {
+            // Ignore transient write error
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                var map = new KnowledgeMap(_nodes.Values.OrderBy(n => n.Label).ToList(), _edges.ToList());
-                await _storageService.SaveJsonAsync(StorageFileName, map);
-            }
-            catch
-            {
-                // Ignore transient write error
-            }
+            await FlushAsync();
         });
     }
 

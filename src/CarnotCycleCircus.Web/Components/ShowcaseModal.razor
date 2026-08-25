@@ -1,0 +1,95 @@
+@inject IShowcaseDemoService ShowcaseService
+@inject NavigationManager Navigation
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-content" style="max-width: 780px; max-height: 90vh; overflow-y: auto;" @onclick:stopPropagation="true">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.8rem;">🍿</span>
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
+                        Interactive Showcase Arena (Zero Setup)
+                    </h3>
+                    <div style="font-size: 0.8rem; color: #38bdf8;">
+                        Watch autonomous agent swarms collaborate, argue, reject flaws, and remediate code in real time. Zero API keys required!
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.9rem;" @onclick="Close">✕</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px;">
+            @foreach (var scenario in ShowcaseService.GetScenarios())
+            {
+                var isSelected = selectedScenarioId == scenario.Id;
+                <div class="glass-card" style="border: 2px solid @(isSelected ? "#38bdf8" : "var(--border-color)"); cursor: pointer; transition: all 0.2s;" @onclick="() => selectedScenarioId = scenario.Id">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+                        <h4 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc;">
+                            @scenario.Title
+                        </h4>
+                        @if (scenario.SimulateRemediation)
+                        {
+                            <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid #ef4444; font-size: 0.7rem;">
+                                🚨 Failure & Remediation
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; font-size: 0.7rem;">
+                                ⚡ Full Success Path
+                            </span>
+                        }
+                    </div>
+
+                    <p style="color: var(--text-muted); font-size: 0.88rem; margin-bottom: 8px;">
+                        @scenario.Tagline
+                    </p>
+
+                    <div style="font-size: 0.75rem; color: #a855f7;">
+                        🌟 Featured Stars: <strong>@scenario.HighlightPersona</strong>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-secondary" @onclick="Close">Cancel</button>
+            <button class="btn btn-primary" @onclick="LaunchShowcase" disabled="@isRunning">
+                @(isRunning ? "⏳ Unleashing Swarm..." : "🍿 Launch Selected Showcase")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string selectedScenarioId = "full-circus-sprint";
+    private bool isRunning = false;
+
+    private async Task LaunchShowcase()
+    {
+        isRunning = true;
+        try
+        {
+            _ = Task.Run(async () =>
+            {
+                await ShowcaseService.RunShowcaseAsync(selectedScenarioId);
+            });
+
+            // Redirect immediately to dashboard so user can watch live pulses & stream
+            Navigation.NavigateTo("/dashboard");
+            await Close();
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}
