@@ -48,13 +48,13 @@
             var ticketsInCol = TicketStore.GetTicketsByStatus(status);
             var statusSubtitle = status switch
             {
-                TicketStatus.Backlog => "Where Dreams Go to Die",
-                TicketStatus.Ready => "Primed for Action",
-                TicketStatus.InProgress => "Creating Tech Debt",
-                TicketStatus.Review => "Peer Nitpicking",
-                TicketStatus.Remediating => "Fixing Sins",
-                TicketStatus.Done => "Shipped & Prayed For",
-                TicketStatus.Blocked => "Blaming Architecture",
+                TicketStatus.Backlog => "Where Dreams Go to Die ('Our pets' heads are falling off!')",
+                TicketStatus.Ready => "Primed for Action ('So you're telling me there's a chance!')",
+                TicketStatus.InProgress => "Creating Tech Debt at Ludicrous Speed ('They've gone to plaid!')",
+                TicketStatus.Review => "Peer Nitpicking ('Nice PR! Thanks, I just had it stuffed.')",
+                TicketStatus.Remediating => "Atoning for Sins ('Tis but a scratch! Just a flesh wound')",
+                TicketStatus.Done => "Shipped & Prayed For ('Like a glove! Alllllrighty then!')",
+                TicketStatus.Blocked => "Blaming Architecture ('Somebody's gotta go back & get a shitload of dimes!')",
                 _ => ""
             };
 

@@ -27,27 +27,27 @@
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireUnitTestsForFeatures" @onchange="(e) => ToggleFlag(1, e)" />
-                Require automated unit tests for all Features (No 'Trust me bro')
+                Require unit tests for Features ("Badges? We don't need no stinkin' badges!")
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRcaForBugs" @onchange="(e) => ToggleFlag(2, e)" />
-                Require Root Cause Analysis (RCA) on Bug tickets (Formal apology)
+                Require Root Cause Analysis (RCA) on Bug tickets ("Laces out, Dan!")
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRegressionTestForBugs" @onchange="(e) => ToggleFlag(3, e)" />
-                Require automated regression tests on Bug tickets
+                Require automated regression tests ("You're my boy, Blue!")
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireAdrForEpics" @onchange="(e) => ToggleFlag(4, e)" />
-                Require registered ADR on all Epic tickets (Ivory tower approval)
+                Require registered ADR on all Epic tickets ("Listen, strange developers lyin' in Slack...")
             </label>
 
             <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
                 <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireStrideSecurityReview" @onchange="(e) => ToggleFlag(5, e)" />
-                Enforce paranoid STRIDE security review for code signoff
+                Enforce paranoid STRIDE security review ("Nobody expects the Spanish Inquisition!")
             </label>
         </div>
     </div>

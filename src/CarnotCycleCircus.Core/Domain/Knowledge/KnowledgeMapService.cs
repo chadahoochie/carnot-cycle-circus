@@ -146,24 +146,54 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-005",
             Label: "The Friday 5PM Deployment Trap",
             Category: "AntiPattern",
-            Summary: "Deploying code right before the weekend guarantees a 100% chance of critical incident alerts during family dinner.",
-            Attributes: new Dictionary<string, string> { ["Risk"] = "Catastrophic", ["Moral"] = "Go Home Instead" }
+            Summary: "Deploying code right before the weekend guarantees 'Shitter was full!' and a 100% chance of critical incident alerts during dinner ('It's a trap!').",
+            Attributes: new Dictionary<string, string> { ["Risk"] = "Catastrophic", ["Moral"] = "Go Home Instead", ["MovieLore"] = "Christmas Vacation & Star Wars" }
         );
         _nodes[node5.Id] = node5;
 
         var node6 = new KnowledgeNode(
             Id: "KN-006",
-            Label: "Quantum Bugs",
+            Label: "Quantum Bugs & Heisenbugs",
             Category: "LearnedInsight",
-            Summary: "A bug that vanishes whenever you attach a debugger, and re-appears in triplicate in production.",
-            Attributes: new Dictionary<string, string> { ["Physics"] = "Heisenberg Uncertainty", ["Cure"] = "Coffee & Unit Tests" }
+            Summary: "A bug that vanishes whenever you attach a debugger, and re-appears in triplicate in production. 'Tis but a scratch until the CEO clicks it!",
+            Attributes: new Dictionary<string, string> { ["Physics"] = "Heisenberg Uncertainty", ["Cure"] = "Coffee & Unit Tests", ["MovieLore"] = "Monty Python" }
         );
         _nodes[node6.Id] = node6;
+
+        var node7 = new KnowledgeNode(
+            Id: "KN-007",
+            Label: "The High Quality H2O Rule",
+            Category: "Pattern",
+            Summary: "Now that's what I call high quality H2O! Zero heap allocations on hot paths. Banish bloated POCOs in favor of ReadOnlySpan<char> and MemoryPool buffers.",
+            Attributes: new Dictionary<string, string> { ["Standard"] = "Zero Allocations", ["MovieLore"] = "The Waterboy", ["Enforcer"] = "Devon & Otto" }
+        );
+        _nodes[node7.Id] = node7;
+
+        var node8 = new KnowledgeNode(
+            Id: "KN-008",
+            Label: "The Ludicrous Velocity Theorem",
+            Category: "Concept",
+            Summary: "When velocity exceeds light speed, you go straight to plaid. Keep sprint backlogs lean and DAG dependencies clean to prevent temporal paradoxes.",
+            Attributes: new Dictionary<string, string> { ["Speed"] = "Ludicrous Speed", ["MovieLore"] = "Spaceballs", ["Enforcer"] = "Barnum B. Buzzword" }
+        );
+        _nodes[node8.Id] = node8;
+
+        var node9 = new KnowledgeNode(
+            Id: "KN-009",
+            Label: "The Ministry of Silly Architecture Walks",
+            Category: "Convention",
+            Summary: "Listen, strange developers lyin' in Slack distributin' interfaces is no basis for an enterprise system! Every abstraction requires an Architectural Decision Record.",
+            Attributes: new Dictionary<string, string> { ["Governance"] = "Ivory Tower", ["MovieLore"] = "Monty Python", ["Enforcer"] = "Archduke Archibald" }
+        );
+        _nodes[node9.Id] = node9;
 
         _edges.Add(new KnowledgeEdge("KN-002", "KN-001", "Extends"));
         _edges.Add(new KnowledgeEdge("KN-004", "KN-003", "Mitigates"));
         _edges.Add(new KnowledgeEdge("KN-005", "KN-004", "DependsOn"));
         _edges.Add(new KnowledgeEdge("KN-006", "KN-001", "Mitigates"));
+        _edges.Add(new KnowledgeEdge("KN-007", "KN-001", "Extends"));
+        _edges.Add(new KnowledgeEdge("KN-008", "KN-001", "DependsOn"));
+        _edges.Add(new KnowledgeEdge("KN-009", "KN-002", "Extends"));
     }
 
     public KnowledgeMap GetFullMap() =>

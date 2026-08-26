@@ -38,26 +38,42 @@ public class ShowcaseDemoService : IShowcaseDemoService
     [
         new(
             Id: "full-circus-sprint",
-            Title: "🎪 60-Second Full Autonomous Swarm Sprint",
-            Tagline: "Watch all 6 engineering roles decompose, architect, code, audit, optimize, and verify an end-to-end feature.",
-            Description: "Refactor legacy payment controller to C# 13 zero-allocation ValueTask pipeline with bounded channels and automated STRIDE threat verification.",
-            HighlightPersona: "The Whole Troupe",
+            Title: "🚀 Ludicrous Speed Swarm Sprint (They've Gone to Plaid!)",
+            Tagline: "Watch all 6 roles decompose, architect, code, audit, optimize, and verify an end-to-end feature at Mach 10.",
+            Description: "Barnum yells 'Ludicrous speed, GO!' as Devon, Archibald, Sari, Otto, and Quinn ship an immutable ValueTask pipeline with bounded channels and automated STRIDE verification.",
+            HighlightPersona: "The Whole Troupe (Barnum & Devon)",
             SimulateRemediation: false
         ),
         new(
             Id: "friday-panic-meltdown",
-            Title: "🚨 The Friday 4:59 PM Panic & Self-Healing Loopback",
-            Tagline: "Watch QA and Security violently reject broken code and force the developer to fix sins via reactive DAG failure ports.",
-            Description: "Simulates an unhandled null exception and secret leakage. Quinn (QA) and Sari (Security) trigger the reactive circuit breaker and route the payload back to Devon (Dev) for remediation.",
-            HighlightPersona: "Quinn (QA) & Sari (Security)",
+            Title: "⚔️ 'Tis But a Scratch: The Friday 4:59 PM Meltdown & Self-Healing Loopback",
+            Tagline: "QA and Security violently reject broken code and slice off limbs; Developer screams 'Just a flesh wound!' and remediates via DAG failure ports.",
+            Description: "Simulates an unhandled null exception and leaked secrets. Quinn ('That's a lot of nuts!') and Sari ('It's a trap!') trip the circuit breaker and route the payload back to Devon ('Like a glove!') for remediation.",
+            HighlightPersona: "Quinn (QA), Sari (Security) & Devon (Dev)",
             SimulateRemediation: true
         ),
         new(
             Id: "nanosecond-shootout",
-            Title: "⚡ The Nanosecond Optimization Shootout",
-            Tagline: "Otto eliminates 12 GC Gen0 allocations with extreme prejudice on the hot path.",
-            Description: "Demonstrates hot path profiling, converting LINQ aggregations to ReadOnlySpan<char> and MemoryPool slicing with zero heap overhead.",
+            Title: "🕵️ Super Troopers 'Enhance' Optimization Shootout",
+            Tagline: "Otto enhances memory allocations down to zero on the hot path ('So I got sub-nanosecond latency goin' for me, which is nice').",
+            Description: "Demonstrates hot path profiling, converting LINQ aggregations to ReadOnlySpan<char> and MemoryPool slicing with zero heap overhead and zero Gen0 collections.",
             HighlightPersona: "Otto (Optimization Engineer)",
+            SimulateRemediation: false
+        ),
+        new(
+            Id: "holy-hand-grenade-security",
+            Title: "💣 The Holy Hand Grenade STRIDE Security Audit",
+            Tagline: "Sari audits the system with zero tolerance for prompt injection or open ports ('Nobody expects the Spanish Inquisition!').",
+            Description: "First shalt thou take out the holy pin. Then shalt thou count to three, no more, no less. Performs cryptographic envelope inspection and token sanitization.",
+            HighlightPersona: "Sari \"Tinfoil\" Sandbox",
+            SimulateRemediation: false
+        ),
+        new(
+            Id: "high-quality-h2o-refactor",
+            Title: "💧 High Quality H2O: Devon Banishes Heap Allocations",
+            Tagline: "Mama says the Garbage Collector is ornery 'cause it's got all them heap allocations and no buffer pooling.",
+            Description: "Devon refactors bloated legacy POCOs into ultra-pure readonly record structs and bounded Channels while drinking cold brew at 800 WPM.",
+            HighlightPersona: "Devon \"Coldbrew\" Crashdump",
             SimulateRemediation: false
         )
     ];
