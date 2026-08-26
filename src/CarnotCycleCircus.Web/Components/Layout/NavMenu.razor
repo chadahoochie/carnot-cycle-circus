@@ -1,4 +1,4 @@
-<div class="sidebar">
+<div class="@CssClass">
     <div class="sidebar-header">
         <span style="font-size: 1.6rem;">🎪</span>
         <div>
@@ -9,57 +9,57 @@
 
     <ul class="nav-list">
         <li class="nav-item">
-            <NavLink href="" Match="NavLinkMatch.All">
+            <NavLink href="" Match="NavLinkMatch.All" @onclick="HandleNavigate">
                 <span>🎯</span> Team Circus Ring
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="tickets">
+            <NavLink href="tickets" @onclick="HandleNavigate">
                 <span>📋</span> The Jira Graveyard
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="canvas">
+            <NavLink href="canvas" @onclick="HandleNavigate">
                 <span>🎨</span> Rube Goldberg Canvas
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="dashboard">
+            <NavLink href="dashboard" @onclick="HandleNavigate">
                 <span>⚡</span> Panic & Telemetry
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="memory">
+            <NavLink href="memory" @onclick="HandleNavigate">
                 <span>🧠</span> Existential Brain Scan
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="docs">
+            <NavLink href="docs" @onclick="HandleNavigate">
                 <span>🏛️</span> Ivory Tower & ADRs
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="standards">
+            <NavLink href="standards" @onclick="HandleNavigate">
                 <span>📏</span> The Fun Police (QA)
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="knowledge">
+            <NavLink href="knowledge" @onclick="HandleNavigate">
                 <span>🗺️</span> Tech Debt Compass
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="skills">
+            <NavLink href="skills" @onclick="HandleNavigate">
                 <span>🧩</span> Skill Importer
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="skills/matrix">
+            <NavLink href="skills/matrix" @onclick="HandleNavigate">
                 <span>📊</span> Dunning-Kruger Matrix
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="persistence">
+            <NavLink href="persistence" @onclick="HandleNavigate">
                 <span>🌱</span> Self-Improvement & Volume
             </NavLink>
         </li>
@@ -71,3 +71,20 @@
         <div style="color: #f59e0b; font-size: 0.68rem; margin-top: 2px;">⚡ 100% Carnot Entropy Shield</div>
     </div>
 </div>
+
+@code {
+    [Parameter]
+    public string CssClass { get; set; } = "sidebar";
+
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    private async Task HandleNavigate()
+    {
+        if (OnNavigate.HasDelegate)
+        {
+            await OnNavigate.InvokeAsync();
+        }
+    }
+}
+

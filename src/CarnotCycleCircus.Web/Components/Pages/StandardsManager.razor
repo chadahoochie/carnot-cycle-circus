@@ -2,14 +2,14 @@
 @inject IStandardsValidator StandardsValidator
 @inject ITicketStore TicketStore
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">📏 The Fun Police Quality Gates & Standards</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Enforce non-negotiable acceptance criteria, mandatory Root Cause Analysis (confessions), and zero-tolerance test coverage.</p>
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
     <!-- Standards Policy Editor -->
     <div class="glass-card">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #38bdf8;">Configured Quality Gate Rules</h3>

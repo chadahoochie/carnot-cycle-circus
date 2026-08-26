@@ -1,17 +1,17 @@
 @page "/memory"
 @inject IPersistentMemoryStore MemoryStore
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">🧠 Existential Brain Scan & Persistent Memory</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Multi-tier memory architecture (Working RAM, Past Trauma Logs, Abstract Dogma, Muscle Memory) with cosine similarity retrieval.</p>
     </div>
 
-    <div style="display: flex; gap: 10px;">
-        <button class="btn btn-danger" @onclick="PruneMemories">
+    <div class="page-header-actions">
+        <button class="btn btn-danger" @onclick="PruneMemories" style="white-space: nowrap;">
             🧹 Selective Amnesia (Prune Decayed Braincells)
         </button>
-        <button class="btn btn-success" @onclick="() => showAddModal = true">
+        <button class="btn btn-success" @onclick="() => showAddModal = true" style="white-space: nowrap;">
             ➕ Inject Memory
         </button>
     </div>
@@ -19,7 +19,7 @@
 
 <!-- Search Bar & Filters -->
 <div class="glass-card" style="margin-bottom: 20px;">
-    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
         <div>
             <label class="form-label">Semantic Cosine Vibe Check</label>
             <input class="form-control" placeholder="Search patterns, past regrets, or lessons learned..." @bind="searchQuery" @bind:event="oninput" @bind:after="PerformSearch" />

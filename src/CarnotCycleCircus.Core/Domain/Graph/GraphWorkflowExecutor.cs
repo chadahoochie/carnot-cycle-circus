@@ -13,8 +13,13 @@ public interface IGraphWorkflowExecutor
     bool IsRunning { get; }
     void SetGraph(WorkflowGraph graph);
     void UpdateNodePosition(string nodeId, int x, int y);
+    void AddNode(GraphNode node);
+    void RemoveNode(string nodeId);
     void AddConnection(PortConnection connection);
     void RemoveConnection(string sourceNodeId, PortType sourcePort, string targetNodeId, PortType targetPort);
+    void UpdatePolicy(FailurePolicy policy);
+    void LoadPreset(string presetId);
+    bool ValidateConnection(PortConnection connection, out string? errorMessage);
     void ResetGraph();
 
     Task<bool> ExecuteWorkflowAsync(
@@ -79,8 +84,76 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         OnGraphUpdated?.Invoke(_graph);
     }
 
+    public void AddNode(GraphNode node)
+    {
+        if (_graph.Nodes.Any(n => n.Id == node.Id))
+        {
+            return;
+        }
+
+        var nodes = _graph.Nodes.Append(node).ToList();
+        _graph = _graph with { Nodes = nodes };
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
+    public void RemoveNode(string nodeId)
+    {
+        var nodes = _graph.Nodes.Where(n => n.Id != nodeId).ToList();
+        var connections = _graph.Connections.Where(c => c.SourceNodeId != nodeId && c.TargetNodeId != nodeId).ToList();
+        _graph = _graph with { Nodes = nodes, Connections = connections };
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
+    public bool ValidateConnection(PortConnection connection, out string? errorMessage)
+    {
+        if (connection.SourceNodeId == connection.TargetNodeId)
+        {
+            errorMessage = "A node cannot connect to itself.";
+            return false;
+        }
+
+        if (connection.SourcePort == PortType.Input)
+        {
+            errorMessage = "Source port must be an Output or Failure port.";
+            return false;
+        }
+
+        if (connection.TargetPort != PortType.Input)
+        {
+            errorMessage = "Target port must be an Input port.";
+            return false;
+        }
+
+        var sourceNode = _graph.Nodes.FirstOrDefault(n => n.Id == connection.SourceNodeId);
+        var targetNode = _graph.Nodes.FirstOrDefault(n => n.Id == connection.TargetNodeId);
+
+        if (sourceNode == null || targetNode == null)
+        {
+            errorMessage = "Both source and target nodes must exist in the workflow graph.";
+            return false;
+        }
+
+        if (_graph.Connections.Any(c =>
+            c.SourceNodeId == connection.SourceNodeId &&
+            c.SourcePort == connection.SourcePort &&
+            c.TargetNodeId == connection.TargetNodeId &&
+            c.TargetPort == connection.TargetPort))
+        {
+            errorMessage = "This connection cable already exists.";
+            return false;
+        }
+
+        errorMessage = null;
+        return true;
+    }
+
     public void AddConnection(PortConnection connection)
     {
+        if (!ValidateConnection(connection, out _))
+        {
+            return;
+        }
+
         var list = _graph.Connections.Append(connection).Distinct().ToList();
         _graph = _graph with { Connections = list };
         OnGraphUpdated?.Invoke(_graph);
@@ -90,6 +163,25 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     {
         var list = _graph.Connections.Where(c => !(c.SourceNodeId == sourceNodeId && c.SourcePort == sourcePort && c.TargetNodeId == targetNodeId && c.TargetPort == targetPort)).ToList();
         _graph = _graph with { Connections = list };
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
+    public void UpdatePolicy(FailurePolicy policy)
+    {
+        _graph = _graph with { Policy = policy };
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
+    public void LoadPreset(string presetId)
+    {
+        _graph = presetId.ToLowerInvariant() switch
+        {
+            "rapid" or "preset-rapid" => WorkflowGraph.CreateRapidPrototype(),
+            "zero-trust" or "preset-zero-trust" => WorkflowGraph.CreateZeroTrustSecurityCircus(),
+            "performance" or "preset-performance" => WorkflowGraph.CreateHighPerformanceCircus(),
+            _ => WorkflowGraph.CreateDefaultEngineeringCircus()
+        };
+        _isRunning = false;
         OnGraphUpdated?.Invoke(_graph);
     }
 

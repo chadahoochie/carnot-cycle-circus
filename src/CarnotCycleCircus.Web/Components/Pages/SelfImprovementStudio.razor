@@ -8,7 +8,7 @@
 
 <PageTitle>Autonomous Self-Improvement & Persistent Volume Stack - Carnot Circus</PageTitle>
 
-<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+<div class="page-header">
     <div>
         <h1 style="font-size: 1.8rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">
             🌱 Autonomous Self-Improvement & Persistent Storage Stack
@@ -18,18 +18,20 @@
         </p>
     </div>
 
-    <button class="btn btn-primary" @onclick="TriggerEvolutionCycle" disabled="@isExecuting" style="display: flex; align-items: center; gap: 8px;">
-        @if (isExecuting)
-        {
-            <span>🔄</span>
-            <span>Distilling Insights...</span>
-        }
-        else
-        {
-            <span>⚡</span>
-            <span>Run Self-Improvement Cycle</span>
-        }
-    </button>
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick="TriggerEvolutionCycle" disabled="@isExecuting" style="display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+            @if (isExecuting)
+            {
+                <span>🔄</span>
+                <span>Distilling Insights...</span>
+            }
+            else
+            {
+                <span>⚡</span>
+                <span>Run Self-Improvement Cycle</span>
+            }
+        </button>
+    </div>
 </div>
 
 <!-- Storage Health & Self-Improvement Key Metric Cards -->

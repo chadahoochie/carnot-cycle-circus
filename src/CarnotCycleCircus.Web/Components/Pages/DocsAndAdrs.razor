@@ -1,37 +1,37 @@
 @page "/docs"
 @inject IAdrDocumentManager AdrManager
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">🏛️ Ivory Tower ADRs & Bureaucracy Hub</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Automated MADR/Nygard decision records, C4 system cathedrals, paranoid threat models, and CYA markdown bundles.</p>
     </div>
 
-    <div style="display: flex; gap: 10px;">
-        <button class="btn btn-secondary" @onclick="ExportBundle">
+    <div class="page-header-actions">
+        <button class="btn btn-secondary" @onclick="ExportBundle" style="white-space: nowrap;">
             📦 Export CYA Markdown Bundle
         </button>
-        <button class="btn btn-success" @onclick="() => showCreateAdrModal = true">
+        <button class="btn btn-success" @onclick="() => showCreateAdrModal = true" style="white-space: nowrap;">
             ➕ Propose New ADR
         </button>
     </div>
 </div>
 
-<div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
-    <button class="btn @(activeTab == "adrs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "adrs"'>
+<div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; flex-wrap: wrap;">
+    <button class="btn @(activeTab == "adrs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "adrs"' style="white-space: nowrap;">
         🏛️ Architectural Decision Records (@AdrManager.GetAllAdrs().Count)
     </button>
-    <button class="btn @(activeTab == "c4" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "c4"'>
+    <button class="btn @(activeTab == "c4" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "c4"' style="white-space: nowrap;">
         📐 C4 Architecture Cathedrals
     </button>
-    <button class="btn @(activeTab == "stride" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "stride"'>
+    <button class="btn @(activeTab == "stride" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "stride"' style="white-space: nowrap;">
         🛡️ Paranoid STRIDE Models
     </button>
 </div>
 
 @if (activeTab == "adrs")
 {
-    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
         <!-- ADR List -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
             @foreach (var adr in AdrManager.GetAllAdrs())
