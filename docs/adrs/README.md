@@ -21,6 +21,7 @@ ADRs record key architectural decisions, the context behind them, alternatives e
 | [**ADR-0009**](0009-secure-key-vault-storage-and-envelope-encryption.md) | Secure Key Storage, AEAD Envelope Encryption, and Master Key Derivation | **Accepted** | 2026-08-22 | Authenticated AES-256-GCM AEAD envelope encryption at rest, PBKDF2-HMAC-SHA256 master key derivation with 310,000 iterations, master key rotation, and encrypted backup export. |
 | [**ADR-0010**](0010-dynamic-agent-lifecycle-and-skill-infused-naming.md) | Dynamic Agent Troupe Lifecycle and Skill-Infused Agent Naming Engine | **Accepted** | 2026-08-24 | Enable dynamic addition/removal of agents, unique member IDs, skill-infused absurd circus agent name generation, and automated prompt synthesis. |
 | [**ADR-0011**](0011-project-ignition-wizard-codebase-harvester-and-showcase-arena.md) | Project Ignition Wizard, Codebase Harvester, and Zero-Setup Showcase Arena | **Accepted** | 2026-08-24 | Dual-track onboarding architecture: 1-click curated project blueprints, local codebase & tech debt harvesting, and zero-key interactive showcase arena. |
+| [**ADR-0012**](0012-openrouter-model-catalog-caching-categorization-and-favorites.md) | OpenRouter Dynamic Model Ingestion, Local Persistent Caching, Strength & Cost Categorization, and Favorites System | **Accepted** | 2026-08-25 | Dynamic model ingestion with persistent caching, 4-tier token cost classification, 6-discipline engineering strength area mapping, and 1-click favorites management. |
 
 ---
 

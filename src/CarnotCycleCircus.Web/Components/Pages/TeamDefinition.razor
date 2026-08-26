@@ -4,6 +4,7 @@
 @inject IApiKeyVaultService KeyVaultService
 @inject ISkillRegistry SkillRegistry
 @inject IAgentNameGenerator NameGenerator
+@inject IModelCatalogService CatalogService
 
 <QuickstartRingmasterBanner />
 
@@ -86,15 +87,55 @@
                 }
 
                 <div class="form-group">
-                    <label class="form-label">Inference Model (OpenRouter)</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label class="form-label" style="margin-bottom: 0;">Inference Model (OpenRouter)</label>
+                        <a href="models" style="font-size: 0.72rem; color: #38bdf8; text-decoration: none;" title="Manage Models and Favorites">🎭 Catalog &amp; Favorites</a>
+                    </div>
                     <select class="form-control" value="@member.EffectiveModel" @onchange="(e) => UpdateModel(member, e)">
-                        <option value="anthropic/claude-3.7-sonnet">anthropic/claude-3.7-sonnet (Architect / Opt)</option>
-                        <option value="openai/gpt-4o">openai/gpt-4o (TPM / Orchestrator)</option>
-                        <option value="openai/o3-mini">openai/o3-mini (Security / Reasoning)</option>
-                        <option value="deepseek/deepseek-r1">deepseek/deepseek-r1 (QA & Edge Cases)</option>
-                        <option value="qwen/qwen-2.5-coder-32b-instruct">qwen/qwen-2.5-coder-32b-instruct (Developer)</option>
-                        <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku (Fast Fallback)</option>
+                        @{
+                            var memberRole = member.Persona.Role;
+                            var favorites = availableCatalogModels.Where(m => m.IsFavorite).ToList();
+                            var recommended = availableCatalogModels.Where(m => !m.IsFavorite && IsRecommendedForRole(m, memberRole)).ToList();
+                            var others = availableCatalogModels.Where(m => !m.IsFavorite && !IsRecommendedForRole(m, memberRole)).ToList();
+                        }
+                        @if (favorites.Count > 0)
+                        {
+                            <optgroup label="⭐ Starred Favorites">
+                                @foreach (var m in favorites)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (recommended.Count > 0)
+                        {
+                            <optgroup label="🎪 Recommended for @memberRole.ToDisplayName()">
+                                @foreach (var m in recommended)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (others.Count > 0)
+                        {
+                            <optgroup label="🌐 Other Available Models">
+                                @foreach (var m in others)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
                     </select>
+                    @{
+                        var currentSelectedModel = availableCatalogModels.FirstOrDefault(m => m.Id == member.EffectiveModel);
+                    }
+                    @if (currentSelectedModel != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.7rem; color: var(--text-muted);">
+                            <span>💰 @currentSelectedModel.FormattedPricing</span>
+                            <span>📏 @(currentSelectedModel.ContextLength / 1000)k ctx</span>
+                        </div>
+                    }
                 </div>
 
                 <div class="form-group">
@@ -220,23 +261,75 @@
                     <div class="form-group">
                         <label class="form-label">Primary OpenRouter Model</label>
                         <select class="form-control" @bind="newAgentModel">
-                            <option value="anthropic/claude-3.7-sonnet">anthropic/claude-3.7-sonnet (Architect / Opt)</option>
-                            <option value="openai/gpt-4o">openai/gpt-4o (TPM / Orchestrator)</option>
-                            <option value="openai/o3-mini">openai/o3-mini (Security / Reasoning)</option>
-                            <option value="deepseek/deepseek-r1">deepseek/deepseek-r1 (QA & Edge Cases)</option>
-                            <option value="qwen/qwen-2.5-coder-32b-instruct">qwen/qwen-2.5-coder-32b-instruct (Developer)</option>
-                            <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku (Fast Fallback)</option>
+                            @{
+                                var favs = availableCatalogModels.Where(m => m.IsFavorite).ToList();
+                                var recs = availableCatalogModels.Where(m => !m.IsFavorite && IsRecommendedForRole(m, newAgentRole)).ToList();
+                                var others = availableCatalogModels.Where(m => !m.IsFavorite && !IsRecommendedForRole(m, newAgentRole)).ToList();
+                            }
+                            @if (favs.Count > 0)
+                            {
+                                <optgroup label="⭐ Starred Favorites">
+                                    @foreach (var m in favs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (recs.Count > 0)
+                            {
+                                <optgroup label="🎪 Recommended for @newAgentRole.ToDisplayName()">
+                                    @foreach (var m in recs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (others.Count > 0)
+                            {
+                                <optgroup label="🌐 Other Available Models">
+                                    @foreach (var m in others)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
                         </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Fallback Model</label>
                         <select class="form-control" @bind="newAgentFallbackModel">
-                            <option value="anthropic/claude-3.5-haiku">anthropic/claude-3.5-haiku</option>
-                            <option value="openai/gpt-4o">openai/gpt-4o</option>
-                            <option value="anthropic/claude-3.7-sonnet">anthropic/claude-3.7-sonnet</option>
-                            <option value="openai/o3-mini">openai/o3-mini</option>
-                            <option value="deepseek/deepseek-r1">deepseek/deepseek-r1</option>
-                            <option value="qwen/qwen-2.5-coder-32b-instruct">qwen/qwen-2.5-coder-32b-instruct</option>
+                            @{
+                                var fallbackFavs = availableCatalogModels.Where(m => m.IsFavorite).ToList();
+                                var fallbackFast = availableCatalogModels.Where(m => !m.IsFavorite && (m.StrengthAreas.Contains(ModelStrengthArea.LowLatencyFallback) || m.CostTier == ModelCostTier.Budget)).ToList();
+                                var fallbackOthers = availableCatalogModels.Where(m => !m.IsFavorite && !fallbackFast.Contains(m)).ToList();
+                            }
+                            @if (fallbackFavs.Count > 0)
+                            {
+                                <optgroup label="⭐ Starred Favorites">
+                                    @foreach (var m in fallbackFavs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (fallbackFast.Count > 0)
+                            {
+                                <optgroup label="⚡ Fast & Budget Fallbacks">
+                                    @foreach (var m in fallbackFast)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (fallbackOthers.Count > 0)
+                            {
+                                <optgroup label="🌐 Other Models">
+                                    @foreach (var m in fallbackOthers)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
                         </select>
                     </div>
                 </div>
@@ -303,12 +396,25 @@
     private double newAgentTemperature = 0.1;
     private string newAgentTools = "csharp_syntax_check, test_runner, memory_lookup";
     private string newAgentSystemPrompt = "";
+    private IReadOnlyList<ModelCatalogEntry> availableCatalogModels = [];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         currentTeam = TeamManager.GetCurrentTeam();
         TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
+        availableCatalogModels = await CatalogService.GetModelsAsync();
     }
+
+    private static bool IsRecommendedForRole(ModelCatalogEntry model, AgentRole role) => role switch
+    {
+        AgentRole.TechnicalProductManager => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        AgentRole.LeadArchitect => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        AgentRole.SoftwareDeveloper => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
+        AgentRole.SecurityEngineer => model.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
+        AgentRole.OptimizationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
+        AgentRole.PrincipalQAAnalyst => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
+        _ => true
+    };
 
     private void HandleTeamChanged(EngineeringTeam team)
     {

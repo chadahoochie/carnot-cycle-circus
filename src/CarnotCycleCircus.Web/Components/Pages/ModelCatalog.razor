@@ -1,0 +1,507 @@
+@page "/models"
+@inject IModelCatalogService CatalogService
+@inject IApiKeyVaultService KeyVaultService
+@inject IOpenRouterClient OpenRouterClient
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🎭 OpenRouter Model Ammo & Catalog Studio</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">
+            Explore live and cached OpenRouter models. Categorize by engineering strength and token cost tier, star favorites, and equip your autonomous circus troupe with optimal inference engines.
+        </p>
+    </div>
+
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick="RefreshCatalogAsync" disabled="@isLoading" style="white-space: nowrap;">
+            @if (isLoading)
+            {
+                <span>⏳ Pulling OpenRouter...</span>
+            }
+            else
+            {
+                <span>🔄 Sync OpenRouter Catalog</span>
+            }
+        </button>
+        <a href="/" class="btn btn-secondary" style="white-space: nowrap;">🎯 Assign to Agents</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>@statusMessage</span>
+        <button style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-weight: bold;" @onclick="() => statusMessage = null">✕</button>
+    </div>
+}
+
+<!-- Metrics Summary Ribbon -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+    <div class="glass-card" style="padding: 14px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Cached Models</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #38bdf8; margin-top: 4px;">@(healthStatus?.TotalModels ?? allModels.Count)</div>
+    </div>
+    <div class="glass-card" style="padding: 14px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Starred Favorites</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #f59e0b; margin-top: 4px;">@allModels.Count(m => m.IsFavorite)</div>
+    </div>
+    <div class="glass-card" style="padding: 14px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Free & Budget Tiers</div>
+        <div style="font-size: 1.6rem; font-weight: 800; color: #10b981; margin-top: 4px;">@allModels.Count(m => m.CostTier is ModelCostTier.Free or ModelCostTier.Budget)</div>
+    </div>
+    <div class="glass-card" style="padding: 14px; text-align: center;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Catalog Sync Source</div>
+        <div style="font-size: 0.95rem; font-weight: 700; color: #a78bfa; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            @(healthStatus?.Source ?? "Local Cache")
+        </div>
+        <div style="font-size: 0.68rem; color: var(--text-muted); margin-top: 2px;">
+            @if (healthStatus != null && healthStatus.LastFetchedUtc != default)
+            {
+                <span>Synced @healthStatus.LastFetchedUtc.ToLocalTime().ToString("MMM dd, HH:mm")</span>
+            }
+            else
+            {
+                <span>Curated snapshot</span>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Search & Filtering Controls -->
+<div class="glass-card" style="padding: 16px; margin-bottom: 24px;">
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px;">
+        <div style="flex: 1 1 280px; position: relative;">
+            <input class="form-control"
+                   placeholder="🔍 Search models by ID, name, provider, or capability..."
+                   value="@searchQuery"
+                   @oninput="(e) => searchQuery = e.Value?.ToString() ?? string.Empty"
+                   style="padding-right: 30px;" />
+            @if (!string.IsNullOrEmpty(searchQuery))
+            {
+                <button style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); cursor: pointer;"
+                        @onclick="() => searchQuery = string.Empty">✕</button>
+            }
+        </div>
+
+        <button class="btn @(filterOnlyFavorites ? "btn-primary" : "btn-secondary")"
+                @onclick="() => filterOnlyFavorites = !filterOnlyFavorites"
+                style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+            <span>⭐</span> Favorites Only (@allModels.Count(m => m.IsFavorite))
+        </button>
+
+        <select class="form-control" style="width: auto; min-width: 150px;" @bind="selectedProvider">
+            <option value="">All Providers</option>
+            @foreach (var provider in availableProviders)
+            {
+                <option value="@provider">@provider</option>
+            }
+        </select>
+    </div>
+
+    <!-- Strength Area Tabs -->
+    <div style="margin-bottom: 12px;">
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+            🎯 Filter by Strength Area:
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <button class="btn btn-sm @(selectedStrength == null ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = null">
+                All Strengths
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.CodeGeneration ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.CodeGeneration">
+                💻 Code & Dev
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.DeepReasoning ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.DeepReasoning">
+                🧠 Deep Reasoning
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.LowLatencyFallback ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.LowLatencyFallback">
+                ⚡ Fast Fallback
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.GeneralOrchestration ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.GeneralOrchestration">
+                📋 TPM Orchestrator
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.SecurityAudit ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.SecurityAudit">
+                🛡️ Security & Audit
+            </button>
+            <button class="btn btn-sm @(selectedStrength == ModelStrengthArea.MultimodalVision ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedStrength = ModelStrengthArea.MultimodalVision">
+                🖼️ Vision / Multimodal
+            </button>
+        </div>
+    </div>
+
+    <!-- Cost Tier Tabs -->
+    <div>
+        <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">
+            💰 Filter by Cost Tier:
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <button class="btn btn-sm @(selectedCostTier == null ? "btn-primary" : "btn-secondary")"
+                    @onclick="() => selectedCostTier = null">
+                All Cost Tiers
+            </button>
+            <button class="btn btn-sm @(selectedCostTier == ModelCostTier.Free ? "btn-primary" : "btn-secondary")"
+                    style="@(selectedCostTier == ModelCostTier.Free ? "background: #059669; border-color: #059669;" : "")"
+                    @onclick="() => selectedCostTier = ModelCostTier.Free">
+                🟢 Free ($0.00)
+            </button>
+            <button class="btn btn-sm @(selectedCostTier == ModelCostTier.Budget ? "btn-primary" : "btn-secondary")"
+                    style="@(selectedCostTier == ModelCostTier.Budget ? "background: #10b981; border-color: #10b981; color: #000;" : "")"
+                    @onclick="() => selectedCostTier = ModelCostTier.Budget">
+                🟢 Budget (&le; $1.00/M)
+            </button>
+            <button class="btn btn-sm @(selectedCostTier == ModelCostTier.Standard ? "btn-primary" : "btn-secondary")"
+                    style="@(selectedCostTier == ModelCostTier.Standard ? "background: #d97706; border-color: #d97706;" : "")"
+                    @onclick="() => selectedCostTier = ModelCostTier.Standard">
+                🟡 Standard ($1.01 - $5.00/M)
+            </button>
+            <button class="btn btn-sm @(selectedCostTier == ModelCostTier.Premium ? "btn-primary" : "btn-secondary")"
+                    style="@(selectedCostTier == ModelCostTier.Premium ? "background: #dc2626; border-color: #dc2626;" : "")"
+                    @onclick="() => selectedCostTier = ModelCostTier.Premium">
+                🔴 Premium (&gt; $5.00/M)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Models Display Grid -->
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 18px;">
+    @foreach (var model in FilteredModels)
+    {
+        <div @key="@model.Id" class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid @GetCostTierColor(model.CostTier);">
+            <div>
+                <!-- Header: Name, Star & Provider -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div style="min-width: 0; flex: 1 1 auto; padding-right: 8px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 0.68rem; font-weight: 700;">
+                                @model.Provider
+                            </span>
+                            <span class="badge" style="background: @GetCostTierBg(model.CostTier); color: @GetCostTierColor(model.CostTier); border: 1px solid @GetCostTierColor(model.CostTier); font-size: 0.68rem; font-weight: 700;">
+                                @GetCostTierLabel(model.CostTier)
+                            </span>
+                            @if (model.SupportsVision)
+                            {
+                                <span class="badge" style="background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid #a78bfa; font-size: 0.68rem;">
+                                    🖼️ Vision
+                                </span>
+                            }
+                        </div>
+                        <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-top: 6px; margin-bottom: 2px; word-break: break-word;">
+                            @model.Name
+                        </h3>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace; word-break: break-all;">
+                            @model.Id
+                        </div>
+                    </div>
+
+                    <!-- Favorite Star Button -->
+                    <button class="btn btn-secondary"
+                            style="padding: 4px 8px; font-size: 1.1rem; color: @(model.IsFavorite ? "#f59e0b" : "var(--text-muted)"); background: @(model.IsFavorite ? "rgba(245, 158, 11, 0.15)" : "transparent"); border-color: @(model.IsFavorite ? "#f59e0b" : "var(--border-color)");"
+                            title="@(model.IsFavorite ? "Remove from Favorites" : "Mark as Favorite")"
+                            @onclick="() => ToggleFavoriteAsync(model.Id)">
+                        @(model.IsFavorite ? "⭐" : "☆")
+                    </button>
+                </div>
+
+                <!-- Specs Pill Ribbon -->
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+                    <span class="badge" style="background: var(--bg-primary); border: 1px solid var(--border-color); color: #94a3b8; font-size: 0.7rem;">
+                        📏 @(model.ContextLength / 1000)k context
+                    </span>
+                    <span class="badge" style="background: var(--bg-primary); border: 1px solid var(--border-color); color: #10b981; font-size: 0.7rem; font-family: monospace;">
+                        💵 @model.FormattedPricing
+                    </span>
+                </div>
+
+                <!-- Strength Areas Badges -->
+                <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px;">
+                    @foreach (var strength in model.StrengthAreas)
+                    {
+                        <span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 0.68rem;">
+                            @GetStrengthEmojiAndName(strength)
+                        </span>
+                    }
+                </div>
+
+                <!-- Description -->
+                <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.35; margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                    @(string.IsNullOrWhiteSpace(model.Description) ? "No description provided by OpenRouter." : model.Description)
+                </p>
+            </div>
+
+            <!-- Card Footer: Recommended Circus Role Tags & Quick Test -->
+            <div style="border-top: 1px solid var(--border-color); padding-top: 10px; margin-top: 6px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                    <span style="font-size: 0.68rem; color: var(--text-muted);">Recommended:</span>
+                    @foreach (var role in GetRecommendedRoles(model))
+                    {
+                        <span style="font-size: 0.95rem;" title="@role.ToDisplayName()">@role.ToEmoji()</span>
+                    }
+                </div>
+
+                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 3px 8px;" @onclick="() => OpenPromptTestModal(model)">
+                    🧪 Test Prompt
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (!FilteredModels.Any())
+{
+    <div class="glass-card" style="text-align: center; color: var(--text-muted); padding: 40px; margin-top: 20px;">
+        <span style="font-size: 2.2rem;">🔍</span>
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-top: 10px;">No models matched your search or filters</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 16px;">Try loosening your strength area, cost tier, or search query filter.</p>
+        <button class="btn btn-secondary" @onclick="ResetFilters">Clear All Filters</button>
+    </div>
+}
+
+<!-- Test Prompt Modal -->
+@if (testModalModel != null)
+{
+    <div class="modal-backdrop" @onclick="() => testModalModel = null">
+        <div class="modal-dialog" style="max-width: 600px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">🧪</span>
+                    <div>
+                        <h3 style="font-size: 1.1rem; font-weight: 700;">Test Model: @testModalModel.Name</h3>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">@testModalModel.Id</div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" @onclick="() => testModalModel = null" style="padding: 4px 8px;">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">System Directive</label>
+                    <textarea class="form-control" rows="2" style="font-size: 0.82rem;" @bind="testSystemPrompt"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">User Prompt</label>
+                    <textarea class="form-control" rows="3" style="font-size: 0.82rem;" @bind="testUserPrompt"></textarea>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">
+                        💰 Rate: @testModalModel.FormattedPricing
+                    </span>
+                    <button class="btn btn-primary" @onclick="RunPromptTestAsync" disabled="@isTesting">
+                        @if (isTesting)
+                        {
+                            <span>⏳ Running Inference...</span>
+                        }
+                        else
+                        {
+                            <span>🚀 Execute Prompt</span>
+                        }
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(testOutput))
+                {
+                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin-top: 10px;">
+                        <div style="font-size: 0.72rem; font-weight: 600; color: #38bdf8; margin-bottom: 6px;">Output Response:</div>
+                        <pre style="font-size: 0.8rem; color: #f8fafc; white-space: pre-wrap; font-family: monospace; max-height: 200px; overflow-y: auto; margin: 0;">@testOutput</pre>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<ModelCatalogEntry> allModels = [];
+    private ModelCatalogHealthStatus? healthStatus;
+    private bool isLoading = false;
+    private string? statusMessage;
+
+    // Filters
+    private string searchQuery = string.Empty;
+    private bool filterOnlyFavorites = false;
+    private ModelStrengthArea? selectedStrength = null;
+    private ModelCostTier? selectedCostTier = null;
+    private string selectedProvider = string.Empty;
+    private List<string> availableProviders = [];
+
+    // Test Prompt Modal State
+    private ModelCatalogEntry? testModalModel = null;
+    private string testSystemPrompt = "You are an autonomous engineering agent in the Carnot Cycle Circus platform.";
+    private string testUserPrompt = "Briefly explain the benefit of zero-allocation ValueTasks and immutable records in C# 13.";
+    private string? testOutput = null;
+    private bool isTesting = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogAsync(false);
+    }
+
+    private async Task LoadCatalogAsync(bool forceRefresh)
+    {
+        isLoading = true;
+        try
+        {
+            allModels = await CatalogService.GetModelsAsync(forceRefresh);
+            healthStatus = await CatalogService.GetCatalogStatusAsync();
+
+            availableProviders = allModels
+                .Select(m => m.Provider)
+                .Distinct()
+                .OrderBy(p => p)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading model catalog: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task RefreshCatalogAsync()
+    {
+        isLoading = true;
+        statusMessage = "Pulling fresh models and live pricing from OpenRouter API...";
+        StateHasChanged();
+
+        await LoadCatalogAsync(true);
+        statusMessage = $"Successfully refreshed OpenRouter catalog! Total models: {allModels.Count}";
+    }
+
+    private async Task ToggleFavoriteAsync(string modelId)
+    {
+        var newState = await CatalogService.ToggleFavoriteAsync(modelId);
+        allModels = allModels
+            .Select(m => m.Id == modelId ? m with { IsFavorite = newState } : m)
+            .ToList();
+        healthStatus = await CatalogService.GetCatalogStatusAsync();
+    }
+
+    private void ResetFilters()
+    {
+        searchQuery = string.Empty;
+        filterOnlyFavorites = false;
+        selectedStrength = null;
+        selectedCostTier = null;
+        selectedProvider = string.Empty;
+    }
+
+    private IEnumerable<ModelCatalogEntry> FilteredModels => allModels.Where(m =>
+    {
+        if (filterOnlyFavorites && !m.IsFavorite) return false;
+        if (selectedStrength.HasValue && !m.StrengthAreas.Contains(selectedStrength.Value)) return false;
+        if (selectedCostTier.HasValue && m.CostTier != selectedCostTier.Value) return false;
+        if (!string.IsNullOrEmpty(selectedProvider) && !string.Equals(m.Provider, selectedProvider, StringComparison.OrdinalIgnoreCase)) return false;
+
+        if (!string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var q = searchQuery.Trim();
+            var matchesId = m.Id.Contains(q, StringComparison.OrdinalIgnoreCase);
+            var matchesName = m.Name.Contains(q, StringComparison.OrdinalIgnoreCase);
+            var matchesDesc = m.Description.Contains(q, StringComparison.OrdinalIgnoreCase);
+            var matchesProvider = m.Provider.Contains(q, StringComparison.OrdinalIgnoreCase);
+            if (!matchesId && !matchesName && !matchesDesc && !matchesProvider) return false;
+        }
+
+        return true;
+    });
+
+    private void OpenPromptTestModal(ModelCatalogEntry model)
+    {
+        testModalModel = model;
+        testOutput = null;
+    }
+
+    private async Task RunPromptTestAsync()
+    {
+        if (testModalModel == null) return;
+        isTesting = true;
+        testOutput = null;
+        StateHasChanged();
+
+        try
+        {
+            var apiKey = KeyVaultService.GetActiveKey()?.RawApiKey ?? "sk-or-v1-sandbox-mock-circus";
+            var request = new OpenRouterChatRequest(
+                Model: testModalModel.Id,
+                Messages:
+                [
+                    new OpenRouterMessage("system", testSystemPrompt),
+                    new OpenRouterMessage("user", testUserPrompt)
+                ],
+                Temperature: 0.2,
+                MaxTokens: 512
+            );
+
+            var resp = await OpenRouterClient.CompleteAsync(request, apiKey);
+            testOutput = resp.FirstContent;
+        }
+        catch (Exception ex)
+        {
+            testOutput = $"Error during test inference: {ex.Message}";
+        }
+        finally
+        {
+            isTesting = false;
+        }
+    }
+
+    private static string GetCostTierLabel(ModelCostTier tier) => tier switch
+    {
+        ModelCostTier.Free => "Free Tier",
+        ModelCostTier.Budget => "Budget Tier",
+        ModelCostTier.Standard => "Standard Tier",
+        ModelCostTier.Premium => "Premium Frontier",
+        _ => "Standard"
+    };
+
+    private static string GetCostTierColor(ModelCostTier tier) => tier switch
+    {
+        ModelCostTier.Free => "#059669",
+        ModelCostTier.Budget => "#10b981",
+        ModelCostTier.Standard => "#f59e0b",
+        ModelCostTier.Premium => "#ef4444",
+        _ => "#f59e0b"
+    };
+
+    private static string GetCostTierBg(ModelCostTier tier) => tier switch
+    {
+        ModelCostTier.Free => "rgba(5, 150, 105, 0.15)",
+        ModelCostTier.Budget => "rgba(16, 185, 129, 0.15)",
+        ModelCostTier.Standard => "rgba(245, 158, 11, 0.15)",
+        ModelCostTier.Premium => "rgba(239, 68, 68, 0.15)",
+        _ => "rgba(245, 158, 11, 0.15)"
+    };
+
+    private static string GetStrengthEmojiAndName(ModelStrengthArea area) => area switch
+    {
+        ModelStrengthArea.CodeGeneration => "💻 Code",
+        ModelStrengthArea.DeepReasoning => "🧠 Reasoning",
+        ModelStrengthArea.LowLatencyFallback => "⚡ Fast",
+        ModelStrengthArea.GeneralOrchestration => "📋 Orchestration",
+        ModelStrengthArea.SecurityAudit => "🛡️ Security",
+        ModelStrengthArea.MultimodalVision => "🖼️ Vision",
+        _ => "⚙️ General"
+    };
+
+    private static IReadOnlyList<AgentRole> GetRecommendedRoles(ModelCatalogEntry model)
+    {
+        var list = new List<AgentRole>();
+        if (model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)) list.Add(AgentRole.TechnicalProductManager);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.LeadArchitect);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration)) list.Add(AgentRole.SoftwareDeveloper);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit)) list.Add(AgentRole.SecurityEngineer);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.OptimizationEngineer);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.PrincipalQAAnalyst);
+        return list.Distinct().ToList();
+    }
+}

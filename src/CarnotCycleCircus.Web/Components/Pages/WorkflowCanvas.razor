@@ -705,11 +705,19 @@
     {
         _errorMessage = null;
         _successMessage = $"Workflow execution running (Failure Simulation: {(triggerFailure ? "ON" : "OFF")})...";
-        await GraphExecutor.ExecuteWorkflowAsync(
-            "Visual DAG Workflow Execution",
-            "Execute end-to-end multi-agent engineering workflow directly from interactive DAG canvas.",
-            triggerFailureSimulation: triggerFailure
-        );
+        var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
+        if (readyTickets.Count > 0 && !triggerFailure)
+        {
+            await GraphExecutor.ExecuteReadyTicketsAsync();
+        }
+        else
+        {
+            await GraphExecutor.ExecuteWorkflowAsync(
+                "Visual DAG Workflow Execution",
+                "Execute end-to-end multi-agent engineering workflow directly from interactive DAG canvas.",
+                triggerFailureSimulation: triggerFailure
+            );
+        }
         _successMessage = "Workflow execution completed!";
     }
 

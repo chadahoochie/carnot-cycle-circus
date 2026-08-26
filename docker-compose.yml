@@ -17,6 +17,8 @@ services:
       - carnot_data:/app/data
       - carnot_artifacts:/app/data/artifacts
       - carnot_skills:/app/data/skills
+      # Host user's home directory mount for Codebase Harvester interactive directory browsing (ro,z for SELinux compatibility)
+      - ${HOST_WORKSPACE_PATH:-${HOME:-${USERPROFILE:-~}}}/source:/workspace:ro,z
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
       interval: 30s

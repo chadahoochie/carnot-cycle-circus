@@ -287,6 +287,29 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr11.Id] = adr11;
 
+        var adr12 = new ArchitecturalDecisionRecord(
+            Id: "ADR-012",
+            Title: "OpenRouter Dynamic Model Ingestion, Local Persistent Caching, Strength & Cost Categorization, and Favorites System",
+            Status: AdrStatus.Accepted,
+            Context: "Agent inference models previously relied on hardcoded strings, while OpenRouter continuously publishes hundreds of models with diverse capabilities and pricing tiers.",
+            Decision: "Implement IModelCatalogService with 24h persistent caching, automated token cost tiering (Free, Budget, Standard, Premium), 6-discipline engineering strength area classification, 1-click favorites management, and role-based agent recommendations.",
+            AlternativesConsidered: [
+                "Raw API querying on every page load (rejected: introduces latency, rate limiting, and breaks offline mode)",
+                "Static hardcoded enum lists (rejected: fails to support new AI model releases without recompiling code)"
+            ],
+            ConsequencesPositive: [
+                "Dynamic access to 300+ models with resilient offline fallback",
+                "1-click favorites eliminate cognitive overload during agent configuration",
+                "Transparent token pricing and role recommendations optimize multi-agent squads"
+            ],
+            ConsequencesNegative: [
+                "Model classification heuristics require periodic updates as model naming conventions evolve"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr12.Id] = adr12;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

@@ -1,4 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Artifacts;
 using CarnotCycleCircus.Core.Domain.Blueprints;
 using CarnotCycleCircus.Core.Domain.Docs;
 using CarnotCycleCircus.Core.Domain.Events;
@@ -8,6 +9,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Models;
 using CarnotCycleCircus.Core.Domain.Quotes;
 using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Showcase;
@@ -39,6 +41,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITicketStore, TicketStore>();
         services.AddSingleton<IWorkDecompositionEngine, WorkDecompositionEngine>();
         services.AddSingleton<IHandoffRouter, HandoffRouter>();
+        services.AddSingleton<IArtifactManager, ArtifactManager>();
 
         // Memory Layer
         services.AddSingleton<IPersistentMemoryStore, EmbeddedVectorMemoryStore>();
@@ -53,6 +56,7 @@ public static class ServiceCollectionExtensions
         // Inference & Key Vault
         services.AddSingleton<IApiKeyVaultService, ApiKeyVaultService>();
         services.AddSingleton<IOpenRouterClient, OpenRouterClient>();
+        services.AddSingleton<IModelCatalogService, OpenRouterModelCatalogService>();
         services.AddSingleton<IAgentInferenceResolver, AgentInferenceResolver>();
         services.AddSingleton<ISimulatedScenarioEngine, SimulatedScenarioEngine>();
 

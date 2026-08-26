@@ -17,6 +17,38 @@ public record DiscoveredProjectInfo(
     string ProjectType
 );
 
+public record DirectoryEntryInfo(
+    string Name,
+    string FullPath,
+    bool HasProjects,
+    int SubdirectoryCount
+);
+
+public record DiscoveredSolutionInfo(
+    string Name,
+    string FullPath,
+    string RelativePath,
+    string Type,
+    int ProjectCount
+);
+
+public record QuickMountShortcut(
+    string Label,
+    string FullPath,
+    bool Exists,
+    string Description
+);
+
+public record DirectoryInspectionResult(
+    string CurrentPath,
+    string? ParentPath,
+    IReadOnlyList<DirectoryEntryInfo> Subdirectories,
+    IReadOnlyList<DiscoveredSolutionInfo> DiscoveredSolutions,
+    IReadOnlyList<QuickMountShortcut> QuickMountShortcuts,
+    bool IsAccessible,
+    string? ErrorMessage = null
+);
+
 public record CodebaseHarvestReport(
     string RootPath,
     string SolutionName,
@@ -36,6 +68,8 @@ public interface ICodebaseHarvesterService
     Task<CodebaseHarvestReport> HarvestDirectoryAsync(string directoryPath, bool autoGenerateBacklog = true, CancellationToken cancellationToken = default);
     Task<CodebaseHarvestReport> HarvestCurrentWorkspaceAsync(bool autoGenerateBacklog = true, CancellationToken cancellationToken = default);
     CodebaseHarvestReport? GetLatestReport();
+    DirectoryInspectionResult InspectDirectory(string directoryPath);
+    IReadOnlyList<QuickMountShortcut> GetStandardMountShortcuts();
 }
 
 public class CodebaseHarvesterService : ICodebaseHarvesterService
@@ -103,7 +137,14 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
                       ?? Directory.EnumerateFiles(directoryPath, "*.sln*", SearchOption.AllDirectories).FirstOrDefault();
         var solutionName = slnFile != null ? Path.GetFileNameWithoutExtension(slnFile) : dirInfo.Name;
 
-        var allFiles = Directory.EnumerateFiles(directoryPath, "*.*", SearchOption.AllDirectories)
+        var enumerationOptions = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = true,
+            ReturnSpecialDirectories = false
+        };
+
+        var allFiles = Directory.EnumerateFiles(directoryPath, "*.*", enumerationOptions)
             .Where(f =>
             {
                 var rel = Path.GetRelativePath(directoryPath, f).Replace('\\', '/');
@@ -119,7 +160,7 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
         var docFiles = allFiles.Where(f => f.EndsWith(".md", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)).ToList();
 
         // Discover .csproj / project files
-        var projectFiles = Directory.EnumerateFiles(directoryPath, "*.csproj", SearchOption.AllDirectories)
+        var projectFiles = Directory.EnumerateFiles(directoryPath, "*.csproj", enumerationOptions)
             .Where(f =>
             {
                 var rel = Path.GetRelativePath(directoryPath, f).Replace('\\', '/');
@@ -305,5 +346,234 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
         ));
 
         return report;
+    }
+
+    public IReadOnlyList<QuickMountShortcut> GetStandardMountShortcuts()
+    {
+        var list = new List<QuickMountShortcut>();
+        
+        // 1. Docker workspace mount
+        var workspaceDir = "/workspace";
+        list.Add(new QuickMountShortcut(
+            Label: "🐳 /workspace",
+            FullPath: workspaceDir,
+            Exists: Directory.Exists(workspaceDir),
+            Description: "Standard Docker host-mounted repository path"
+        ));
+
+        // 2. Circus App Working Directory
+        var currentDir = Directory.GetCurrentDirectory();
+        list.Add(new QuickMountShortcut(
+            Label: "📍 Circus App",
+            FullPath: currentDir,
+            Exists: Directory.Exists(currentDir),
+            Description: "Current working directory of running application"
+        ));
+
+        // 3. Persistent Data Directory
+        var dataDir = Environment.GetEnvironmentVariable("CARNOT_DATA_DIR") ?? "/app/data";
+        list.Add(new QuickMountShortcut(
+            Label: "💾 Data Dir",
+            FullPath: dataDir,
+            Exists: Directory.Exists(dataDir),
+            Description: "Persistent storage mount point for artifacts and data"
+        ));
+
+        // 4. Source root / repo mount fallback
+        var srcDir = "/src";
+        if (Directory.Exists(srcDir))
+        {
+            list.Add(new QuickMountShortcut(
+                Label: "📁 /src",
+                FullPath: srcDir,
+                Exists: true,
+                Description: "Mounted source root folder"
+            ));
+        }
+
+        // 5. System Root
+        var rootDir = Path.GetPathRoot(currentDir) ?? "/";
+        list.Add(new QuickMountShortcut(
+            Label: "💻 Root (/)",
+            FullPath: rootDir,
+            Exists: Directory.Exists(rootDir),
+            Description: "Root filesystem"
+        ));
+
+        return list;
+    }
+
+    public DirectoryInspectionResult InspectDirectory(string directoryPath)
+    {
+        var shortcuts = GetStandardMountShortcuts();
+
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            if (Directory.Exists("/workspace"))
+            {
+                directoryPath = "/workspace";
+            }
+            else
+            {
+                directoryPath = Directory.GetCurrentDirectory();
+            }
+        }
+
+        try
+        {
+            if (!Directory.Exists(directoryPath))
+            {
+                return new DirectoryInspectionResult(
+                    CurrentPath: directoryPath,
+                    ParentPath: null,
+                    Subdirectories: [],
+                    DiscoveredSolutions: [],
+                    QuickMountShortcuts: shortcuts,
+                    IsAccessible: false,
+                    ErrorMessage: $"Directory '{directoryPath}' does not exist or is not mounted."
+                );
+            }
+
+            var dirInfo = new DirectoryInfo(directoryPath);
+            var fullPath = dirInfo.FullName;
+            var parentPath = dirInfo.Parent?.FullName;
+
+            var subdirs = new List<DirectoryEntryInfo>();
+            var ignoredDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "bin", "obj", ".git", "node_modules", ".cache", "proc", "sys", "dev", "lost+found", ".gemini", ".vscode"
+            };
+
+            foreach (var sub in dirInfo.EnumerateDirectories())
+            {
+                if (ignoredDirs.Contains(sub.Name) || sub.Name.StartsWith('.'))
+                    continue;
+
+                bool hasProjects = false;
+                int childSubdirCount = 0;
+                try
+                {
+                    hasProjects = sub.EnumerateFiles("*.sln*", SearchOption.TopDirectoryOnly).Any() ||
+                                  sub.EnumerateFiles("*.csproj", SearchOption.TopDirectoryOnly).Any();
+                    childSubdirCount = sub.EnumerateDirectories().Count(d => !ignoredDirs.Contains(d.Name) && !d.Name.StartsWith('.'));
+                }
+                catch
+                {
+                    // Ignore permission / enumeration errors on probe
+                }
+
+                subdirs.Add(new DirectoryEntryInfo(
+                    Name: sub.Name,
+                    FullPath: sub.FullName,
+                    HasProjects: hasProjects,
+                    SubdirectoryCount: childSubdirCount
+                ));
+            }
+
+            var sortedSubdirs = subdirs
+                .OrderByDescending(d => d.HasProjects)
+                .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var discoveredSolutions = new List<DiscoveredSolutionInfo>();
+
+            try
+            {
+                // Check solutions directly in this folder
+                var topSlns = dirInfo.EnumerateFiles("*.sln*").ToList();
+                foreach (var sln in topSlns)
+                {
+                    var projCount = 0;
+                    try
+                    {
+                        var safeOptions = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true };
+                        projCount = dirInfo.EnumerateFiles("*.csproj", safeOptions)
+                            .Count(f => !f.FullName.Contains("/bin/") && !f.FullName.Contains("/obj/"));
+                    }
+                    catch { }
+
+                    discoveredSolutions.Add(new DiscoveredSolutionInfo(
+                        Name: sln.Name,
+                        FullPath: fullPath,
+                        RelativePath: sln.Name,
+                        Type: "Solution (.sln/.slnx)",
+                        ProjectCount: projCount
+                    ));
+                }
+
+                var topCsprojs = dirInfo.EnumerateFiles("*.csproj").ToList();
+                foreach (var csproj in topCsprojs)
+                {
+                    if (topSlns.Count == 0)
+                    {
+                        discoveredSolutions.Add(new DiscoveredSolutionInfo(
+                            Name: csproj.Name,
+                            FullPath: fullPath,
+                            RelativePath: csproj.Name,
+                            Type: "C# Project (.csproj)",
+                            ProjectCount: 1
+                        ));
+                    }
+                }
+
+                // If no top-level solution found, look 1 level deep for any child solutions
+                if (discoveredSolutions.Count == 0)
+                {
+                    foreach (var sub in dirInfo.EnumerateDirectories().Where(d => !ignoredDirs.Contains(d.Name) && !d.Name.StartsWith('.')))
+                    {
+                        try
+                        {
+                            var childSlns = sub.EnumerateFiles("*.sln*").ToList();
+                            foreach (var sln in childSlns)
+                            {
+                                var childProjects = 0;
+                                try
+                                {
+                                    var safeOptions = new EnumerationOptions { IgnoreInaccessible = true, RecurseSubdirectories = true };
+                                    childProjects = sub.EnumerateFiles("*.csproj", safeOptions)
+                                        .Count(f => !f.FullName.Contains("/bin/") && !f.FullName.Contains("/obj/"));
+                                }
+                                catch { }
+
+                                discoveredSolutions.Add(new DiscoveredSolutionInfo(
+                                    Name: $"{sub.Name}/{sln.Name}",
+                                    FullPath: sub.FullName,
+                                    RelativePath: Path.GetRelativePath(fullPath, sln.FullName),
+                                    Type: "Solution (.sln/.slnx)",
+                                    ProjectCount: childProjects
+                                ));
+                            }
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback for file enumeration
+            }
+
+            return new DirectoryInspectionResult(
+                CurrentPath: fullPath,
+                ParentPath: parentPath,
+                Subdirectories: sortedSubdirs,
+                DiscoveredSolutions: discoveredSolutions,
+                QuickMountShortcuts: shortcuts,
+                IsAccessible: true,
+                ErrorMessage: null
+            );
+        }
+        catch (Exception ex)
+        {
+            return new DirectoryInspectionResult(
+                CurrentPath: directoryPath,
+                ParentPath: null,
+                Subdirectories: [],
+                DiscoveredSolutions: [],
+                QuickMountShortcuts: shortcuts,
+                IsAccessible: false,
+                ErrorMessage: ex.Message
+            );
+        }
     }
 }

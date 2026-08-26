@@ -61,4 +61,38 @@ public class CodebaseHarvesterServiceTests
             ticket.Should().NotBeNull();
         }
     }
+
+    [Fact]
+    public void GetStandardMountShortcuts_ShouldIncludeWorkspaceAndCurrentApp()
+    {
+        var shortcuts = _harvesterService.GetStandardMountShortcuts();
+
+        shortcuts.Should().NotBeEmpty();
+        shortcuts.Should().Contain(s => s.FullPath == "/workspace");
+        shortcuts.Should().Contain(s => s.FullPath == Directory.GetCurrentDirectory());
+    }
+
+    [Fact]
+    public void InspectDirectory_WithValidDirectory_ShouldReturnSubdirectoriesAndDiscoveredSolutions()
+    {
+        var currentDir = Directory.GetCurrentDirectory();
+        var inspection = _harvesterService.InspectDirectory(currentDir);
+
+        inspection.Should().NotBeNull();
+        inspection.IsAccessible.Should().BeTrue();
+        inspection.CurrentPath.Should().Be(currentDir);
+        inspection.QuickMountShortcuts.Should().NotBeEmpty();
+        inspection.DiscoveredSolutions.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void InspectDirectory_WithNonExistentDirectory_ShouldReturnAccessibleFalse()
+    {
+        var bogusPath = "/non/existent/directory/path/that/never/exists";
+        var inspection = _harvesterService.InspectDirectory(bogusPath);
+
+        inspection.Should().NotBeNull();
+        inspection.IsAccessible.Should().BeFalse();
+        inspection.ErrorMessage.Should().NotBeNullOrEmpty();
+    }
 }

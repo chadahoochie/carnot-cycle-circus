@@ -26,9 +26,8 @@ bld/
 # .NET Core & Build Artifacts (preserves agent deliverables in artifacts/)
 project.lock.json
 project.fragment.lock.json
-artifacts/bin/
-artifacts/obj/
-artifacts/package/
+artifacts/**
+data/**
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

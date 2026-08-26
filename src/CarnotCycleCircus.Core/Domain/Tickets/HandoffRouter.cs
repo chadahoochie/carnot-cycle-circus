@@ -140,6 +140,42 @@ public class HandoffRouter : IHandoffRouter
             }
         }
 
+        // Check if parent story / epic has all subtasks completed
+        if (!string.IsNullOrEmpty(ticket.ParentEpicId))
+        {
+            var epicTickets = _ticketStore.GetTicketsByEpic(ticket.ParentEpicId);
+            var subtasks = epicTickets.Where(t => t.Type == TicketType.Subtask).ToList();
+            if (subtasks.Count > 0 && subtasks.All(t => t.Status == TicketStatus.Done))
+            {
+                foreach (var parentItem in epicTickets.Where(t => t.Type != TicketType.Subtask && t.Status != TicketStatus.Done))
+                {
+                    var completedParent = parentItem.WithStatus(TicketStatus.Done);
+                    _ticketStore.UpdateTicket(completedParent);
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: completedParent.AssigneeRole,
+                        senderName: "Ticket Engine",
+                        content: $"🏆 All subtasks finished for [{completedParent.Id}] {completedParent.Title}! Marked as Done.",
+                        type: MessageType.StateChange,
+                        ticketId: completedParent.Id
+                    ));
+                }
+
+                var epicTicket = _ticketStore.GetTicketById(ticket.ParentEpicId);
+                if (epicTicket != null && epicTicket.Status != TicketStatus.Done)
+                {
+                    var completedEpic = epicTicket.WithStatus(TicketStatus.Done);
+                    _ticketStore.UpdateTicket(completedEpic);
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: completedEpic.AssigneeRole,
+                        senderName: "Ticket Engine",
+                        content: $"🏆 All subtasks finished for Epic [{completedEpic.Id}] {completedEpic.Title}! Marked as Done.",
+                        type: MessageType.StateChange,
+                        ticketId: completedEpic.Id
+                    ));
+                }
+            }
+        }
+
         return activatedTickets;
     }
 }

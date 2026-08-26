@@ -1,8 +1,12 @@
+@using CarnotCycleCircus.Core.Domain.Artifacts
 @inject ITicketStore TicketStore
 @inject IHandoffRouter HandoffRouter
+@inject IGraphWorkflowExecutor GraphExecutor
+@inject IArtifactManager ArtifactManager
+@inject IJSRuntime JSRuntime
 
 <div class="modal-backdrop" @onclick="Close">
-    <div class="modal-dialog" style="max-width: 780px;" @onclick:stopPropagation="true">
+    <div class="modal-dialog" style="max-width: 820px;" @onclick:stopPropagation="true">
         <div class="modal-header">
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span class="badge" style="background: @Ticket.AssigneeRole.ToColorHex(); color: #000; font-weight: 700;">@Ticket.Id</span>
@@ -35,16 +39,39 @@
                     @if (Ticket.Deliverables.Count > 0)
                     {
                         <div style="margin-bottom: 16px;">
-                            <h4 style="font-size: 0.85rem; font-weight: 600; color: #22c55e; text-transform: uppercase; margin-bottom: 6px;">Delivered Artifacts (@Ticket.Deliverables.Count)</h4>
-                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <h4 style="font-size: 0.85rem; font-weight: 600; color: #22c55e; text-transform: uppercase; margin: 0;">
+                                    Delivered Artifacts (@Ticket.Deliverables.Count)
+                                </h4>
+                                <a href="artifacts" style="font-size: 0.75rem; color: #38bdf8; text-decoration: none;">
+                                    View in Artifacts Hub ↗
+                                </a>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 10px;">
                                 @foreach (var artifact in Ticket.Deliverables)
                                 {
+                                    var artifactPath = ArtifactManager.GetArtifactPath(Ticket.Id, artifact.Name);
+                                    var relPath = $"artifacts/tickets/{Ticket.Id}/{artifact.Name}";
                                     <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
-                                        <div style="background: var(--bg-tertiary); padding: 6px 12px; font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between;">
-                                            <span>📄 @artifact.Name</span>
-                                            <span style="color: var(--text-muted);">@artifact.ContentType</span>
+                                        <div style="background: var(--bg-tertiary); padding: 8px 12px; font-size: 0.8rem; font-weight: 600; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+                                            <div>
+                                                <span>📄 @artifact.Name</span>
+                                                <span style="color: var(--text-muted); font-size: 0.72rem; margin-left: 6px;">(@artifact.ContentType)</span>
+                                            </div>
+                                            <div style="display: flex; gap: 6px;">
+                                                <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 8px;" @onclick="() => CopyPath(artifactPath)">
+                                                    📋 Copy Path
+                                                </button>
+                                                <button class="btn btn-primary" style="font-size: 0.7rem; padding: 2px 8px;" @onclick="() => CopyContent(artifact.Content)">
+                                                    📋 Copy Content
+                                                </button>
+                                            </div>
                                         </div>
-                                        <pre style="padding: 10px; font-size: 0.8rem; overflow-x: auto; max-height: 180px; font-family: monospace;">@artifact.Content</pre>
+                                        <div style="background: rgba(0,0,0,0.25); padding: 4px 12px; font-family: monospace; font-size: 0.72rem; color: #38bdf8; border-bottom: 1px solid var(--border-color);">
+                                            📁 @relPath
+                                        </div>
+                                        <pre style="padding: 10px; font-size: 0.8rem; overflow-x: auto; max-height: 220px; font-family: monospace; margin: 0;">@artifact.Content</pre>
                                     </div>
                                 }
                             </div>
@@ -55,6 +82,24 @@
                 <!-- Right Sidebar Details -->
                 <div style="display: flex; flex-direction: column; gap: 14px;">
                     <div style="background: var(--bg-primary); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        @if (Ticket.Status != TicketStatus.Done)
+                        {
+                            var isReady = TicketStore.AreDependenciesSatisfied(Ticket.Id);
+                            <div style="margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+                                <button class="btn btn-success" style="width: 100%; justify-content: center; font-weight: 700; padding: 8px 12px;"
+                                        @onclick="ExecuteTicketWithAgent"
+                                        disabled="@(!isReady || isExecuting)">
+                                    @(isExecuting ? "⏳ Agent Working..." : isReady ? $"🚀 Unleash {Ticket.AssigneeRole.ToDisplayName().Split(' ')[0]}" : "⏳ Dependencies Pending")
+                                </button>
+                                @if (!isReady && Ticket.DependsOnTicketIds.Count > 0)
+                                {
+                                    <div style="font-size: 0.72rem; color: #eab308; margin-top: 6px; text-align: center;">
+                                        Blocked by: @string.Join(", ", Ticket.DependsOnTicketIds)
+                                    </div>
+                                }
+                            </div>
+                        }
+
                         <div class="form-group">
                             <label class="form-label">Status</label>
                             <select class="form-control" @bind="selectedStatus">
@@ -112,6 +157,7 @@
 
     private TicketStatus selectedStatus;
     private AgentRole selectedAssignee;
+    private bool isExecuting = false;
 
     protected override void OnParametersSet()
     {
@@ -120,6 +166,27 @@
     }
 
     private async Task Close() => await OnClose.InvokeAsync();
+
+    private async Task ExecuteTicketWithAgent()
+    {
+        isExecuting = true;
+        try
+        {
+            await GraphExecutor.ExecuteTicketAsync(Ticket.Id);
+            var refreshed = TicketStore.GetTicketById(Ticket.Id);
+            if (refreshed != null)
+            {
+                Ticket = refreshed;
+                selectedStatus = refreshed.Status;
+                selectedAssignee = refreshed.AssigneeRole;
+            }
+            await OnUpdated.InvokeAsync();
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
 
     private async Task SaveUpdates()
     {
@@ -131,5 +198,23 @@
         }
         await OnUpdated.InvokeAsync();
         await Close();
+    }
+
+    private async Task CopyPath(string path)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", path);
+        }
+        catch { }
+    }
+
+    private async Task CopyContent(string content)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", content);
+        }
+        catch { }
     }
 }

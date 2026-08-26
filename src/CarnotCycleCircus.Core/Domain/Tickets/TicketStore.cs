@@ -75,6 +75,40 @@ public class TicketStore : ITicketStore
         {
             await _storageService.SaveJsonAsync(TicketsFileName, _tickets.Values.ToList(), cancellationToken);
             await _storageService.SaveJsonAsync(HandoffsFileName, _handoffs.ToList(), cancellationToken);
+
+            // Persist each deliverable to disk in artifacts/
+            foreach (var ticket in _tickets.Values)
+            {
+                foreach (var del in ticket.Deliverables)
+                {
+                    if (string.IsNullOrWhiteSpace(del.Name) || del.Content == null) continue;
+
+                    // Write to ticket-specific artifact directory
+                    await _storageService.SaveTextAsync($"artifacts/tickets/{ticket.Id}/{del.Name}", del.Content, cancellationToken);
+
+                    // Also write categorized artifact copies for instant discovery
+                    if (del.Name.EndsWith("_ADR.md", StringComparison.OrdinalIgnoreCase) || (del.Description?.Contains("ADR", StringComparison.OrdinalIgnoreCase) ?? false) || ticket.AssigneeRole == AgentRole.LeadArchitect)
+                    {
+                        await _storageService.SaveTextAsync($"artifacts/adrs/{del.Name}", del.Content, cancellationToken);
+                    }
+                    else if (del.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) || (del.Description?.Contains("Implementation", StringComparison.OrdinalIgnoreCase) ?? false) || ticket.AssigneeRole == AgentRole.SoftwareDeveloper)
+                    {
+                        await _storageService.SaveTextAsync($"artifacts/code/{del.Name}", del.Content, cancellationToken);
+                    }
+                    else if (del.Name.EndsWith("_STRIDE_Model.md", StringComparison.OrdinalIgnoreCase) || (del.Description?.Contains("STRIDE", StringComparison.OrdinalIgnoreCase) ?? false) || ticket.AssigneeRole == AgentRole.SecurityEngineer)
+                    {
+                        await _storageService.SaveTextAsync($"artifacts/security/{del.Name}", del.Content, cancellationToken);
+                    }
+                    else if (del.Name.EndsWith("_Perf_Profile.md", StringComparison.OrdinalIgnoreCase) || (del.Description?.Contains("Benchmark", StringComparison.OrdinalIgnoreCase) ?? false) || ticket.AssigneeRole == AgentRole.OptimizationEngineer)
+                    {
+                        await _storageService.SaveTextAsync($"artifacts/benchmarks/{del.Name}", del.Content, cancellationToken);
+                    }
+                    else if (del.Name.EndsWith("_QA_Scorecard.md", StringComparison.OrdinalIgnoreCase) || (del.Description?.Contains("QA", StringComparison.OrdinalIgnoreCase) ?? false) || ticket.AssigneeRole == AgentRole.PrincipalQAAnalyst)
+                    {
+                        await _storageService.SaveTextAsync($"artifacts/qa/{del.Name}", del.Content, cancellationToken);
+                    }
+                }
+            }
         }
         catch
         {

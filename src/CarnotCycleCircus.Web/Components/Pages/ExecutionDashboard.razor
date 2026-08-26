@@ -211,11 +211,19 @@
 
     private async Task RunFullWorkflow()
     {
-        await GraphExecutor.ExecuteWorkflowAsync(
-            "Build High-Throughput PubSub Event Stream",
-            "Implement high-performance zero-allocation pub/sub event pipeline with STRIDE security review and QA test scorecard.",
-            triggerFailureSimulation: false
-        );
+        var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
+        if (readyTickets.Count > 0)
+        {
+            await GraphExecutor.ExecuteReadyTicketsAsync();
+        }
+        else
+        {
+            await GraphExecutor.ExecuteWorkflowAsync(
+                "Build High-Throughput PubSub Event Stream",
+                "Implement high-performance zero-allocation pub/sub event pipeline with STRIDE security review and QA test scorecard.",
+                triggerFailureSimulation: false
+            );
+        }
     }
 
     private async Task RunFailureSimulation()

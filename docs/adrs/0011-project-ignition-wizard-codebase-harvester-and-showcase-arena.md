@@ -14,8 +14,9 @@ Implement a **Dual-Track Quickstart & Ignition Architecture** backed by three fo
 1. **`IProjectBlueprintService` (Ignition Wizard)**:
    - Provides curated 1-click architectural blueprints (High-Throughput IoT, E-Commerce Saga, Zero-Trust Identity, Distributed CQRS, Chaos Benchmark Arena) and custom prompt ignition.
    - Automatically decomposes Epics into 5 atomic technical subtasks, creates an initial MADR/Nygard ADR, populates AI knowledge maps, seeds semantic memory, and activates the optimal squad archetype.
-2. **`ICodebaseHarvesterService` (Codebase Harvester & Tech Debt Radar)**:
+2. **`ICodebaseHarvesterService` (Codebase Harvester, Directory Explorer & Tech Debt Radar)**:
    - Recursively inspects local repositories, `.sln`/`.csproj` project files, and package dependencies.
+   - Provides interactive directory browsing, breadcrumb traversal, standard Docker mount detection (`/workspace`, `/app`, `/data`), and 1-click solution auto-discovery.
    - Automatically detects architectural patterns (Blazor, xUnit, Zero-Allocation, OpenTelemetry, Redis, EF Core).
    - Generates actionable improvement backlogs (STRIDE security audit, zero-allocation benchmarking, test suite expansion, ADR generation).
    - Ingests discovered components into the semantic memory tier and knowledge graph.
@@ -29,11 +30,12 @@ Implement a **Dual-Track Quickstart & Ignition Architecture** backed by three fo
 ### Positive
 - **Instant Time-to-Dopamine (< 60s)**: Users can see the full 6-agent swarm collaborating and producing artifacts on minute 1 with zero setup.
 - **Seamless Greenfield & Brownfield Workflows**: Single-click initialization for both brand new projects and existing repositories.
+- **Interactive Directory Navigation in Docker**: 1-click mount point shortcuts (e.g. `🐳 /workspace`), breadcrumbs, and auto-discovered solutions eliminate manual path typing.
 - **Automated Context Ingestion**: Codebase Harvester directly populates the 4-tier vector memory and knowledge graph without manual prompting.
 - **Zero-Allocation & Async Dogma Preserved**: All services adhere to C# 13 immutable records, async cancellation tokens, and zero-allocation hot paths.
 
 ### Negative / Trade-offs
-- File system scanning is constrained by local directory access permissions in containerized environments.
+- File system scanning is constrained by local directory access permissions and volume mounts in containerized environments.
 
 ## References
 - [`IProjectBlueprintService.cs`](file:///home/chad/source/dotnet/carnot-cycle-circus/src/CarnotCycleCircus.Core/Domain/Blueprints/ProjectBlueprintService.cs)

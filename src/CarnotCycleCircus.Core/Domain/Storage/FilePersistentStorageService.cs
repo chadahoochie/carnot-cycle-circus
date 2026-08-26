@@ -30,6 +30,11 @@ public class FilePersistentStorageService : IPersistentStorageService
             Directory.CreateDirectory(_options.ArtifactsDirectory);
             Directory.CreateDirectory(_options.SkillsDirectory);
             Directory.CreateDirectory(_options.AdrsDirectory);
+            Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "tickets"));
+            Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "code"));
+            Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "security"));
+            Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "benchmarks"));
+            Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "qa"));
         }
         catch
         {
@@ -41,6 +46,19 @@ public class FilePersistentStorageService : IPersistentStorageService
     {
         // Sanitize path to prevent directory traversal
         var cleanPath = relativePath.TrimStart('/', '\\').Replace("..", string.Empty);
+        if (cleanPath.StartsWith("artifacts" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.StartsWith("artifacts/", StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.StartsWith("artifacts\\", StringComparison.OrdinalIgnoreCase))
+        {
+            var subPath = cleanPath["artifacts/".Length..];
+            return Path.Combine(_options.ArtifactsDirectory, subPath);
+        }
+
+        if (cleanPath.Equals("artifacts", StringComparison.OrdinalIgnoreCase))
+        {
+            return _options.ArtifactsDirectory;
+        }
+
         return Path.Combine(_options.DataDirectory, cleanPath);
     }
 
@@ -187,8 +205,12 @@ public class FilePersistentStorageService : IPersistentStorageService
             return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
         }
 
+        var rootBase = targetDir.StartsWith(_options.ArtifactsDirectory, StringComparison.OrdinalIgnoreCase)
+            ? _options.ArtifactsDirectory
+            : _options.DataDirectory;
+
         var files = Directory.GetFiles(targetDir, searchPattern, SearchOption.AllDirectories)
-            .Select(f => Path.GetRelativePath(_options.DataDirectory, f))
+            .Select(f => Path.GetRelativePath(rootBase, f))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<string>>(files);
@@ -212,15 +234,32 @@ public class FilePersistentStorageService : IPersistentStorageService
                 ));
             }
 
-            var dirInfo = new DirectoryInfo(_options.DataDirectory);
             var fileEntries = new List<StorageFileEntry>();
+            var scannedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             long totalBytes = 0;
 
-            foreach (var fi in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+            var directoriesToScan = new List<string> { _options.DataDirectory };
+            if (!string.IsNullOrWhiteSpace(_options.ArtifactsDirectory) &&
+                !_options.ArtifactsDirectory.StartsWith(_options.DataDirectory, StringComparison.OrdinalIgnoreCase))
             {
-                var relPath = Path.GetRelativePath(_options.DataDirectory, fi.FullName);
-                fileEntries.Add(new StorageFileEntry(relPath, fi.Length, fi.LastWriteTimeUtc));
-                totalBytes += fi.Length;
+                directoriesToScan.Add(_options.ArtifactsDirectory);
+            }
+
+            foreach (var dir in directoriesToScan)
+            {
+                if (!Directory.Exists(dir)) continue;
+                var dirInfo = new DirectoryInfo(dir);
+                foreach (var fi in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+                {
+                    // Skip temp files
+                    if (fi.Name.Contains(".tmp.")) continue;
+                    if (scannedFiles.Add(fi.FullName))
+                    {
+                        var relPath = Path.GetRelativePath(_options.DataDirectory, fi.FullName);
+                        fileEntries.Add(new StorageFileEntry(relPath, fi.Length, fi.LastWriteTimeUtc));
+                        totalBytes += fi.Length;
+                    }
+                }
             }
 
             return Task.FromResult(new StorageHealthReport(

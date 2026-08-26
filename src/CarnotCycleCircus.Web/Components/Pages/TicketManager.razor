@@ -3,6 +3,7 @@
 @inject ITicketStore TicketStore
 @inject IWorkDecompositionEngine DecompositionEngine
 @inject IHandoffRouter HandoffRouter
+@inject IGraphWorkflowExecutor GraphExecutor
 
 <div class="page-header">
     <div>
@@ -19,6 +20,9 @@
         </button>
         <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"' style="white-space: nowrap;">
             📦 Handoff Logs (@TicketStore.GetAllHandoffs().Count)
+        </button>
+        <button class="btn btn-warning" @onclick="UnleashReadyAgents" disabled="@(TicketStore.GetReadyTickets().Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done) == 0 || isRunningCircus)" style="white-space: nowrap; font-weight: 700;">
+            @(isRunningCircus ? "⏳ Agents Executing..." : $"🚀 Unleash Ready Agents ({TicketStore.GetReadyTickets().Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)})")
         </button>
         <button class="btn btn-success" @onclick="() => showCreateModal = true" style="white-space: nowrap;">
             ➕ New Ticket
@@ -234,6 +238,21 @@ else if (activeTab == "handoffs")
     private string newDesc = "";
     private TicketType newType = TicketType.Feature;
     private AgentRole newAssignee = AgentRole.SoftwareDeveloper;
+    private bool isRunningCircus = false;
+
+    private async Task UnleashReadyAgents()
+    {
+        isRunningCircus = true;
+        try
+        {
+            await GraphExecutor.ExecuteReadyTicketsAsync();
+            StateHasChanged();
+        }
+        finally
+        {
+            isRunningCircus = false;
+        }
+    }
 
     protected override void OnInitialized()
     {
