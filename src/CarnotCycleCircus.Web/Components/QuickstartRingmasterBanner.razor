@@ -2,15 +2,15 @@
     <!-- Background circus glow -->
     <div style="position: absolute; top: -40px; right: -40px; width: 140px; height: 140px; background: radial-gradient(circle, rgba(56, 189, 248, 0.2) 0%, transparent 70%); border-radius: 50%; pointer-events: none;"></div>
 
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 2.4rem;">🎪</span>
-            <div>
-                <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex: 1 1 auto; min-width: 0;">
+            <span style="font-size: 2.4rem; line-height: 1; flex-shrink: 0;">🎪</span>
+            <div style="min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <h3 style="font-size: 1.3rem; font-weight: 800; color: #f8fafc; margin-bottom: 0;">
                         Circus Ringmaster Quickstart & Project Ignition
                     </h3>
-                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.7rem;">
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.7rem; white-space: nowrap;">
                         ⚡ Time to Dopamine: &lt; 60s
                     </span>
                 </div>
@@ -20,7 +20,7 @@
             </div>
         </div>
 
-        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; color: var(--text-muted);" @onclick="ToggleCollapsed">
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; color: var(--text-muted); white-space: nowrap;" @onclick="ToggleCollapsed">
             @(isCollapsed ? "▼ Show Quickstart" : "▲ Collapse")
         </button>
     </div>
@@ -113,7 +113,7 @@
 }
 
 @code {
-    private bool isCollapsed = false;
+    private bool isCollapsed = true;
     private bool showIgnitionModal = false;
     private bool showHarvesterModal = false;
     private bool showShowcaseModal = false;

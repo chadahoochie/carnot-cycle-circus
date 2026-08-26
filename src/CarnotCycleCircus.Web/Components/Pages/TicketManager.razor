@@ -4,35 +4,35 @@
 @inject IWorkDecompositionEngine DecompositionEngine
 @inject IHandoffRouter HandoffRouter
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">📋 The Jira Graveyard & Work Decomposition</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Deconstruct high-level optimism into granular executable subtasks, DAG dependencies, and blame-free handoff contracts.</p>
     </div>
 
-    <div style="display: flex; gap: 10px;">
-        <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"'>
+    <div class="page-header-actions">
+        <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"' style="white-space: nowrap;">
             📊 Kanban of Doom
         </button>
-        <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"'>
+        <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"' style="white-space: nowrap;">
             🌳 Decomposition Tree
         </button>
-        <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"'>
-            📦 Handoff & Blame Logs (@TicketStore.GetAllHandoffs().Count)
+        <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"' style="white-space: nowrap;">
+            📦 Handoff Logs (@TicketStore.GetAllHandoffs().Count)
         </button>
-        <button class="btn btn-success" @onclick="() => showCreateModal = true">
+        <button class="btn btn-success" @onclick="() => showCreateModal = true" style="white-space: nowrap;">
             ➕ New Ticket
         </button>
     </div>
 </div>
 
 <!-- Quick Decomposition Form -->
-<div class="glass-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
-    <div style="flex-grow: 1;">
+<div class="glass-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div style="flex: 1 1 300px; min-width: 0;">
         <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">⚡ Autonomous Epic Decomposition Trigger</div>
-        <div style="display: flex; gap: 12px;">
-            <input class="form-control" placeholder="Epic Title (e.g. Refactor Legacy Monolith Before It Achieves Sentience)" @bind="quickEpicTitle" />
-            <input class="form-control" placeholder="Description & Goals (e.g. Zero-allocation pub/sub pipeline with caffeine injection)" @bind="quickEpicDesc" />
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <input class="form-control" style="flex: 1 1 200px; min-width: 0;" placeholder="Epic Title (e.g. Refactor Legacy Monolith Before It Achieves Sentience)" @bind="quickEpicTitle" />
+            <input class="form-control" style="flex: 1 1 200px; min-width: 0;" placeholder="Description & Goals (e.g. Zero-allocation pub/sub pipeline with caffeine injection)" @bind="quickEpicDesc" />
         </div>
     </div>
     <button class="btn btn-primary" style="white-space: nowrap; align-self: flex-end;" @onclick="TriggerDecomposition">

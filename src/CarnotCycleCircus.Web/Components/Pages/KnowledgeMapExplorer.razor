@@ -1,15 +1,17 @@
 @page "/knowledge"
 @inject IKnowledgeMapService KnowledgeService
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">🗺️ Tech Debt Compass & AI Knowledge Maps</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Compact knowledge graphs mapping sacred patterns, architectural dogma, security rules, and past engineering regrets.</p>
     </div>
 
-    <button class="btn btn-success" @onclick="() => showAddNodeModal = true">
-        ➕ Add Dogma Node
-    </button>
+    <div class="page-header-actions">
+        <button class="btn btn-success" @onclick="() => showAddNodeModal = true" style="white-space: nowrap;">
+            ➕ Add Dogma Node
+        </button>
+    </div>
 </div>
 
 <!-- Semantic Sub-Graph Context Extractor -->
@@ -17,8 +19,8 @@
     <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 10px; color: #38bdf8;">
         🔍 Sub-Graph Context & Wisdom Extractor
     </h3>
-    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
-        <input class="form-control" placeholder="Enter query (e.g. 'zero allocation', 'stride security', 'friday deployment', 'quantum bug')..." @bind="subGraphQuery" />
+    <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;">
+        <input class="form-control" style="flex: 1 1 240px; min-width: 0;" placeholder="Enter query (e.g. 'zero allocation', 'stride security', 'friday deployment', 'quantum bug')..." @bind="subGraphQuery" />
         <button class="btn btn-primary" style="white-space: nowrap;" @onclick="ExtractSubGraph">
             Extract Sub-Graph
         </button>

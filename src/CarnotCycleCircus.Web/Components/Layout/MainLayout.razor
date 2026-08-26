@@ -3,40 +3,48 @@
 @inject IApiKeyVaultService KeyVaultService
 
 <div class="app-container">
-    <NavMenu />
+    @if (isMobileMenuOpen)
+    {
+        <div class="sidebar-overlay" @onclick="ToggleSidebar"></div>
+    }
+
+    <NavMenu CssClass="@(isMobileMenuOpen ? "sidebar sidebar-open" : "sidebar")" OnNavigate="CloseSidebar" />
 
     <div class="main-content">
         <header class="top-bar">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="font-weight: 700; color: #f8fafc; font-size: 1.1rem;">🎪 Carnot Cycle Circus</span>
-                <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem;">
+            <div class="top-bar-brand">
+                <button class="sidebar-toggle-btn" @onclick="ToggleSidebar" title="Toggle Sidebar" aria-label="Toggle navigation menu">
+                    ☰
+                </button>
+                <span class="top-bar-title">🎪 Carnot Cycle Circus</span>
+                <span class="badge top-bar-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b;">
                     Efficiency: η = 1 - T_cold/T_hot (99.9% Caffeine)
                 </span>
             </div>
 
             <!-- Top Bar Quick Actions & Key Swapper -->
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-primary" @onclick="() => showIgnitionModal = true" style="padding: 6px 12px; font-size: 0.82rem;">
+            <div class="top-bar-actions">
+                <button class="btn btn-primary" @onclick="() => showIgnitionModal = true" style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
                     🚀 New Project
                 </button>
-                <button class="btn btn-success" @onclick="() => showHarvesterModal = true" style="padding: 6px 12px; font-size: 0.82rem;">
+                <button class="btn btn-success" @onclick="() => showHarvesterModal = true" style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
                     🔍 Scan Repo
                 </button>
-                <button class="btn btn-secondary" @onclick="() => showShowcaseModal = true" style="padding: 6px 12px; font-size: 0.82rem; color: #f59e0b; border-color: #f59e0b;">
+                <button class="btn btn-secondary" @onclick="() => showShowcaseModal = true" style="padding: 6px 12px; font-size: 0.82rem; color: #f59e0b; border-color: #f59e0b; white-space: nowrap;">
                     🍿 30s Demo
                 </button>
 
                 @{
                     var activeKey = KeyVaultService.GetActiveKey();
                 }
-                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; background: var(--bg-primary); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div class="top-bar-key-vault" title="Active Key: @(activeKey?.KeyName ?? "None")">
                     <span style="color: #eab308;">🔑</span>
                     <span style="color: var(--text-muted);">VC Burner Key:</span>
                     <span style="font-weight: 600; color: #38bdf8;">@(activeKey?.KeyName ?? "None")</span>
                     <span style="color: var(--text-muted); font-family: monospace;">(@(activeKey?.ApiKeyMasked ?? "No Key"))</span>
                 </div>
 
-                <button class="btn btn-secondary" @onclick="() => showKeyModal = true" style="padding: 6px 12px; font-size: 0.82rem;">
+                <button class="btn btn-secondary" @onclick="() => showKeyModal = true" style="padding: 6px 12px; font-size: 0.82rem; white-space: nowrap;">
                     💰 Key Vault
                 </button>
             </div>
@@ -73,6 +81,7 @@
     private bool showIgnitionModal = false;
     private bool showHarvesterModal = false;
     private bool showShowcaseModal = false;
+    private bool isMobileMenuOpen = false;
 
     protected override void OnInitialized()
     {
@@ -84,8 +93,22 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private void ToggleSidebar()
+    {
+        isMobileMenuOpen = !isMobileMenuOpen;
+    }
+
+    private void CloseSidebar()
+    {
+        if (isMobileMenuOpen)
+        {
+            isMobileMenuOpen = false;
+        }
+    }
+
     public void Dispose()
     {
         KeyVaultService.OnKeyUpdated -= OnKeyUpdated;
     }
 }
+

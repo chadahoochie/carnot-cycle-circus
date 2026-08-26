@@ -60,7 +60,9 @@ body {
   display: flex;
   height: 100vh;
   width: 100vw;
+  max-width: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* Sidebar */
@@ -71,6 +73,8 @@ body {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  z-index: 100;
+  transition: transform 0.25s ease-in-out, width 0.25s ease-in-out;
 }
 
 .sidebar-header {
@@ -126,28 +130,125 @@ body {
 
 /* Main Content Area */
 .main-content {
-  flex-grow: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
   background: radial-gradient(circle at top right, rgba(56, 189, 248, 0.05), transparent 40%),
               radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.05), transparent 40%);
 }
 
 .top-bar {
-  height: 64px;
+  min-height: 64px;
+  height: auto;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  padding: 0 24px;
+  padding: 10px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.top-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.top-bar-title {
+  font-weight: 700;
+  color: #f8fafc;
+  font-size: 1.1rem;
+  white-space: nowrap;
+}
+
+.top-bar-badge {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.top-bar-key-vault {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  background: var(--bg-primary);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-toggle-btn {
+  display: none;
+  padding: 6px 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  background: var(--bg-tertiary);
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.sidebar-overlay {
+  display: none;
 }
 
 .content-viewport {
-  flex-grow: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Page Header Utility */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
+}
+
+.page-header > div:first-child {
+  min-width: 0;
+}
+
+.page-header h1, .page-header h2, .page-header h3 {
+  word-break: break-word;
+}
+
+.page-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 /* Glassmorphism Cards */
@@ -380,3 +481,156 @@ body {
   animation: pulse-ring 1.5s infinite;
   border-color: #ef4444 !important;
 }
+
+/* Interactive Workflow Canvas Enhancements */
+@keyframes flow-pulse {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.cable-active-pulse {
+  stroke-dasharray: 8, 4 !important;
+  animation: flow-pulse 0.8s linear infinite !important;
+}
+
+.node-card {
+  position: absolute;
+  width: 160px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  user-select: none;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.node-selected {
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.6), 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  transform: translateY(-2px);
+}
+
+.port-handle {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 10;
+}
+
+.port-handle:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+}
+
+.port-target-highlight {
+  animation: pulse-ring 1s infinite;
+  box-shadow: 0 0 10px #10b981;
+}
+
+.cable-line {
+  cursor: pointer;
+  transition: stroke-width 0.2s ease;
+}
+
+.cable-line:hover {
+  stroke-width: 4.5px;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints & Sizing Rules
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  .top-bar {
+    padding: 10px 16px;
+    gap: 10px;
+  }
+
+  .content-viewport {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar-toggle-btn {
+    display: inline-flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100vh;
+    z-index: 1000;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.7);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+  }
+
+  .top-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .top-bar-brand {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .top-bar-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .top-bar-key-vault {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .kanban-board {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .page-header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-bar-title {
+    font-size: 0.95rem;
+  }
+
+  .top-bar-badge {
+    display: none;
+  }
+}
+
+

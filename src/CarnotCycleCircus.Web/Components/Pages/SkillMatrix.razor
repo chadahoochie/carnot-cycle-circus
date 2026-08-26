@@ -1,13 +1,15 @@
 @page "/skills/matrix"
 @inject ISkillRegistry SkillRegistry
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">📊 The Dunning-Kruger Capability Matrix</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Interactive role-to-skill assignment matrix governing capabilities injected into agent cognitive contexts.</p>
     </div>
 
-    <a href="skills" class="btn btn-secondary">🧩 Back to Skill Importer</a>
+    <div class="page-header-actions">
+        <a href="skills" class="btn btn-secondary" style="white-space: nowrap;">🧩 Back to Skill Importer</a>
+    </div>
 </div>
 
 <div class="glass-card" style="overflow-x: auto;">

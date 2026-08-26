@@ -7,19 +7,19 @@
 
 <QuickstartRingmasterBanner />
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">🎯 Team Circus Ring & Agent Studio</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble your troupe of over-confident autonomous agents. Choose their LLM models, assign specialized skills, and fine-tune system directives.</p>
     </div>
 
     <!-- Archetype Selector & Actions -->
-    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-        <button class="btn btn-success" @onclick="OpenAddModal">
+    <div class="page-header-actions">
+        <button class="btn btn-success" @onclick="OpenAddModal" style="white-space: nowrap;">
             ➕ Add Circus Agent
         </button>
 
-        <select class="form-control" style="width: 260px;" value="@selectedArchetype" @onchange="OnArchetypeSelected">
+        <select class="form-control" style="width: auto; min-width: 220px; max-width: 100%;" value="@selectedArchetype" @onchange="OnArchetypeSelected">
             <option value="">-- Load Squad Archetype --</option>
             @foreach (var arc in TeamArchetypes.AllArchetypes)
             {
@@ -27,7 +27,7 @@
             }
         </select>
 
-        <button class="btn btn-secondary" @onclick="ExportTeam">💾 Export Squad JSON</button>
+        <button class="btn btn-secondary" @onclick="ExportTeam" style="white-space: nowrap;">💾 Export Squad JSON</button>
     </div>
 </div>
 

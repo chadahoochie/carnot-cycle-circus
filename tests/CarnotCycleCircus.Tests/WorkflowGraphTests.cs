@@ -81,4 +81,89 @@ public class WorkflowGraphTests
         success.Should().BeTrue();
         _eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("REJECTED"));
     }
+
+    [Fact]
+    public void UpdateNodePosition_ShouldUpdateCoordinates()
+    {
+        _executor.UpdateNodePosition("node-dev", 520, 280);
+
+        var devNode = _executor.CurrentGraph.Nodes.First(n => n.Id == "node-dev");
+        devNode.X.Should().Be(520);
+        devNode.Y.Should().Be(280);
+    }
+
+    [Fact]
+    public void AddNode_ShouldAppendNodeToGraph()
+    {
+        var customNode = new GraphNode("node-custom", AgentRole.SecurityEngineer, "Custom Sec Auditor", 300, 300);
+        _executor.AddNode(customNode);
+
+        _executor.CurrentGraph.Nodes.Should().Contain(n => n.Id == "node-custom");
+    }
+
+    [Fact]
+    public void RemoveNode_ShouldRemoveNodeAndCascadeDeleteAttachedConnections()
+    {
+        var initialConnections = _executor.CurrentGraph.Connections.Count;
+        _executor.CurrentGraph.Connections.Should().Contain(c => c.SourceNodeId == "node-sec" || c.TargetNodeId == "node-sec");
+
+        _executor.RemoveNode("node-sec");
+
+        _executor.CurrentGraph.Nodes.Should().NotContain(n => n.Id == "node-sec");
+        _executor.CurrentGraph.Connections.Should().NotContain(c => c.SourceNodeId == "node-sec" || c.TargetNodeId == "node-sec");
+        _executor.CurrentGraph.Connections.Count.Should().BeLessThan(initialConnections);
+    }
+
+    [Fact]
+    public void ValidateConnection_ShouldValidatePortRulesAndAcyclicConstraints()
+    {
+        // Self-loop validation
+        var selfLoop = new PortConnection("node-dev", PortType.Output, "node-dev", PortType.Input);
+        _executor.ValidateConnection(selfLoop, out var errSelf).Should().BeFalse();
+        errSelf.Should().Contain("itself");
+
+        // Invalid source port (Input cannot be source)
+        var invalidSource = new PortConnection("node-dev", PortType.Input, "node-qa", PortType.Input);
+        _executor.ValidateConnection(invalidSource, out var errSource).Should().BeFalse();
+        errSource.Should().Contain("Source port must be");
+
+        // Invalid target port (Output cannot be target)
+        var invalidTarget = new PortConnection("node-dev", PortType.Output, "node-qa", PortType.Output);
+        _executor.ValidateConnection(invalidTarget, out var errTarget).Should().BeFalse();
+        errTarget.Should().Contain("Target port must be");
+
+        // Duplicate connection
+        var duplicate = new PortConnection("node-tpm", PortType.Output, "node-arch", PortType.Input);
+        _executor.ValidateConnection(duplicate, out var errDup).Should().BeFalse();
+        errDup.Should().Contain("already exists");
+
+        // Valid new connection
+        var valid = new PortConnection("node-tpm", PortType.Output, "node-sec", PortType.Input);
+        _executor.ValidateConnection(valid, out var errValid).Should().BeTrue();
+        errValid.Should().BeNull();
+    }
+
+    [Fact]
+    public void UpdatePolicy_ShouldMutateFailurePolicy()
+    {
+        var newPolicy = new FailurePolicy(MaxRetries: 7, CircuitBreakerEnabled: false, FallbackRole: AgentRole.SecurityEngineer);
+        _executor.UpdatePolicy(newPolicy);
+
+        _executor.CurrentGraph.Policy.MaxRetries.Should().Be(7);
+        _executor.CurrentGraph.Policy.CircuitBreakerEnabled.Should().BeFalse();
+        _executor.CurrentGraph.Policy.FallbackRole.Should().Be(AgentRole.SecurityEngineer);
+    }
+
+    [Theory]
+    [InlineData("preset-rapid", 3)]
+    [InlineData("preset-zero-trust", 5)]
+    [InlineData("preset-performance", 4)]
+    [InlineData("preset-standard", 6)]
+    public void LoadPreset_ShouldConfigureCorrectGraphTopology(string presetId, int expectedNodeCount)
+    {
+        _executor.LoadPreset(presetId);
+
+        _executor.CurrentGraph.Nodes.Should().HaveCount(expectedNodeCount);
+        _executor.CurrentGraph.Connections.Should().NotBeEmpty();
+    }
 }

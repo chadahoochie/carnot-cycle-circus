@@ -5,27 +5,27 @@
 @inject IApiKeyVaultService KeyVaultService
 @inject ITicketStore TicketStore
 
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">⚡ Panic & Telemetry Dashboard</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent circus stream, active execution pulses, and mid-flight OpenRouter key swapping.</p>
     </div>
 
     <!-- Live Execution Controls -->
-    <div style="display: flex; gap: 8px;">
-        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@GraphExecutor.IsRunning">
+    <div class="page-header-actions">
+        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
             🚀 Unleash the Circus
         </button>
-        <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning">
+        <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
             ⏭️ Poke Next Agent
         </button>
-        <button class="btn btn-danger" @onclick="RunFailureSimulation" disabled="@GraphExecutor.IsRunning">
+        <button class="btn btn-danger" @onclick="RunFailureSimulation" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
             🚨 Simulate Panic & Meltdown
         </button>
-        <button class="btn btn-secondary" @onclick="Reset">
+        <button class="btn btn-secondary" @onclick="Reset" style="white-space: nowrap;">
             🔄 Sweep the Tent
         </button>
-        <button class="btn btn-success" @onclick="ExportReport">
+        <button class="btn btn-success" @onclick="ExportReport" style="white-space: nowrap;">
             📄 CYA Session Report
         </button>
     </div>
@@ -33,11 +33,11 @@
 
 <!-- Active Graph Pulse Status Bar -->
 <div class="glass-card" style="margin-bottom: 20px; padding: 16px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
         <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; text-transform: uppercase;">
             🎪 Ringmaster Live Stage Topology
         </div>
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap;">
             <span>Circus State:</span>
             <span class="badge" style="background: @(GraphExecutor.IsRunning ? "#38bdf8" : "#22c55e"); color: #000; font-weight: 700;">
                 @(GraphExecutor.IsRunning ? "PERFORMING (CHAOS)" : "READY / IDLE")
@@ -45,7 +45,7 @@
         </div>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
         @foreach (var node in GraphExecutor.CurrentGraph.Nodes)
         {
             var isRunning = node.State == NodeExecutionState.Running;
@@ -68,7 +68,7 @@
 </div>
 
 <!-- Main Execution Stream & Live Tools -->
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
     
     <!-- Real-Time Event Stream Log -->
     <div class="glass-card" style="display: flex; flex-direction: column; height: 520px;">
