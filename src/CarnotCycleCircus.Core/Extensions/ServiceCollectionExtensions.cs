@@ -8,6 +8,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Quotes;
 using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Showcase;
 using CarnotCycleCircus.Core.Domain.Skills;
@@ -82,6 +83,9 @@ public static class ServiceCollectionExtensions
         // Autonomous Self-Improvement & Continuous Learning Engine
         services.AddSingleton<ISelfImprovementEngine, SelfImprovementEngine>();
         services.AddHostedService<AutonomousSelfImprovementWorker>();
+
+        // Comedy Quotes & Chaos Ringmaster Lore
+        services.AddSingleton<IComedyQuoteService, ComedyQuoteService>();
 
         // Project Ignition, Blueprints, Codebase Harvester & Interactive Showcase
         services.AddSingleton<IProjectBlueprintService, ProjectBlueprintService>();

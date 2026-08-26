@@ -33,6 +33,9 @@
                 <button class="btn btn-secondary" @onclick="() => showShowcaseModal = true" style="padding: 6px 12px; font-size: 0.82rem; color: #f59e0b; border-color: #f59e0b; white-space: nowrap;">
                     🍿 30s Demo
                 </button>
+                <button class="btn btn-secondary" @onclick="() => showChaosQuoteModal = true" style="padding: 6px 12px; font-size: 0.82rem; color: #a855f7; border-color: #a855f7; white-space: nowrap;" title="Fire Comedy Chaos Cannon">
+                    🎬 Chaos Cannon
+                </button>
 
                 @{
                     var activeKey = KeyVaultService.GetActiveKey();
@@ -76,11 +79,17 @@
     <ShowcaseModal OnClose="() => showShowcaseModal = false" />
 }
 
+@if (showChaosQuoteModal)
+{
+    <ChaosQuoteModal OnClose="() => showChaosQuoteModal = false" />
+}
+
 @code {
     private bool showKeyModal = false;
     private bool showIgnitionModal = false;
     private bool showHarvesterModal = false;
     private bool showShowcaseModal = false;
+    private bool showChaosQuoteModal = false;
     private bool isMobileMenuOpen = false;
 
     protected override void OnInitialized()

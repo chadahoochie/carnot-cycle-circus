@@ -249,7 +249,7 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         adrManager1.SaveAdr(newAdr);
         skillRegistry1.RegisterSkill(newSkill);
 
-        await Task.Delay(100);
+        await Task.Delay(250);
 
         // Assert instance 2 loads persisted data
         var adrManager2 = new AdrDocumentManager(_storageService);

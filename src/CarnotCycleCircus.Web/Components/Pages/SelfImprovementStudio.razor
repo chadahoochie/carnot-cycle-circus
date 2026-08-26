@@ -6,15 +6,15 @@
 @inject IKnowledgeMapService KnowledgeMapService
 @inject IAgentEventStream EventStream
 
-<PageTitle>Autonomous Self-Improvement & Persistent Volume Stack - Carnot Circus</PageTitle>
+<PageTitle>Autonomous Self-Improvement & Cryo-Memory Stack - Carnot Circus</PageTitle>
 
 <div class="page-header">
     <div>
         <h1 style="font-size: 1.8rem; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">
-            🌱 Autonomous Self-Improvement & Persistent Storage Stack
+            🧬 Autonomous Digital Evolution & Brain Backup Chamber
         </h1>
         <p style="color: var(--text-muted); margin: 0; font-size: 0.9rem;">
-            Named Docker volumes preserve memories, tickets, ADRs, and skills across container restarts — while the autonomous learning loop continuously distills failures and successes into permanent knowledge.
+            Preserving memories, past trauma, and ADRs across container restarts — while the autonomous learning loop continuously distills failures ('Tis but a scratch!) and successes into permanent knowledge!
         </p>
     </div>
 
@@ -23,12 +23,12 @@
             @if (isExecuting)
             {
                 <span>🔄</span>
-                <span>Distilling Insights...</span>
+                <span>Distilling Wisdom ('Enhance...')...</span>
             }
             else
             {
                 <span>⚡</span>
-                <span>Run Self-Improvement Cycle</span>
+                <span>Run Evolution Cycle (Distill Wisdom)</span>
             }
         </button>
     </div>
@@ -37,9 +37,9 @@
 <!-- Storage Health & Self-Improvement Key Metric Cards -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
     <div class="card" style="padding: 16px; border-left: 4px solid #10b981;">
-        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Persistent Volume Health</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Cryo-Volume Health ('Like a Glove!')</div>
         <div style="font-size: 1.4rem; font-weight: 700; color: #10b981; margin: 6px 0;">
-            @(storageHealth?.IsHealthy == true ? "🟢 Active & Healthy" : "🟡 In-Memory / Initializing")
+            @(storageHealth?.IsHealthy == true ? "🟢 Active & Cryo-Safe" : "🟡 In-Memory / Initializing")
         </div>
         <div style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">
             @TruncatePath(storageHealth?.RootDirectory ?? StorageService.Options.DataDirectory)
@@ -47,12 +47,12 @@
     </div>
 
     <div class="card" style="padding: 16px; border-left: 4px solid #38bdf8;">
-        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Learning Cycles Run</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Entropy Defiance Cycles</div>
         <div style="font-size: 1.4rem; font-weight: 700; color: #38bdf8; margin: 6px 0;">
-            @latestReport.TotalCyclesRun
+            @latestReport.TotalCyclesRun cycles
         </div>
         <div style="font-size: 0.78rem; color: var(--text-muted);">
-            Auto-trigger: every @(StorageService.Options.SelfImprovementIntervalSeconds)s
+            Auto-learning at Ludicrous Speed
         </div>
     </div>
 

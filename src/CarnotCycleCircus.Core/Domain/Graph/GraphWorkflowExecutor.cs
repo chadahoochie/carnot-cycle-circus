@@ -205,7 +205,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _eventStream.Publish(AgentMessage.Create(
             role: null,
             senderName: "🎪 Circus Ringmaster",
-            content: $"🎪 Ladies & Gentlemen! The Carnot Circus is officially running for Epic: '{epicTitle}'! (Panic/Failure Sim: {(triggerFailureSimulation ? "🚨 ARMED" : "😌 Disarmed")})",
+            content: $"🎪 Ladies & Gentlemen! The Carnot Circus is officially running for Epic: '{epicTitle}'! (Panic/Failure Sim: {(triggerFailureSimulation ? "🚨 ARMED ('I've got a bad feeling about this')" : "😌 Disarmed ('Ludicrous speed, GO!')")})",
             type: MessageType.Alert
         ));
 
@@ -222,7 +222,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.TechnicalProductManager,
                 senderName: "Barnum B. Buzzword (TPM)",
-                content: $"🎯 TPM Barnum B. Buzzword: Transformed our vague hopes into {createdTickets.Count - 1} heavily bureaucratic stories & subtasks with non-negotiable acceptance criteria. You're welcome!",
+                content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! The new Jira backlog is here! I'm somebody now!' Deconstructed into {createdTickets.Count - 1} stories & subtasks at Ludicrous Speed. 'So you're telling me there's a chance!'",
                 type: MessageType.Chat,
                 ticketId: epicTicket.Id
             ));
@@ -252,15 +252,15 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 archTicket.Id,
                 AgentRole.LeadArchitect,
                 AgentRole.SoftwareDeveloper,
-                "ADR-014 Architecture & Topology finalized (Contains 18 layers of pure abstraction).",
-                "Devon: Implement feature without mutating a single byte of state.",
+                "ADR Architecture & Topology finalized (Contains 24 layers of pure abstraction). 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
+                "Devon: 'Surely you can't be serious?' 'I am serious, and don't call me Shirley.' Implement feature with zero heap allocations.",
                 artifacts
             );
 
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(archTicket.Id);
             await _memoryConsolidation.ConsolidateTaskCompletionAsync(archTicket, _eventStream.GetHistory(), cancellationToken);
 
-            UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Topology designed.", archTicket.Id);
+            UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Topology designed ('It's pronounced Fronkensteen!').", archTicket.Id);
         }
 
         // 3. Software Developer Phase - Implementation
@@ -285,15 +285,15 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 devTicket.Id,
                 AgentRole.SoftwareDeveloper,
                 AgentRole.SecurityEngineer,
-                "Feature implemented with zero-allocations and coldbrew-fueled unit tests.",
-                "Sari & Otto: Audit this before my cold brew gets warm.",
+                "Feature implemented! 'Now that's what I call high quality H2O / Span<T>!' Zero heap allocations, coldbrew-fueled unit tests.",
+                "Sari & Otto: 'Like a glove!' Audit this before my cold brew gets warm.",
                 devArtifacts
             );
 
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(devTicket.Id);
             await _memoryConsolidation.ConsolidateTaskCompletionAsync(devTicket, _eventStream.GetHistory(), cancellationToken);
 
-            UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Implementation & unit tests delivered.", devTicket.Id);
+            UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Implementation delivered ('Holy schnikes!').", devTicket.Id);
         }
 
         // 4. Parallel Security & Optimization Phase
@@ -313,21 +313,21 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             if (triggerFailureSimulation && secNode.RetryCount == 0)
             {
                 // Simulate security rejection & remediation loopback!
-                UpdateNodeState(secNode.Id, NodeExecutionState.Failed, "Rejected: Secret exposure risk detected.", secTicket.Id);
+                UpdateNodeState(secNode.Id, NodeExecutionState.Failed, "Rejected: 'It's a trap!' Unsanitized input detected.", secTicket.Id);
                 
                 _handoffRouter.RouteFailureRemediation(
                     secTicket.Id,
                     AgentRole.SecurityEngineer,
                     AgentRole.SoftwareDeveloper,
-                    "Unsanitized input vector in service layer (Did you really trust user input?!).",
+                    "'Nobody expects the Spanish Inquisition!' Unsanitized input vector in service layer. 'He hates these cans/open ports!'",
                     "Wrap input in ReadOnlySpan<char> and sanitize with allow-list regex immediately."
                 );
 
                 if (devNode != null)
                 {
-                    UpdateNodeState(devNode.Id, NodeExecutionState.Remediating, "Fixing security vulnerability...");
+                    UpdateNodeState(devNode.Id, NodeExecutionState.Remediating, "Fixing security vulnerability... ('Tis but a scratch!')");
                     await Task.Delay(250, cancellationToken);
-                    UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Vulnerability remediated (and ego patched).");
+                    UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Vulnerability remediated ('Like a glove! Just a flesh wound').");
                 }
 
                 UpdateNodeState(secNode.Id, NodeExecutionState.Running, ticketId: secTicket.Id);
@@ -338,7 +338,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             foreach (var a in secArtifacts) secTicket = secTicket.WithDeliverable(a);
             _ticketStore.UpdateTicket(secTicket);
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(secTicket.Id);
-            UpdateNodeState(secNode.Id, NodeExecutionState.Completed, "STRIDE Threat Model Approved.", secTicket.Id);
+            UpdateNodeState(secNode.Id, NodeExecutionState.Completed, "STRIDE Threat Model Approved ('Count to 3, no more, no less').", secTicket.Id);
         }
 
         if (optNode != null && optTicket != null)
@@ -350,7 +350,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             foreach (var a in optArtifacts) optTicket = optTicket.WithDeliverable(a);
             _ticketStore.UpdateTicket(optTicket);
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(optTicket.Id);
-            UpdateNodeState(optNode.Id, NodeExecutionState.Completed, "Zero-Allocation & Latency Approved.", optTicket.Id);
+            UpdateNodeState(optNode.Id, NodeExecutionState.Completed, "Zero-Allocations Verified ('Enhance... enhance... So I got that goin' for me, which is nice').", optTicket.Id);
         }
 
         // 5. Principal QA Phase - Validation & Certification
@@ -370,12 +370,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
             _handoffRouter.AdvanceWorkflowOnTicketCompletion(qaTicket.Id);
             await _memoryConsolidation.ConsolidateTaskCompletionAsync(qaTicket, _eventStream.GetHistory(), cancellationToken);
-            UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "QA Certification 100% Passed.", qaTicket.Id);
+            UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "QA Certification 100% Passed ('That's a lot of nuts!').", qaTicket.Id);
 
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.PrincipalQAAnalyst,
                 senderName: "Quinn the Build-Executioner (Principal QA)",
-                content: "🧪 Quinn the Build-Executioner (QA): Tortured the build with 50,000 demonic edge cases and null payloads. Miraculously, everything passed! Production release certified.",
+                content: "🧪 Quinn the Build-Executioner (QA): 'That's a lot of nuts!' Tortured the build with 50,000 demonic edge cases and null payloads. 'Shitter was full, but 'tis but a scratch!' Miraculously, everything passed! Production release certified: 'Alllllrighty then!'",
                 type: MessageType.StateChange,
                 ticketId: qaTicket.Id
             ));
@@ -384,7 +384,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _eventStream.Publish(AgentMessage.Create(
             role: null,
             senderName: "🎪 Circus Ringmaster",
-            content: $"🏆 Carnot Cycle Epic '{epicTitle}' fully completed with maximum thermodynamic efficiency!",
+            content: $"🏆 Carnot Cycle Epic '{epicTitle}' completed at Ludicrous Speed with maximum thermodynamic efficiency! 'You're my boy, Blue!'",
             type: MessageType.StateChange
         ));
 

@@ -17,7 +17,9 @@ public class AgentNameGenerator : IAgentNameGenerator
     [
         "Archduke", "Baroness", "Count", "Countess", "Professor", "Maestro", "Madame",
         "Captain", "Lord", "Lady", "Doctor", "Duchess", "Brother", "Grand Inquisitor",
-        "Dame", "Major", "High Priest", "General", "Sir", "Prince", "Baron"
+        "Dame", "Major", "High Priest", "General", "Sir", "Prince", "Baron",
+        "Archbishop of Anti-Patterns", "Lord of the Bounded Channels", "Knight Who Says Ni",
+        "Lt. Detective", "Chosen One", "Grand Moff", "Cousin", "Sheriff"
     ];
 
     private static readonly string[] FirstNames =
@@ -27,7 +29,9 @@ public class AgentNameGenerator : IAgentNameGenerator
         "Mortimer", "Bartholomew", "Clementine", "Leopold", "Wilhelmina", "Lysander",
         "Ambrose", "Octavia", "Cornelius", "Beatrice", "Aloysius", "Maximilian",
         "Hildegard", "Zephaniah", "Barnaby", "Thaddeus", "Wolfgang", "Felix",
-        "Delilah", "Tobias", "Lucian", "Cosmo", "Silas", "Theodore", "Evangeline"
+        "Delilah", "Tobias", "Lucian", "Cosmo", "Silas", "Theodore", "Evangeline",
+        "Dark-Helmet", "Blinkin", "Fronkensteen", "Navin", "Bobby", "Frank-the-Tank",
+        "Thorny", "Wimp-Lo", "Rumack", "Drebin", "Griswold", "Spackler", "Ace"
     ];
 
     private static readonly Dictionary<AgentRole, (string RoleSuffix, string DefaultAct, string[] DefaultNicknames, string[] DefaultSurnames)> RoleDefaults = new()
@@ -35,38 +39,38 @@ public class AgentNameGenerator : IAgentNameGenerator
         [AgentRole.TechnicalProductManager] = (
             "TPM",
             "Grand Ringmaster of Agility",
-            ["Buzzword", "Velocity", "Synergy", "Scope-Creep", "Sprint-Master", "Epic-Synergizer"],
-            ["Buzzword", "Jira-Juggler", "Story-Spinner", "Standup-Barker", "Gantt-Gladiator", "Roadmap-Rodeo"]
+            ["Buzzword", "Velocity", "Ludicrous-Speed", "Plaid", "Synergy", "Scope-Creep", "Sprint-Master", "Chance-Haver"],
+            ["Buzzword", "Jira-Juggler", "Story-Spinner", "Standup-Barker", "Gantt-Gladiator", "Roadmap-Rodeo", "Phonebook-Finder"]
         ),
         [AgentRole.LeadArchitect] = (
             "Lead Architect",
             "High Trapeze Artist of Pure Abstractions",
-            ["Abstraction-o", "Cathedral", "Monad", "Indirection", "Clean-Arch", "Interface-Purist"],
-            ["Abstraction-o", "Cathedral-Builder", "Monad-Maker", "Layer-Stacker", "Decoupler-General", "Pattern-Puppeteer"]
+            ["Abstraction-o", "Cathedral", "Monad", "Indirection", "Clean-Arch", "Fronkensteen", "Interface-Purist", "Holy-Grail"],
+            ["Abstraction-o", "Cathedral-Builder", "Monad-Maker", "Layer-Stacker", "Decoupler-General", "Pattern-Puppeteer", "Abby-Normal"]
         ),
         [AgentRole.SoftwareDeveloper] = (
             "Senior Developer",
             "Fire-Breathing Gen0 Destroyer",
-            ["Coldbrew", "Zero-Alloc", "Span-Swallower", "Crashdump", "Gen0-Destroyer", "Segfault-Surfer"],
-            ["Crashdump", "Byte-Breather", "Span-Swallower", "Segfault", "Heap-Banisher", "Deadlock-Defier"]
+            ["Coldbrew", "Zero-Alloc", "Span-Swallower", "Crashdump", "High-Quality-H2O", "Like-A-Glove", "Holy-Schnikes", "Segfault-Surfer"],
+            ["Crashdump", "Byte-Breather", "Span-Swallower", "Segfault", "Heap-Banisher", "Deadlock-Defier", "Little-Coat"]
         ),
         [AgentRole.SecurityEngineer] = (
             "Security Engineer",
             "Lion Tamer of Unsanitized Input",
-            ["Tinfoil", "Zero-Trust", "STRIDE-Tamer", "Airgap-Acrobat", "Packet-Tamer", "Biohazard-Buster"],
-            ["Sandbox", "Firewall-Flinger", "Tinfoil-Lion", "Threat-Tamer", "Cipher-Clown", "Airgap-Sentinel"]
+            ["Tinfoil", "Zero-Trust", "Its-A-Trap", "Spanish-Inquisition", "STRIDE-Tamer", "Airgap-Acrobat", "Raspberry-Jam", "Biohazard-Buster"],
+            ["Sandbox", "Firewall-Flinger", "Tinfoil-Lion", "Threat-Tamer", "Cipher-Clown", "Airgap-Sentinel", "Ackbar-Sentinel"]
         ),
         [AgentRole.OptimizationEngineer] = (
             "Optimization Engineer",
             "Sub-Nanosecond Tightrope Walker",
-            ["Overclock", "Sub-Nanosecond", "P99-Slasher", "Flamegraph-Feeder", "Zero-Byte", "Cache-Line"],
-            ["Overclock", "Nanosecond-Tightroper", "Flamegrapher", "Cycle-Cruncher", "Microbenchmark-Mage", "Latency-Juggler"]
+            ["Overclock", "Sub-Nanosecond", "Enhance-Enhance", "P99-Slasher", "Flamegraph-Feeder", "Zero-Byte", "Goin-For-Me", "Cache-Line"],
+            ["Overclock", "Nanosecond-Tightroper", "Flamegrapher", "Cycle-Cruncher", "Microbenchmark-Mage", "Latency-Juggler", "Cinderella-Story"]
         ),
         [AgentRole.PrincipalQAAnalyst] = (
             "Principal QA Analyst",
             "Chaos Clown of Software Torture",
-            ["Build-Executioner", "Chaos-Clown", "Demonic-Payload", "Negative-Infinity", "Fuzz-Master", "Crash-Tester"],
-            ["Build-Executioner", "Chaos-Clown", "Assertion-Assassin", "NullPointer-Puppeteer", "Fuzz-Thrower", "Edge-Executioner"]
+            ["Build-Executioner", "Tis-But-A-Scratch", "Lots-Of-Nuts", "Chaos-Clown", "Demonic-Payload", "Negative-Infinity", "Shitter-Full", "Fuzz-Master"],
+            ["Build-Executioner", "Chaos-Clown", "Assertion-Assassin", "NullPointer-Puppeteer", "Fuzz-Thrower", "Edge-Executioner", "Gnodab-Crusher"]
         )
     };
 

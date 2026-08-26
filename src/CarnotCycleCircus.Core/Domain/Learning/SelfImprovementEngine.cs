@@ -182,11 +182,28 @@ public class SelfImprovementEngine : ISelfImprovementEngine
             var prunedCount = await _memoryStore.PruneAsync(0.3f, TimeSpan.FromHours(6), cancellationToken);
 
             // 6. Build and save self-improving markdown artifacts
-            if (newInsights.Count == 0 && episodicMemories.Count > 0)
+            var comedyWisdoms = new[]
+            {
+                "Distilled Wisdom: 'Shitter was full!' — When buffers fill up, flush immediately to persistent storage.",
+                "Distilled Wisdom: ''Tis but a scratch!' — How developers describe a null pointer before Quinn investigates.",
+                "Distilled Wisdom: 'So you're telling me there's a chance!' — Estimating 500 story points for a 2-day sprint.",
+                "Distilled Wisdom: 'Enhance... enhance... enhance...' — Profiling hot paths until GC Gen0 drops to absolute zero.",
+                "Distilled Wisdom: 'Now that's what I call high quality H2O!' — The divine purity of ReadOnlySpan<char> and MemoryPool.",
+                "Distilled Wisdom: 'Nobody expects the Spanish Inquisition!' — Secret scanners catching hardcoded tokens at 4:59 PM.",
+                "Distilled Wisdom: 'Badges? We don't need no stinkin' badges!' — But you still need 100% test coverage.",
+                "Distilled Wisdom: 'Killing bugs is badong. From this moment we stand for Gnodab!' — QA core doctrine.",
+                "Distilled Wisdom: 'You're my boy, Blue!' — Honoring our oldest passing regression test suite.",
+                "Distilled Wisdom: 'Like a glove!' — When a complex multi-agent handoff executes with zero exceptions."
+            };
+
+            var bonusWisdom = comedyWisdoms[(_cyclesCount - 1) % comedyWisdoms.Length];
+            newInsights.Add(bonusWisdom);
+
+            if (newInsights.Count == 1 && episodicMemories.Count > 0)
             {
                 newInsights.Add($"Consolidated {episodicMemories.Count} episodic memories into persistent semantic index.");
             }
-            else if (newInsights.Count == 0)
+            else if (newInsights.Count == 1)
             {
                 newInsights.Add("Continuous learning cycle executed: Memory vector index refreshed and procedural recipes calibrated.");
             }
@@ -198,7 +215,7 @@ public class SelfImprovementEngine : ISelfImprovementEngine
                 SemanticRulesReinforced: _latestReport.SemanticRulesReinforced + semanticCount,
                 MemoriesConsolidatedCount: _latestReport.MemoriesConsolidatedCount + consolidatedCount,
                 DecayedMemoriesPrunedCount: _latestReport.DecayedMemoriesPrunedCount + prunedCount,
-                DistilledInsights: newInsights,
+                DistilledInsights: [.. newInsights, .. _latestReport.DistilledInsights.Take(20)],
                 Timestamp: DateTimeOffset.UtcNow
             );
 
