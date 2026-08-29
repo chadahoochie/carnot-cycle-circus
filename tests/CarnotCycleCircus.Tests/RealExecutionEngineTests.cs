@@ -709,4 +709,77 @@ public class RealExecutionEngineTests
         var result = await executor.ExecuteWorkflowAsync("No ADR Epic", "Epic without initial ADR");
         result.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task RequirementsResearcher_ShouldProduceStructuredFeasibilityBrief_AndRecommendationsForTpm()
+    {
+        var ticketStore = new TicketStore();
+        var engine = new SimulatedScenarioEngine(ticketStore: ticketStore);
+
+        var ticket = new TicketItem(
+            Id: "RES-TEST-001",
+            ParentEpicId: null,
+            Title: "OAuth 2.1 PKCE & Token Rotation Protocol",
+            Description: "Research authorization server requirements, RFC 9068, and zero-allocation JWT tokens.",
+            Type: TicketType.ResearchSpike,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.RequirementsResearcher,
+            CreatedByRole: AgentRole.RequirementsResearcher,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Identify relevant RFCs", "Analyze .NET 10 token libraries", "Provide TPM scope recommendations"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.RequirementsResearcher, ticket);
+
+        deliverables.Should().NotBeEmpty();
+        var brief = deliverables.First();
+        brief.Name.Should().Be("RES-TEST-001_RESEARCH_BRIEF.md");
+        brief.ContentType.Should().Be("markdown");
+        brief.Content.Should().Contain("Requirements Research & Technical Feasibility Brief");
+        brief.Content.Should().Contain("Standards, RFCs & Technical Specifications");
+        brief.Content.Should().Contain("Recommendations for Technical Product Manager");
+    }
+
+    [Fact]
+    public async Task GraphWorkflowExecutor_ShouldExecuteRequirementsResearcher_BeforeTpm_AndAttachResearchBriefToEpic()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var memoryStore = new EmbeddedVectorMemoryStore();
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var scenarioEngine = new SimulatedScenarioEngine(ticketStore: ticketStore);
+        var memoryConsolidation = new MemoryConsolidationEngine(memoryStore);
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            scenarioEngine,
+            eventStream,
+            memoryConsolidation
+        );
+
+        var epicTitle = "High-Throughput Distributed Rate Limiter";
+        var epicDesc = "Build token bucket rate limiter with zero GC allocations.";
+
+        var success = await executor.ExecuteWorkflowAsync(epicTitle, epicDesc);
+        success.Should().BeTrue();
+
+        // Verify research node completed
+        var resNode = executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.RequirementsResearcher);
+        resNode.State.Should().Be(NodeExecutionState.Completed);
+
+        // Verify Epic ticket has both Research Brief and PRD deliverables attached
+        var epicTicket = ticketStore.GetAllTickets().First(t => t.Type == TicketType.Epic);
+        epicTicket.Deliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
+        epicTicket.Deliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
+
+        // Verify event stream broadcasted research banter
+        eventStream.GetHistory().Should().Contain(m => m.Role == AgentRole.RequirementsResearcher && m.Content.Contains("Feasibility Brief"));
+    }
 }

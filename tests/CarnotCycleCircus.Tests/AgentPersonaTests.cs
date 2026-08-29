@@ -11,6 +11,7 @@ public class AgentPersonaTests
     private readonly SimulatedScenarioEngine _scenarioEngine = new();
 
     [Theory]
+    [InlineData(AgentRole.RequirementsResearcher)]
     [InlineData(AgentRole.TechnicalProductManager)]
     [InlineData(AgentRole.LeadArchitect)]
     [InlineData(AgentRole.SoftwareDeveloper)]
@@ -28,6 +29,7 @@ public class AgentPersonaTests
     }
 
     [Theory]
+    [InlineData(AgentRole.RequirementsResearcher)]
     [InlineData(AgentRole.TechnicalProductManager)]
     [InlineData(AgentRole.LeadArchitect)]
     [InlineData(AgentRole.SoftwareDeveloper)]

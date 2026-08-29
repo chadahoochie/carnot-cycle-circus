@@ -34,7 +34,8 @@
 
 | Role (`AgentRole` enum) | Persona Name | Default Model | Allowed Tools | Primary Deliverables |
 | :--- | :--- | :--- | :--- | :--- |
-| `TechnicalProductManager` | Barnum B. Buzzword (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown, Epics, User Stories, Acceptance Criteria |
+| `RequirementsResearcher` | Rachel "DeepDive" Reference (Requirements Researcher) | `anthropic/claude-3.7-sonnet` | `web_search`, `memory_lookup` | Research Briefs (`*_RESEARCH_BRIEF.md`), RFC specifications, technical feasibility reports |
+| `TechnicalProductManager` | Barnum B. Buzzword (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown (`*_PRD.md`), Epics, User Stories, Acceptance Criteria |
 | `LeadArchitect` | Archduke Archibald Abstraction-o (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Clean Architecture Scaffolds |
 | `SoftwareDeveloper` | Devon "Coldbrew" Crashdump (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
 | `SecurityEngineer` | Sari "Tinfoil" Sandbox (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
@@ -72,7 +73,7 @@
   - `PortType.Output` (🔵 Success)
   - `PortType.Failure` (🔴 Reject/Remediation loopback)
 - `IGraphWorkflowExecutor`:
-  - `ExecuteWorkflowAsync(epicTitle, epicDesc, triggerFailureSimulation, ct)`: Runs full lifecycle through TPM $\to$ Arch $\to$ Dev $\to$ Sec & Opt (parallel) $\to$ QA $\to$ Release.
+  - `ExecuteWorkflowAsync(epicTitle, epicDesc, triggerFailureSimulation, ct)`: Runs full lifecycle through Research $\to$ TPM $\to$ Arch $\to$ Dev $\to$ Sec & Opt (parallel) $\to$ QA $\to$ Release.
   - `StepNextNodeAsync(ct)`: Executes the next pending ready ticket in single-step mode.
   - Circuit Breakers: Configurable `FailurePolicy` tripping on excessive retries.
 

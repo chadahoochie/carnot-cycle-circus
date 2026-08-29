@@ -36,6 +36,12 @@ public class AgentNameGenerator : IAgentNameGenerator
 
     private static readonly Dictionary<AgentRole, (string RoleSuffix, string DefaultAct, string[] DefaultNicknames, string[] DefaultSurnames)> RoleDefaults = new()
     {
+        [AgentRole.RequirementsResearcher] = (
+            "Requirements Researcher",
+            "Investigative Scout & Spec Sleuth",
+            ["DeepDive", "Radar", "RFC-Hunter", "Spec-Sleuth", "Source-Seeker", "Fact-Finder", "Brief-Builder"],
+            ["Reference", "Radar", "Scout", "Investigator", "Fact-Checker", "Evidence-Finder", "Spec-Tamer"]
+        ),
         [AgentRole.TechnicalProductManager] = (
             "TPM",
             "Grand Ringmaster of Agility",

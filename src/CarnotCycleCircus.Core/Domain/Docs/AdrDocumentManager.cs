@@ -336,6 +336,31 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr13.Id] = adr13;
 
+        var adr14 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0014",
+            Title: "Dedicated Requirements Researcher Agent and Upstream Discovery DAG Stage",
+            Status: AdrStatus.Accepted,
+            Context: "Monolithic TPM discovery overloaded context windows with raw search outputs and mixed convergent discovery with structured ticket decomposition, leading to hallucination risks before architectural design.",
+            Decision: "Introduce RequirementsResearcher (Rachel 'DeepDive' Reference) as Stage 1 of the DAG prior to TPM, generating formal _RESEARCH_BRIEF.md deliverables grounded in RFCs and codebase boundaries.",
+            AlternativesConsidered: [
+                "Monolithic TPM with integrated web search tools (rejected: token budget exhaustion and prompt distraction)",
+                "Ad-hoc dynamic subagent tool calls (rejected: loses explicit DAG visualization and dedicated failure recovery cabling)",
+                "Optional unverified research spikes (rejected: ungrounded assumptions cascade into developer code generation)"
+            ],
+            ConsequencesPositive: [
+                "Clean cognitive separation between exploratory requirement scouting and structured epic decomposition",
+                "Downstream TPM PRDs are grounded in real RFC standards and harvested repository context",
+                "First-class visual observability and failure recovery cables on the workflow canvas",
+                "Research briefs are versioned and categorized under artifacts/research/"
+            ],
+            ConsequencesNegative: [
+                "Adds one sequential LLM inference hop before ticket decomposition during full-lifecycle workflows"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr14.Id] = adr14;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

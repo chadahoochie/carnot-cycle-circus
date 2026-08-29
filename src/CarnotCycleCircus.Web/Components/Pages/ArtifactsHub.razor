@@ -46,6 +46,7 @@
     <div>
         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Categories Breakdown</div>
         <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; font-size: 0.75rem;">
+            <span class="badge" style="background: #6366f1;">🔬 Research: @artifacts.Count(a => a.Category == "Research")</span>
             <span class="badge" style="background: #a855f7;">📋 PRDs: @artifacts.Count(a => a.Category == "PRD")</span>
             <span class="badge" style="background: #3b82f6;">🏛️ ADRs: @artifacts.Count(a => a.Category == "ADR")</span>
             <span class="badge" style="background: #10b981;">💻 Code: @artifacts.Count(a => a.Category == "Code")</span>
@@ -69,6 +70,9 @@
     <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
         <button class="btn @(selectedCategory == "All" ? "btn-primary" : "btn-secondary")" @onclick='() => selectedCategory = "All"'>
             All (@artifacts.Count)
+        </button>
+        <button class="btn @(selectedCategory == "Research" ? "btn-primary" : "btn-secondary")" @onclick='() => selectedCategory = "Research"'>
+            🔬 Research (@artifacts.Count(a => a.Category == "Research"))
         </button>
         <button class="btn @(selectedCategory == "PRD" ? "btn-primary" : "btn-secondary")" @onclick='() => selectedCategory = "PRD"'>
             📋 PRDs (@artifacts.Count(a => a.Category == "PRD"))

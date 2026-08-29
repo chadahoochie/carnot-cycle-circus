@@ -46,12 +46,14 @@ public class AgentNameGeneratorTests
     }
 
     [Theory]
+    [InlineData(AgentRole.RequirementsResearcher, "Requirements Researcher")]
     [InlineData(AgentRole.TechnicalProductManager, "TPM")]
     [InlineData(AgentRole.LeadArchitect, "Lead Architect")]
     [InlineData(AgentRole.SoftwareDeveloper, "Senior Developer")]
     [InlineData(AgentRole.SecurityEngineer, "Security Engineer")]
     [InlineData(AgentRole.OptimizationEngineer, "Optimization Engineer")]
     [InlineData(AgentRole.PrincipalQAAnalyst, "Principal QA Analyst")]
+    [InlineData(AgentRole.IntegrationEngineer, "Release Integrator")]
     public void GenerateSuggestedName_WithoutSkills_ShouldProvideRoleBasedAbsurdName(AgentRole role, string expectedRoleSuffix)
     {
         var suggestedName = _generator.GenerateSuggestedName(role, skills: null, seed: 100);

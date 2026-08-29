@@ -48,11 +48,14 @@ public class ArtifactManagerTests : IDisposable
     [Fact]
     public void CategorizeArtifact_ShouldIdentifyProperCategory()
     {
+        Assert.Equal("Research", ArtifactManager.CategorizeArtifact("EPIC-1_RESEARCH_BRIEF.md", "Requirements Research Brief", AgentRole.RequirementsResearcher));
+        Assert.Equal("PRD", ArtifactManager.CategorizeArtifact("EPIC-1_PRD.md", "Product Requirements Document", AgentRole.TechnicalProductManager));
         Assert.Equal("ADR", ArtifactManager.CategorizeArtifact("SUB-1_ADR.md", "Architecture Decision", AgentRole.LeadArchitect));
         Assert.Equal("Code", ArtifactManager.CategorizeArtifact("SUB-2_Implementation.cs", "Service Code", AgentRole.SoftwareDeveloper));
         Assert.Equal("Security", ArtifactManager.CategorizeArtifact("SUB-3_STRIDE_Model.md", "Threat Model", AgentRole.SecurityEngineer));
         Assert.Equal("Benchmark", ArtifactManager.CategorizeArtifact("SUB-4_Perf_Profile.md", "Benchmark Profile", AgentRole.OptimizationEngineer));
         Assert.Equal("QA", ArtifactManager.CategorizeArtifact("SUB-5_QA_Scorecard.md", "QA Acceptance", AgentRole.PrincipalQAAnalyst));
+        Assert.Equal("Release", ArtifactManager.CategorizeArtifact("SUB-6_Release_Manifest.md", "Release Package", AgentRole.IntegrationEngineer));
     }
 
     [Fact]

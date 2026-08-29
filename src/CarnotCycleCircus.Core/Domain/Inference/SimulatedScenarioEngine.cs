@@ -307,6 +307,31 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
 
         switch (role)
         {
+            case AgentRole.RequirementsResearcher:
+                defaultArtifactName = $"{ticket.Id}_RESEARCH_BRIEF.md";
+                contentType = "markdown";
+                description = "Requirements Research & Technical Feasibility Brief";
+                userPrompt = $"""
+                Produce an exhaustive, highly structured Requirements Research & Technical Feasibility Brief in Markdown format for:
+                Ticket: {ticket.Id} - {ticket.Title}
+                Description: {ticket.Description}
+                Priority: {ticket.Priority}
+                Acceptance Criteria:
+                {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}
+                {repoContext}
+                {upstreamSummary}
+
+                Structure the document with:
+                # Requirements Research & Technical Feasibility Brief: {ticket.Title}
+                ## 1. Problem Space & Domain Context
+                ## 2. Standards, RFCs & Technical Specifications (Specify exact RFC/industry standard numbers, wire protocols, and constraints)
+                ## 3. Ecosystem, Frameworks & Library Landscape (Evaluate modern .NET 10 / C# 13 packages, dependencies, and performance implications)
+                ## 4. Codebase Dependency & Architecture Footprint (Identify existing interfaces, models, and boundaries impacted)
+                ## 5. Potential Edge Cases, Security Hazards & Failure Modes
+                ## 6. Recommendations for Technical Product Manager (Scope boundaries, user story decomposition advice, acceptance criteria guidelines)
+                """;
+                break;
+
             case AgentRole.TechnicalProductManager:
                 defaultArtifactName = $"{ticket.Id}_PRD.md";
                 contentType = "markdown";
@@ -652,6 +677,44 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
 
         switch (role)
         {
+            case AgentRole.RequirementsResearcher:
+                artifacts.Add(new ArtifactItem(
+                    Name: $"{ticket.Id}_RESEARCH_BRIEF.md",
+                    Content: $"""
+                    # Requirements Research & Technical Feasibility Brief: {ticket.Title}
+
+                    ## 1. Problem Space & Domain Context
+                    Comprehensive analysis of the target capabilities required for {ticket.Title}.
+                    Objective: {ticket.Description}
+
+                    ## 2. Standards, RFCs & Technical Specifications
+                    - **RFC / Industry Protocols**: Aligned with modern asynchronous messaging standards and zero-allocation memory models.
+                    - **Type Safety Guarantees**: Immutable record semantics and readonly struct return contracts.
+
+                    ## 3. Ecosystem & Library Landscape
+                    - **Runtime Platform**: .NET 10.0 / C# 13.
+                    - **Core Dependencies**: `System.Threading.Channels`, `System.Memory`, `Microsoft.Extensions.DependencyInjection`.
+                    - **Avoided Dependencies**: Deprecated reflection-heavy serializers and unbounded in-memory queues.
+
+                    ## 4. Codebase Dependency & Architecture Footprint
+                    - **Target Boundary**: `{targetNamespace}.{domain}`
+                    - **Primary Domain Abstractions**: `I{domain}Pipeline`, `{domain}Request`, `{domain}Result`.
+
+                    ## 5. Potential Edge Cases & Failure Modes
+                    - **High Concurrency Contention**: Prevented via bounded non-blocking channels and task schedulers.
+                    - **Memory Leaks / Gen0 Allocations**: Prevented via `ReadOnlyMemory<byte>` and `ValueTask`.
+                    - **Unsanitized Inbound Data**: Strict validation and STRIDE threat mitigation boundaries required.
+
+                    ## 6. Recommendations for Technical Product Manager (TPM)
+                    - Prioritize Clean Architecture decoupling between application contracts and infrastructure services.
+                    - Ensure all domain entities are declared as immutable records.
+                    - Require explicit failure and circuit-breaker handling in downstream acceptance criteria.
+                    """,
+                    ContentType: "markdown",
+                    Description: "Requirements Research & Technical Feasibility Brief"
+                ));
+                break;
+
             case AgentRole.TechnicalProductManager:
                 artifacts.Add(new ArtifactItem(
                     Name: $"{ticket.Id}_PRD.md",

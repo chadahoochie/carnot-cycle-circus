@@ -10,12 +10,14 @@ This document provides a comprehensive technical reference of all primary interf
 ```csharp
 public enum AgentRole
 {
+    RequirementsResearcher,
     TechnicalProductManager,
     LeadArchitect,
     SoftwareDeveloper,
     SecurityEngineer,
     OptimizationEngineer,
-    PrincipalQAAnalyst
+    PrincipalQAAnalyst,
+    IntegrationEngineer
 }
 ```
 

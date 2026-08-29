@@ -496,12 +496,14 @@
     private static IReadOnlyList<AgentRole> GetRecommendedRoles(ModelCatalogEntry model)
     {
         var list = new List<AgentRole>();
+        if (model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.RequirementsResearcher);
         if (model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)) list.Add(AgentRole.TechnicalProductManager);
         if (model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.LeadArchitect);
         if (model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration)) list.Add(AgentRole.SoftwareDeveloper);
         if (model.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit)) list.Add(AgentRole.SecurityEngineer);
         if (model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.OptimizationEngineer);
         if (model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)) list.Add(AgentRole.PrincipalQAAnalyst);
+        if (model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)) list.Add(AgentRole.IntegrationEngineer);
         return list.Distinct().ToList();
     }
 }

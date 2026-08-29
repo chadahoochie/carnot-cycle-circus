@@ -2,6 +2,7 @@ namespace CarnotCycleCircus.Core.Domain.Agents;
 
 public enum AgentRole
 {
+    RequirementsResearcher,
     TechnicalProductManager,
     LeadArchitect,
     SoftwareDeveloper,
@@ -15,6 +16,7 @@ public static class AgentRoleExtensions
 {
     public static string ToDisplayName(this AgentRole role) => role switch
     {
+        AgentRole.RequirementsResearcher => "Requirements Researcher",
         AgentRole.TechnicalProductManager => "Technical Product Manager",
         AgentRole.LeadArchitect => "Lead Architect",
         AgentRole.SoftwareDeveloper => "Software Developer",
@@ -27,6 +29,7 @@ public static class AgentRoleExtensions
 
     public static string ToEmoji(this AgentRole role) => role switch
     {
+        AgentRole.RequirementsResearcher => "🔬",
         AgentRole.TechnicalProductManager => "🎯",
         AgentRole.LeadArchitect => "🏛️",
         AgentRole.SoftwareDeveloper => "💻",
@@ -39,6 +42,7 @@ public static class AgentRoleExtensions
 
     public static string ToColorHex(this AgentRole role) => role switch
     {
+        AgentRole.RequirementsResearcher => "#6366f1", // Indigo
         AgentRole.TechnicalProductManager => "#38bdf8", // Sky Blue
         AgentRole.LeadArchitect => "#a855f7",           // Purple
         AgentRole.SoftwareDeveloper => "#10b981",       // Emerald Green
@@ -51,6 +55,7 @@ public static class AgentRoleExtensions
 
     public static string ToDefaultModel(this AgentRole role) => role switch
     {
+        AgentRole.RequirementsResearcher => "anthropic/claude-3.7-sonnet",
         AgentRole.TechnicalProductManager => "openai/gpt-4o",
         AgentRole.LeadArchitect => "anthropic/claude-3.7-sonnet",
         AgentRole.SoftwareDeveloper => "qwen/qwen-2.5-coder-32b-instruct",

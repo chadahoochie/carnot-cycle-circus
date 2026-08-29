@@ -362,6 +362,17 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.IntegrationEngineer]
         );
         RegisterSkill(s6);
+
+        var s7 = new SkillDefinition(
+            Id: "skill-requirements-research",
+            Name: "Requirements Scouting & Spec Investigation",
+            Description: "Deep discovery of RFC specifications, domain standards, library ecosystems, and architectural feasibility.",
+            Instructions: "Scour RFCs, API contracts, and codebase boundaries to produce comprehensive feasibility briefs before PRD generation.",
+            RecommendedTools: ["web_search", "memory_lookup"],
+            Category: "Research",
+            AssignedRoles: [AgentRole.RequirementsResearcher]
+        );
+        RegisterSkill(s7);
     }
 
     public IReadOnlyList<SkillDefinition> GetAllSkills()

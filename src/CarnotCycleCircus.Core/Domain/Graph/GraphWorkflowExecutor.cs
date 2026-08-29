@@ -353,7 +353,52 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             }
             else
             {
-                // 1. TPM Phase - Work Decomposition
+                // 1. Requirements Research Phase (Discovery & Feasibility Scouting)
+                var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
+                ArtifactItem? researchBrief = null;
+
+                if (resNode != null)
+                {
+                    UpdateNodeState(resNode.Id, NodeExecutionState.Running);
+                    await Task.Delay(150, cancellationToken);
+
+                    var tempResearchTicket = new TicketItem(
+                        Id: $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+                        ParentEpicId: null,
+                        Title: $"Requirements Research: {epicTitle}",
+                        Description: epicDescription,
+                        Type: TicketType.ResearchSpike,
+                        Status: TicketStatus.InProgress,
+                        AssigneeRole: AgentRole.RequirementsResearcher,
+                        CreatedByRole: AgentRole.RequirementsResearcher,
+                        Priority: TicketPriority.High,
+                        DependsOnTicketIds: Array.Empty<string>(),
+                        AcceptanceCriteria: [
+                            "Identify domain concepts, specifications, and RFC standards.",
+                            "Map codebase dependencies and target architecture boundaries.",
+                            "Identify edge cases, security hazards, and non-functional constraints.",
+                            "Provide structured feasibility recommendations for TPM."
+                        ],
+                        Deliverables: Array.Empty<ArtifactItem>(),
+                        Metadata: new Dictionary<string, string> { ["Stage"] = "Research" },
+                        CreatedAt: DateTimeOffset.UtcNow
+                    );
+
+                    var researchArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
+                    researchBrief = researchArtifacts.FirstOrDefault();
+
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: AgentRole.RequirementsResearcher,
+                        senderName: "Rachel 'DeepDive' Reference (Requirements Researcher)",
+                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief.",
+                        type: MessageType.Chat,
+                        ticketId: tempResearchTicket.Id
+                    ));
+
+                    UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief produced.", tempResearchTicket.Id);
+                }
+
+                // 2. TPM Phase - Work Decomposition
                 var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
                 if (tpmNode != null)
                 {
@@ -363,6 +408,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
                 var createdTickets = _decompositionEngine.DeconstructEpic(epicTitle, epicDescription);
                 var epicTicket = createdTickets.First(t => t.Type == TicketType.Epic);
+                if (researchBrief != null)
+                {
+                    epicTicket = epicTicket.WithDeliverable(researchBrief);
+                }
                 epicId = epicTicket.Id;
 
                 var prdArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.TechnicalProductManager, epicTicket, cancellationToken);
@@ -375,7 +424,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.TechnicalProductManager,
                     senderName: "Barnum B. Buzzword (TPM)",
-                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks and produced Product Requirements Document (PRD).",
+                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Ingested Research Brief, deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks and produced Product Requirements Document (PRD).",
                     type: MessageType.Chat,
                     ticketId: epicTicket.Id
                 ));
@@ -667,6 +716,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
         return currentRole switch
         {
+            AgentRole.RequirementsResearcher => AgentRole.TechnicalProductManager,
             AgentRole.TechnicalProductManager => AgentRole.LeadArchitect,
             AgentRole.LeadArchitect => AgentRole.SoftwareDeveloper,
             AgentRole.SoftwareDeveloper => AgentRole.SecurityEngineer,

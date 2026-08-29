@@ -55,6 +55,15 @@ public class ArtifactManager : IArtifactManager
 
     public static string CategorizeArtifact(string name, string? description, AgentRole? role)
     {
+        if (name.EndsWith("_RESEARCH_BRIEF.md", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("RESEARCH-", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("Research", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Feasibility", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.RequirementsResearcher)
+        {
+            return "Research";
+        }
+
         if (name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase) ||
             name.StartsWith("PRD-", StringComparison.OrdinalIgnoreCase) ||
             (description?.Contains("PRD", StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -129,6 +138,7 @@ public class ArtifactManager : IArtifactManager
         var category = CategorizeArtifact(deliverable.Name, deliverable.Description, ticket.AssigneeRole);
         var categorizedFolder = category switch
         {
+            "Research" => "artifacts/research",
             "PRD" => "artifacts/prds",
             "ADR" => "artifacts/adrs",
             "Code" => "artifacts/code",

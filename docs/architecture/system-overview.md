@@ -133,6 +133,7 @@ sequenceDiagram
     autonumber
     actor User as User / Operator
     participant Executor as GraphWorkflowExecutor
+    participant Res as Researcher (Rachel Reference)
     participant TPM as TPM (Barnum B. Buzzword)
     participant Decomp as WorkDecompositionEngine
     participant Store as TicketStore
@@ -148,11 +149,17 @@ sequenceDiagram
     User->>Executor: ExecuteWorkflowAsync("User Auth & Token Rotation", desc)
     Executor->>Bus: Publish Workflow Started Event
 
-    %% 1. TPM Phase
-    Executor->>TPM: Activate TPM Node
+    %% 1. Requirements Research Phase
+    Executor->>Res: Activate Requirements Researcher Node
+    Res->>Res: Scour RFCs, library ecosystem & codebase boundaries
+    Res->>Store: Generate & Attach Feasibility Brief (_RESEARCH_BRIEF.md)
+    Res->>Bus: Publish Research Feasibility banter
+
+    %% 2. TPM Phase
+    Executor->>TPM: Activate TPM Node (Injected Research Brief context)
     TPM->>Decomp: DeconstructEpic("User Auth...", desc)
     Decomp->>Store: Create Epic + User Story 1
-    Decomp->>Store: Create 5 Subtasks (Arch, Dev, Sec, Opt, QA) with DAG dependencies
+    Decomp->>Store: Create 6 Subtasks (Arch, Dev, Sec, Opt, QA, Release) with DAG dependencies
     TPM->>TPM: Generate PRD Deliverable Artifact
     TPM->>Store: Attach PRD Artifact to Epic Ticket
     TPM->>Bus: Publish PRD & Decomposition banter
