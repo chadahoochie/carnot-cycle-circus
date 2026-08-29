@@ -66,26 +66,31 @@ public record WorkflowGraph(
         var nodes = new List<GraphNode>
         {
             new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 50, 100),
-            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 250, 100),
-            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 450, 100),
-            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 650, 40),
-            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 650, 160),
-            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 850, 100)
+            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 220, 100),
+            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 390, 100),
+            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 560, 40),
+            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 560, 160),
+            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 730, 100),
+            new("node-int", AgentRole.IntegrationEngineer, "Integration Engineer", 900, 100)
         };
 
         var connections = new List<PortConnection>
         {
-            // Happy path: TPM -> Arch -> Dev -> Sec & Opt -> QA
+            // Happy path: TPM -> Arch -> Dev -> Sec & Opt -> QA -> Integration
             new("node-tpm", PortType.Output, "node-arch", PortType.Input),
             new("node-arch", PortType.Output, "node-dev", PortType.Input),
             new("node-dev", PortType.Output, "node-sec", PortType.Input),
             new("node-dev", PortType.Output, "node-opt", PortType.Input),
             new("node-sec", PortType.Output, "node-qa", PortType.Input),
             new("node-opt", PortType.Output, "node-qa", PortType.Input),
+            new("node-qa", PortType.Output, "node-int", PortType.Input),
 
-            // Failure / Reject Cables: Red Cables loop back to Dev for remediation
+            // Failure / Reject Cables: Red Cables loop back for remediation
             new("node-sec", PortType.Failure, "node-dev", PortType.Input),
-            new("node-qa", PortType.Failure, "node-dev", PortType.Input)
+            new("node-qa", PortType.Failure, "node-dev", PortType.Input),
+            new("node-qa", PortType.Failure, "node-arch", PortType.Input),
+            new("node-int", PortType.Failure, "node-dev", PortType.Input),
+            new("node-int", PortType.Failure, "node-arch", PortType.Input)
         };
 
         return new WorkflowGraph(

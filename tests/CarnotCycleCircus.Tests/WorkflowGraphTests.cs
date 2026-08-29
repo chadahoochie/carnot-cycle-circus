@@ -34,22 +34,26 @@ public class WorkflowGraphTests
     }
 
     [Fact]
-    public void DefaultGraph_ShouldContainAllSixRolesAndFailurePorts()
+    public void DefaultGraph_ShouldContainAllSevenRolesAndFailurePorts()
     {
         var graph = _executor.CurrentGraph;
 
-        graph.Nodes.Should().HaveCount(6);
+        graph.Nodes.Should().HaveCount(7);
         graph.Nodes.Select(n => n.Role).Should().Contain([
             AgentRole.TechnicalProductManager,
             AgentRole.LeadArchitect,
             AgentRole.SoftwareDeveloper,
             AgentRole.SecurityEngineer,
             AgentRole.OptimizationEngineer,
-            AgentRole.PrincipalQAAnalyst
+            AgentRole.PrincipalQAAnalyst,
+            AgentRole.IntegrationEngineer
         ]);
 
-        // Verify Failure Ports exist on Security and QA
+        // Verify Failure Ports exist on Security, QA, and Integration (including QA/Int -> Arch failure cables)
         graph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
+        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-qa" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
+        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
+        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
     }
 
     [Fact]
@@ -158,7 +162,7 @@ public class WorkflowGraphTests
     [InlineData("preset-rapid", 3)]
     [InlineData("preset-zero-trust", 5)]
     [InlineData("preset-performance", 4)]
-    [InlineData("preset-standard", 6)]
+    [InlineData("preset-standard", 7)]
     public void LoadPreset_ShouldConfigureCorrectGraphTopology(string presetId, int expectedNodeCount)
     {
         _executor.LoadPreset(presetId);

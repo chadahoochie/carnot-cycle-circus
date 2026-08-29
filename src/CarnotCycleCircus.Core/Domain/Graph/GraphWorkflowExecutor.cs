@@ -511,6 +511,35 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(qaNode.Id, NodeExecutionState.Running, ticketId: qaTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
+                // QA checks for ADR presence across upstream deliverables in this epic
+                var epicTicketsForQa = _ticketStore.GetTicketsByEpic(epicId);
+                var hasAdr = epicTicketsForQa
+                    .SelectMany(t => t.Deliverables)
+                    .Any(d => d.Name.Contains("ADR", StringComparison.OrdinalIgnoreCase) || d.Content.Contains("Architectural Decision Record", StringComparison.OrdinalIgnoreCase));
+
+                if (!hasAdr && qaNode.RetryCount == 0)
+                {
+                    UpdateNodeState(qaNode.Id, NodeExecutionState.Failed, "Rejected: Missing Architectural Decision Record (ADR).", qaTicket.Id);
+
+                    _handoffRouter.RouteFailureRemediation(
+                        qaTicket.Id,
+                        AgentRole.PrincipalQAAnalyst,
+                        AgentRole.LeadArchitect,
+                        "Missing Architectural Decision Record (ADR) and Clean Architecture domain contracts.",
+                        "Lead Architect must scaffold ADR and Clean Architecture domain contracts before QA certification."
+                    );
+
+                    if (archNode != null)
+                    {
+                        UpdateNodeState(archNode.Id, NodeExecutionState.Remediating, "Scaffolding missing ADR and Clean Architecture contracts...");
+                        await Task.Delay(150, cancellationToken);
+                        UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Clean Architecture contracts remediated.");
+                    }
+
+                    UpdateNodeState(qaNode.Id, NodeExecutionState.Running, ticketId: qaTicket.Id);
+                    await Task.Delay(100, cancellationToken);
+                }
+
                 var qaArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.PrincipalQAAnalyst, qaTicket, cancellationToken);
                 foreach (var a in qaArtifacts) qaTicket = qaTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(qaTicket);
@@ -525,6 +554,34 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     content: "🧪 Quinn the Build-Executioner (QA): 'That's a lot of nuts!' Tortured the build with 50,000 edge cases. Production release certified: 'Alllllrighty then!'",
                     type: MessageType.StateChange,
                     ticketId: qaTicket.Id
+                ));
+            }
+
+            // 6. Integration & Solution Packaging Phase
+            var intNode = GetNodeByRole(AgentRole.IntegrationEngineer);
+            readyTickets = _ticketStore.GetReadyTickets();
+            var intTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.IntegrationEngineer && t.ParentEpicId == epicId)
+                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.IntegrationEngineer);
+
+            if (intNode != null && intTicket != null)
+            {
+                UpdateNodeState(intNode.Id, NodeExecutionState.Running, ticketId: intTicket.Id);
+                await Task.Delay(150, cancellationToken);
+
+                var intArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.IntegrationEngineer, intTicket, cancellationToken);
+                foreach (var a in intArtifacts) intTicket = intTicket.WithDeliverable(a);
+                _ticketStore.UpdateTicket(intTicket);
+
+                _handoffRouter.AdvanceWorkflowOnTicketCompletion(intTicket.Id);
+                await _memoryConsolidation.ConsolidateTaskCompletionAsync(intTicket, _eventStream.GetHistory(), cancellationToken);
+                UpdateNodeState(intNode.Id, NodeExecutionState.Completed, "Solution Packaged & Wired.", intTicket.Id);
+
+                _eventStream.Publish(AgentMessage.Create(
+                    role: AgentRole.IntegrationEngineer,
+                    senderName: "Ingrid the Package-Master (Release Integrator)",
+                    content: "📦 Ingrid 'The Tarball' Tarjan (Release Integrator): 'Clean build, clean clone, zero merge conflicts!' Packaged Clean Architecture solution and published Release Manifest.",
+                    type: MessageType.StateChange,
+                    ticketId: intTicket.Id
                 ));
             }
 
@@ -615,6 +672,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             AgentRole.SoftwareDeveloper => AgentRole.SecurityEngineer,
             AgentRole.SecurityEngineer => AgentRole.PrincipalQAAnalyst,
             AgentRole.OptimizationEngineer => AgentRole.PrincipalQAAnalyst,
+            AgentRole.PrincipalQAAnalyst => AgentRole.IntegrationEngineer,
             _ => null
         };
     }

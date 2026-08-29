@@ -101,6 +101,15 @@ public class ArtifactManager : IArtifactManager
             return "QA";
         }
 
+        if (name.EndsWith("_Release_Manifest.md", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("SolutionTree.json", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("Release", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Package", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.IntegrationEngineer)
+        {
+            return "Release";
+        }
+
         return "General";
     }
 
@@ -126,6 +135,7 @@ public class ArtifactManager : IArtifactManager
             "Security" => "artifacts/security",
             "Benchmark" => "artifacts/benchmarks",
             "QA" => "artifacts/qa",
+            "Release" => "artifacts/releases",
             _ => "artifacts/general"
         };
 

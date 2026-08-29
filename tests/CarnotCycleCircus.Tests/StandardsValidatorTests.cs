@@ -59,4 +59,59 @@ public class StandardsValidatorTests
         var result = _validator.ValidateTicketForCompletion(ticket);
         result.IsValid.Should().BeTrue();
     }
+
+    [Fact]
+    public void ValidateArchitecturalCompliance_WithoutAdr_ShouldFailWithArchitecturalViolation()
+    {
+        var ticket = new TicketItem(
+            Id: "SUB-QA-1",
+            ParentEpicId: "EPIC-1",
+            Title: "[QA] Final Acceptance Validation",
+            Description: "QA Verification",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.PrincipalQAAnalyst,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Verify release"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var result = _validator.ValidateArchitecturalCompliance(ticket, Array.Empty<ArtifactItem>());
+        result.IsValid.Should().BeFalse();
+        result.Violations.Should().Contain(v => v.Contains("Missing Architectural Decision Record (ADR)"));
+    }
+
+    [Fact]
+    public void ValidateArchitecturalCompliance_WithAdrAndScaffold_ShouldPass()
+    {
+        var ticket = new TicketItem(
+            Id: "SUB-QA-2",
+            ParentEpicId: "EPIC-1",
+            Title: "[QA] Final Acceptance Validation",
+            Description: "QA Verification",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.PrincipalQAAnalyst,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Verify release"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var upstreamArtifacts = new List<ArtifactItem>
+        {
+            new("SUB-ARCH_ADR.md", "# ADR-014: High-Performance Architecture\n## Architectural Decision Record", "markdown"),
+            new("IOrderPipeline.cs", "public interface IOrderPipeline {}", "csharp")
+        };
+
+        var result = _validator.ValidateArchitecturalCompliance(ticket, upstreamArtifacts);
+        result.IsValid.Should().BeTrue();
+    }
 }

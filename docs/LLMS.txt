@@ -35,11 +35,12 @@
 | Role (`AgentRole` enum) | Persona Name | Default Model | Allowed Tools | Primary Deliverables |
 | :--- | :--- | :--- | :--- | :--- |
 | `TechnicalProductManager` | Barnum B. Buzzword (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown, Epics, User Stories, Acceptance Criteria |
-| `LeadArchitect` | Archduke Archibald Abstraction-o (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Technical Subtasks |
+| `LeadArchitect` | Archduke Archibald Abstraction-o (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Clean Architecture Scaffolds |
 | `SoftwareDeveloper` | Devon "Coldbrew" Crashdump (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
 | `SecurityEngineer` | Sari "Tinfoil" Sandbox (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
 | `OptimizationEngineer` | Otto-Cycle Overclock (Optimization Eng) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet reports, latency audits, allocation profiles |
 | `PrincipalQAAnalyst` | Quinn the Build-Executioner (Principal QA) | `deepseek/deepseek-r1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | Test strategies, boundary matrices, quality scorecards, certification |
+| `IntegrationEngineer` | Ingrid "The Tarball" Tarjan (Release Integrator) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Release Manifests, Solution Trees (.slnx/.csproj), DI Composition Root Wiring |
 
 ---
 
@@ -49,7 +50,7 @@
 - `ITicketStore`: In-memory thread-safe ticket and handoff repository.
   - `CreateTicket(TicketItem)`, `UpdateTicket(TicketItem)`, `GetReadyTickets()`, `AreDependenciesSatisfied(string ticketId)`, `RecordHandoff(HandoffPacket)`.
 - `IWorkDecompositionEngine`:
-  - `DeconstructEpic(title, desc, priority)`: TPM creates Epic + Story 1; Architect creates 5 technical subtasks (Arch, Dev, Security, Opt, QA) with strict DAG dependency edges.
+  - `DeconstructEpic(title, desc, priority)`: TPM creates Epic + Story 1; Architect creates 6 technical subtasks (Arch, Dev, Security, Opt, QA, Integration) with strict DAG dependency edges.
   - `DeconstructStoryIntoTechnicalSubtasks(story)`: Generates DAG subtasks.
 - `IHandoffRouter`:
   - `RouteSuccessHandoff(...)`: Dispatches structured `HandoffPacket` to next agent and advances DAG.

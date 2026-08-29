@@ -61,15 +61,21 @@ graph TD
 - **Requirement**: Must link or produce an Architectural Decision Record (ADR).
 - **Violation Message**: *"Epic requires an Architectural Decision Record (ADR) etched in the documentation temple."*
 
+### 3.4 Architectural Compliance & QA Quality Gates
+- **Requirement 1 (ADR Verification)**: QA audits upstream deliverables for an approved Architectural Decision Record (ADR) before certification.
+- **Requirement 2 (Clean Architecture Scaffolding)**: Lead Architect must scaffold Domain entities, Application contracts, and DI extensions before implementation proceeds.
+- **Violation Action**: QA trips failure port cable (`node-qa` $\xrightarrow{\text{Failure}}$ `node-arch`) and issues a remediation handoff directly to the **Lead Architect**.
+
 ---
 
 ## 4. Remediation Loopback Integration
 
 When validation fails during DAG execution:
-1. `IStandardsValidator.ValidateTicketForCompletion(ticket)` returns `ValidationResult.Failure(violations)`.
-2. The `HandoffRouter` dispatches a failure packet (`RouteFailureRemediation`).
-3. The ticket transitions to `TicketStatus.Remediating` and is routed back to the appropriate agent (e.g. Senior Developer).
-4. The fixing agent resolves the violations and resubmits the ticket for review.
+1. `IStandardsValidator.ValidateTicketForCompletion(ticket)` or `ValidateArchitecturalCompliance(...)` returns `ValidationResult.Failure(violations)`.
+2. The `HandoffRouter` dispatches a failure remediation packet (`RouteFailureRemediation`).
+3. For code or test defects, the ticket transitions to `TicketStatus.Remediating` assigned to **Software Developer**.
+4. For missing ADRs or domain contract violations, the remediation packet routes to **Lead Architect** (`node-arch`).
+5. The fixing agent resolves the violations and resubmits the deliverables through the DAG.
 
 ---
 

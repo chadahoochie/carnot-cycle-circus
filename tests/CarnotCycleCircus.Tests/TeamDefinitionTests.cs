@@ -78,7 +78,7 @@ public class TeamDefinitionTests
 
         var imported = _manager.ImportFromJson(json);
         imported.Should().NotBeNull();
-        imported.Members.Should().HaveCount(6);
+        imported.Members.Should().HaveCount(7);
         imported.DefaultFallbackModel.Should().Be(original.DefaultFallbackModel);
     }
 

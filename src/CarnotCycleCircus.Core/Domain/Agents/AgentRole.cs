@@ -7,7 +7,8 @@ public enum AgentRole
     SoftwareDeveloper,
     SecurityEngineer,
     OptimizationEngineer,
-    PrincipalQAAnalyst
+    PrincipalQAAnalyst,
+    IntegrationEngineer
 }
 
 public static class AgentRoleExtensions
@@ -20,6 +21,7 @@ public static class AgentRoleExtensions
         AgentRole.SecurityEngineer => "Security Engineer",
         AgentRole.OptimizationEngineer => "Optimization Engineer",
         AgentRole.PrincipalQAAnalyst => "Principal QA Analyst",
+        AgentRole.IntegrationEngineer => "Integration Engineer",
         _ => role.ToString()
     };
 
@@ -31,6 +33,7 @@ public static class AgentRoleExtensions
         AgentRole.SecurityEngineer => "🛡️",
         AgentRole.OptimizationEngineer => "⚡",
         AgentRole.PrincipalQAAnalyst => "🧪",
+        AgentRole.IntegrationEngineer => "📦",
         _ => "🤖"
     };
 
@@ -42,6 +45,7 @@ public static class AgentRoleExtensions
         AgentRole.SecurityEngineer => "#ef4444",        // Red
         AgentRole.OptimizationEngineer => "#f59e0b",    // Amber
         AgentRole.PrincipalQAAnalyst => "#ec4899",      // Pink
+        AgentRole.IntegrationEngineer => "#06b6d4",    // Cyan
         _ => "#94a3b8"
     };
 
@@ -53,6 +57,7 @@ public static class AgentRoleExtensions
         AgentRole.SecurityEngineer => "openai/o3-mini",
         AgentRole.OptimizationEngineer => "anthropic/claude-3.7-sonnet",
         AgentRole.PrincipalQAAnalyst => "deepseek/deepseek-r1",
+        AgentRole.IntegrationEngineer => "anthropic/claude-3.7-sonnet",
         _ => "anthropic/claude-3.7-sonnet"
     };
 }

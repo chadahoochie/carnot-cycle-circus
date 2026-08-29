@@ -334,9 +334,9 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
             case AgentRole.LeadArchitect:
                 defaultArtifactName = $"{ticket.Id}_ADR.md";
                 contentType = "markdown";
-                description = "Architectural Decision Record (ADR)";
+                description = "Clean Architecture Blueprint & Architectural Decision Record (ADR)";
                 userPrompt = $"""
-                Produce a formal Nygard / MADR-compliant Architectural Decision Record (ADR) in Markdown for:
+                Produce a formal Nygard / MADR-compliant Architectural Decision Record (ADR) AND a complete Clean Architecture solution scaffolding bundle in Markdown for:
                 Ticket: {ticket.Id} - {ticket.Title}
                 Description: {ticket.Description}
                 Acceptance Criteria:
@@ -344,13 +344,16 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 {repoContext}
                 {upstreamSummary}
 
-                === MANDATORY ARCHITECTURAL CONTRACT REQUIREMENTS ===
-                You MUST explicitly define the exact C# Type Contracts and Interfaces so downstream Software Developers implement the exact names without ambiguity:
+                === MANDATORY CLEAN ARCHITECTURE SCAFFOLDING REQUIREMENTS ===
+                You MUST explicitly scaffold the Clean Architecture solution structure and define exact C# Type Contracts and Interfaces so downstream Software Developers implement without ambiguity or cohesion drift:
                 1. Target Namespace: `{targetNamespace}.{domainContext}`
-                2. Domain Records & Value Objects: Specify exact C# `record` or `readonly record struct` signatures.
-                3. Service Interface Contracts: Specify exact C# `public interface I{domainContext}Service` (or relevant domain interface) with method signatures accepting `CancellationToken` and returning `ValueTask`.
-                4. Dependency Injection Extension: Specify exact `Add{domainContext}(this IServiceCollection services)` method name.
-                5. Multi-File Layout: Explicitly list the expected file layout (Contracts, Services, Extensions, Tests).
+                2. Layering Structure:
+                   - **Domain Layer**: Core immutable entities, Value Objects (`readonly record struct`), Domain Enums, and Domain Events (`Domain/`).
+                   - **Application / Contracts Layer**: Primary Service Interfaces (`I{domainContext}Pipeline` or `I{domainContext}Service`), DTOs, and Pipeline Contracts (`Contracts/`).
+                   - **Dependency Injection Extension**: Explicit `Add{domainContext}(this IServiceCollection services)` registration extension (`Extensions/`).
+                3. Output both:
+                   - The formal ADR document in Markdown (`# ADR-014: High-Performance Architecture for {ticket.Title}`)
+                   - Compilable C# Clean Architecture scaffold files using labeled ````csharp:FilePath.cs```` code blocks so downstream Software Developers implement the exact cohesive architecture!
 
                 Structure the document with:
                 # ADR-014: High-Performance Architecture for {ticket.Title}
@@ -359,6 +362,7 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 ## Context
                 ## Architectural Decision (Specify immutable C# records, bounded Channel<T>, zero-allocation pipelines, connectable failure DAG ports)
                 ## Exact C# Type Contracts & Interface Signatures (Provide compilable C# contract snippets)
+                ## Clean Architecture Scaffolding Blueprint (Explicitly list Domain, Contracts, Infrastructure, and DI layouts)
                 ## Alternatives Considered
                 ## Consequences & Trade-offs (Positive and Negative)
                 """;
@@ -378,7 +382,7 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 {upstreamSummary}
 
                 === CRITICAL IMPLEMENTATION CONTRACT ===
-                You MUST implement the exact types, records, and interfaces defined in the upstream Lead Architect's ADR above.
+                You MUST implement the exact types, records, and interfaces defined in the upstream Lead Architect's Clean Architecture scaffold above.
                 Do NOT invent arbitrary generic class names like 'SUB_XXXXService' or 'MyService'. Use domain names (e.g., `{domainContext}Service`, `I{domainContext}Service`, `{domainContext}Models`).
 
                 Output each file in a distinct labeled code block using the format:
@@ -472,7 +476,6 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 break;
 
             case AgentRole.PrincipalQAAnalyst:
-            default:
                 defaultArtifactName = $"{ticket.Id}_QA_Scorecard.md";
                 contentType = "markdown";
                 description = "QA Verification & Traceability Scorecard";
@@ -485,15 +488,55 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 {repoContext}
                 {upstreamSummary}
 
-                === QA TRACEABILITY MANDATE ===
-                Review the ACTUAL C# service implementation and xUnit test suites provided in the upstream deliverable above. Map every Acceptance Criterion directly to the corresponding unit test method that validates it.
+                === QA TRACEABILITY & ARCHITECTURAL GOVERNANCE MANDATE ===
+                1. Verify Architectural Compliance & ADR:
+                   - Audit whether upstream deliverables contain a formal, approved Architectural Decision Record (ADR) and Clean Architecture scaffold.
+                   - Verify that domain boundaries, Clean Architecture layering, and type contracts match the architectural blueprint.
+                   - IF ADR is missing or domain boundaries are violated, mark Certification Status: REJECTED (Fail to Lead Architect for remediation).
+                2. Review the ACTUAL C# service implementation and xUnit test suites provided in the upstream deliverable above. Map every Acceptance Criterion directly to the corresponding unit test method that validates it.
 
                 Structure the document with:
                 # QA Certification & Acceptance Scorecard: {ticket.Title}
-                ## 1. Acceptance Criteria Traceability Matrix (Map each criterion to the specific Unit Test method and mark - [x] Verified)
-                ## 2. Automated Test Execution Summary (Unit Tests count, Line Coverage %, Branch Coverage %, Mocking Boundaries)
-                ## 3. Boundary & Negative Edge Case Results (Null input, cancellation handling, failure port recovery)
-                ## 4. Release Decision (Certification Status: PASSED)
+                ## 1. Architectural & ADR Compliance Audit (Verify ADR presence, Clean Architecture boundaries; mark - [x] Verified or Flag Violations)
+                ## 2. Acceptance Criteria Traceability Matrix (Map each criterion to the specific Unit Test method and mark - [x] Verified)
+                ## 3. Automated Test Execution Summary (Unit Tests count, Line Coverage %, Branch Coverage %, Mocking Boundaries)
+                ## 4. Boundary & Negative Edge Case Results (Null input, cancellation handling, failure port recovery)
+                ## 5. Release Decision (Certification Status: PASSED or REJECTED)
+                """;
+                break;
+
+            case AgentRole.IntegrationEngineer:
+            default:
+                defaultArtifactName = $"{ticket.Id}_Release_Manifest.md";
+                contentType = "markdown";
+                description = "Release Manifest & Repository Solution Package";
+                userPrompt = $"""
+                Produce a comprehensive, rigorous Release Manifest & Repository Integration Blueprint in Markdown for:
+                Ticket: {ticket.Id} - {ticket.Title}
+                Description: {ticket.Description}
+                Acceptance Criteria:
+                {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}
+                {repoContext}
+                {upstreamSummary}
+
+                === PACKAGING & REPOSITORY INTEGRATION MANDATE ===
+                Review all upstream deliverables (PRD, ADR, C# code, STRIDE threat model, Benchmark profile, and QA scorecard).
+                1. Solution & Project Wiring Blueprint:
+                   - Detail the exact directory layout (`src/`, `tests/`, `docs/adrs/`, `artifacts/`).
+                   - Specify the `.slnx` solution references and Central Package Management (`Directory.Packages.props`) bindings.
+                   - Provide Dependency Injection composition root wireup in `Program.cs`.
+                2. Release Manifest Summary:
+                   - Verification Status: Certified by QA and STRIDE Security.
+                   - Installation / Execution commands (`dotnet build`, `dotnet test`, `dotnet run`).
+                   - Unified Artifact Inventory Table (Listing all PRDs, ADRs, Code files, STRIDE matrices, Benchmarks, and QA scorecards).
+
+                Structure the document with:
+                # Release Manifest & Solution Package: {ticket.Title}
+                ## 1. Solution Architecture & Directory Layout
+                ## 2. Integrated Artifact Inventory (Table listing all upstream deliverables)
+                ## 3. Dependency Injection & Host Composition Root Wiring
+                ## 4. Build, Test & Verification Commands
+                ## 5. Release Certification Summary (Status: PACKAGED & PRODUCTION READY)
                 """;
                 break;
         }
@@ -653,10 +696,11 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                     Concurrent multi-agent execution requires strict state isolation, non-blocking asynchronous streaming, and deterministic failure recovery for `{{domain}}`.
 
                     ## Architectural Decision
-                    1. **Immutable Records & Structs**: Domain entities `{{domain}}Request` and `{{domain}}Result` declared as immutable records and readonly record structs.
-                    2. **Reactive Channel Event Streams**: Communication relies on bounded `Channel<T>` for zero-lock message passing.
-                    3. **Interface Contract**: Expose `I{{domain}}Pipeline` with zero-allocation `ValueTask<bool>` and `ReadOnlyMemory<byte>` hot paths.
-                    4. **Connectable Failure DAG**: Nodes expose dedicated input, output, and failure ports to allow automated recovery without system abort.
+                    1. **Clean Architecture Layering**: Scaffolds Domain (`{{domain}}Request`, `{{domain}}Result`), Application Contracts (`I{{domain}}Pipeline`), and Extensions (`{{domain}}ServiceCollectionExtensions`).
+                    2. **Immutable Records & Structs**: Domain entities `{{domain}}Request` and `{{domain}}Result` declared as immutable records and readonly record structs.
+                    3. **Reactive Channel Event Streams**: Communication relies on bounded `Channel<T>` for zero-lock message passing.
+                    4. **Interface Contract**: Expose `I{{domain}}Pipeline` with zero-allocation `ValueTask<{{domain}}Result>` and `ReadOnlyMemory<byte>` hot paths.
+                    5. **Connectable Failure DAG**: Nodes expose dedicated input, output, and failure ports to allow automated recovery without system abort.
 
                     ## Exact C# Type Contracts
                     ```csharp
@@ -671,16 +715,77 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                     }
                     ```
 
+                    ## Clean Architecture Scaffolding Blueprint
+                    - **Domain & Contracts**: `I{{domain}}Pipeline.cs`
+                    - **Dependency Injection**: `{{domain}}ServiceCollectionExtensions.cs`
+                    - **Implementation (Dev)**: `{{domain}}PipelineService.cs`
+                    - **Verification (Dev/QA)**: `{{domain}}PipelineTests.cs`
+
                     ## Alternatives Considered
                     - Mutable POCOs with sync locks (Rejected: Concurrency hazards and deadlocks).
                     - Pure waterfall execution (Rejected: Lacks automated remediation and self-healing).
 
                     ## Consequences & Trade-offs
-                    - **Positive**: High throughput, deterministic audit logging, zero thread contention.
+                    - **Positive**: High throughput, deterministic audit logging, zero thread contention, and cohesive clean boundaries.
                     - **Negative**: Explicit state machine cloning required on state transitions.
                     """,
                     ContentType: "markdown",
-                    Description: "Architectural Decision Record (ADR)"
+                    Description: "Clean Architecture Blueprint & Architectural Decision Record (ADR)"
+                ));
+
+                // Lead Architect also scaffolds foundational contracts and DI extensions
+                artifacts.Add(new ArtifactItem(
+                    Name: $"I{domain}Pipeline.cs",
+                    Content: $$"""
+                    namespace {{targetNamespace}}.{{domain}};
+
+                    using System;
+                    using System.Threading;
+                    using System.Threading.Tasks;
+
+                    /// <summary>
+                    /// Domain model for {{domain}} processing requests.
+                    /// </summary>
+                    public record {{domain}}Request(string Id, ReadOnlyMemory<byte> Payload, DateTimeOffset Timestamp);
+
+                    /// <summary>
+                    /// Readonly struct result with zero heap allocation.
+                    /// </summary>
+                    public readonly record struct {{domain}}Result(bool Success, int BytesProcessed, long LatencyTicks);
+
+                    /// <summary>
+                    /// Clean Architecture Application contract for {{domain}}.
+                    /// </summary>
+                    public interface I{{domain}}Pipeline
+                    {
+                        ValueTask<{{domain}}Result> ProcessAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default);
+                    }
+                    """,
+                    ContentType: "csharp",
+                    Description: "Clean Architecture Domain & Contract Scaffold"
+                ));
+
+                artifacts.Add(new ArtifactItem(
+                    Name: $"{domain}ServiceCollectionExtensions.cs",
+                    Content: $$"""
+                    namespace {{targetNamespace}}.{{domain}};
+
+                    using Microsoft.Extensions.DependencyInjection;
+
+                    /// <summary>
+                    /// Dependency injection registration scaffold for {{domain}}.
+                    /// </summary>
+                    public static class {{domain}}ServiceCollectionExtensions
+                    {
+                        public static IServiceCollection Add{{domain}}Pipeline(this IServiceCollection services)
+                        {
+                            // Implementation bound by Developer phase
+                            return services;
+                        }
+                    }
+                    """,
+                    ContentType: "csharp",
+                    Description: "Clean Architecture DI Registration Scaffold"
                 ));
                 break;
 
@@ -893,30 +998,111 @@ public class SimulatedScenarioEngine : ISimulatedScenarioEngine
                 break;
 
             case AgentRole.PrincipalQAAnalyst:
+                var hasAdr = upstreamDeliverables.Any(d => d.Name.Contains("ADR", StringComparison.OrdinalIgnoreCase) || d.Content.Contains("Architectural Decision Record", StringComparison.OrdinalIgnoreCase));
+                var adrAuditSection = hasAdr
+                    ? "- [x] Verified: Architectural Decision Record (ADR) & Clean Architecture scaffold confirmed in upstream deliverables."
+                    : "- [ ] FAILED: Missing Architectural Decision Record (ADR) — rejected back to Lead Architect for remediation.";
+                var certStatus = hasAdr ? "PASSED" : "REJECTED";
+
                 artifacts.Add(new ArtifactItem(
                     Name: $"{ticket.Id}_QA_Scorecard.md",
                     Content: $"""
                     # QA Certification & Acceptance Scorecard: {ticket.Title}
 
-                    ## 1. Acceptance Criteria Traceability Matrix
+                    ## 1. Architectural & ADR Compliance Audit
+                    {adrAuditSection}
+                    - [x] Verified: Domain layer isolation and primary interface contracts verified.
+
+                    ## 2. Acceptance Criteria Traceability Matrix
                     {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- [x] Verified: {ac} (Tested by `{domain}PipelineTests.ProcessAsync_WithValidPayload_ShouldReturnSuccess`)"))}
 
-                    ## 2. Automated Test Execution Summary
+                    ## 3. Automated Test Execution Summary
                     - **Target Suite**: `{domain}PipelineTests`
                     - **Unit Tests**: 3 Passed, 0 Failed, 0 Skipped
                     - **Line Coverage**: 100.0%
                     - **Branch Coverage**: 100.0%
 
-                    ## 3. Boundary & Negative Test Results
+                    ## 4. Boundary & Negative Test Results
                     - **Null / Empty Input**: Handled cleanly by `ProcessAsync_WithEmptyPayload_ShouldReturnFailureWithoutAllocating`.
                     - **Cancellation Handling**: Verified with `ProcessAsync_WhenCancelled_ShouldThrowOperationCanceledException`.
                     - **Failure Port Recovery**: Tripped failure port routed correctly to remediation node and recovered.
 
-                    ## 4. Release Decision
-                    **Certification Status: PASSED** — Production readiness verified for `{domain}`.
+                    ## 5. Release Decision
+                    **Certification Status: {certStatus}** — Production readiness verified for `{domain}`.
                     """,
                     ContentType: "markdown",
                     Description: "QA Verification & Traceability Scorecard"
+                ));
+                break;
+
+            case AgentRole.IntegrationEngineer:
+                artifacts.Add(new ArtifactItem(
+                    Name: $"{ticket.Id}_Release_Manifest.md",
+                    Content: $"""
+                    # Release Manifest & Solution Package: {ticket.Title}
+
+                    ## 1. Solution Architecture & Directory Layout
+                    ```text
+                    {targetNamespace}/
+                    ├── src/
+                    │   └── {targetNamespace}.{domain}/
+                    │       ├── Domain/
+                    │       │   └── {domain}Models.cs
+                    │       ├── Contracts/
+                    │       │   └── I{domain}Pipeline.cs
+                    │       ├── Services/
+                    │       │   └── {domain}PipelineService.cs
+                    │       └── Extensions/
+                    │           └── {domain}ServiceCollectionExtensions.cs
+                    ├── tests/
+                    │   └── {targetNamespace}.{domain}.Tests/
+                    │       └── {domain}PipelineTests.cs
+                    ├── docs/
+                    │   └── adrs/
+                    │       └── ADR-014-{domain}.md
+                    ├── artifacts/
+                    │   ├── prds/
+                    │   ├── security/
+                    │   ├── benchmarks/
+                    │   └── qa/
+                    ├── Directory.Build.props
+                    ├── Directory.Packages.props
+                    └── {domain}.slnx
+                    ```
+
+                    ## 2. Integrated Artifact Inventory
+                    | Stage | Role | Artifact Name | Content Type | Status |
+                    | :--- | :--- | :--- | :--- | :--- |
+                    | Product | TPM | `{domain}_PRD.md` | Markdown | Verified |
+                    | Architecture | Lead Architect | `ADR-014-{domain}.md` | Markdown | Approved |
+                    | Architecture | Lead Architect | `I{domain}Pipeline.cs` | C# 13 | Compilable |
+                    | Implementation | Senior Developer | `{domain}PipelineService.cs` | C# 13 | Tested |
+                    | Implementation | Senior Developer | `{domain}PipelineTests.cs` | C# 13 | 100% Passed |
+                    | Security | Security Engineer | `{domain}_STRIDE_Model.md` | Markdown | 0 Critical / 0 High |
+                    | Optimization | Optimization Engineer | `{domain}_Perf_Profile.md` | Markdown | 0 B Heap Allocated |
+                    | Quality Assurance | Principal QA | `{domain}_QA_Scorecard.md` | Markdown | Certified Passed |
+                    | Integration | Integration Engineer | `{ticket.Id}_Release_Manifest.md` | Markdown | Packaged & Wired |
+
+                    ## 3. Dependency Injection & Host Composition Root Wiring
+                    ```csharp
+                    // In Host / Web API Program.cs
+                    using {targetNamespace}.{domain};
+
+                    var builder = WebApplication.CreateBuilder(args);
+                    builder.Services.Add{domain}Pipeline();
+                    ```
+
+                    ## 4. Build, Test & Verification Commands
+                    ```bash
+                    dotnet build {domain}.slnx
+                    dotnet test {domain}.slnx --logger "console;verbosity=minimal"
+                    ```
+
+                    ## 5. Release Certification Summary
+                    **Status: PACKAGED & PRODUCTION READY** — Solution is cleanly integrated, decoupled, and certified for deployment.
+                    """,
+                    ContentType: "markdown",
+                    Description: "Release Manifest & Repository Solution Package"
                 ));
                 break;
         }

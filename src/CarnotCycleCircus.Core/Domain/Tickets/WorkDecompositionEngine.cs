@@ -92,13 +92,13 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var subtasks = new List<TicketItem>();
         var parentEpicId = userStory.ParentEpicId ?? userStory.Id;
 
-        // Subtask 1: Architecture Design & ADR
+        // Subtask 1: Architecture Design & Clean Architecture Scaffolding
         var adrSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var adrSubtask = new TicketItem(
             Id: adrSubtaskId,
             ParentEpicId: parentEpicId,
-            Title: $"[Arch] Design ADR & Type Contracts for {userStory.Title}",
-            Description: "Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, type contracts, and interfaces.",
+            Title: $"[Arch] Design ADR & Scaffold Clean Architecture for {userStory.Title}",
+            Description: "Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, and scaffolds the Clean Architecture solution (Domain, Contracts, DI extensions) before implementation begins.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Ready,
             AssigneeRole: AgentRole.LeadArchitect,
@@ -107,7 +107,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             DependsOnTicketIds: userStory.DependsOnTicketIds,
             AcceptanceCriteria: [
                 "ADR documents context, decision, alternatives, positive and negative trade-offs.",
-                "Explicitly defines C# immutable records, value objects, and service interface contracts.",
+                "Scaffolds Clean Architecture solution structure: Domain immutable records, Application contracts/interfaces, and DI extensions.",
                 "Approved and registered in ADR Document Hub."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
@@ -216,6 +216,31 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         );
         _ticketStore.CreateTicket(qaSubtask);
         subtasks.Add(qaSubtask);
+
+        // Subtask 6: Solution Packaging & Repository Integration
+        var intSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var intSubtask = new TicketItem(
+            Id: intSubtaskId,
+            ParentEpicId: parentEpicId,
+            Title: $"[Integration] Solution Packaging & Repository Integration for {userStory.Title}",
+            Description: "Integration & Release Engineer packages multi-file deliverables into Clean Architecture project folders, updates .csproj and .slnx solution files, wires DI into Program.cs, and publishes Release Manifest.",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Backlog,
+            AssigneeRole: AgentRole.IntegrationEngineer,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: userStory.Priority,
+            DependsOnTicketIds: [qaSubtaskId],
+            AcceptanceCriteria: [
+                "Multi-file artifacts mapped and placed into Clean Architecture folder structure.",
+                "Project and solution files (.slnx, .csproj, CPM) properly wired and compilable.",
+                "Release manifest and integrated solution package generated."
+            ],
+            Deliverables: Array.Empty<Events.ArtifactItem>(),
+            Metadata: new Dictionary<string, string> { ["Stage"] = "Integration" },
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        _ticketStore.CreateTicket(intSubtask);
+        subtasks.Add(intSubtask);
 
         return subtasks;
     }

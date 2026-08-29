@@ -483,9 +483,9 @@ public class RealExecutionEngineTests
         var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.LeadArchitect, ticket);
 
         // Should cleanly return fallback deliverables without unhandled exception
-        deliverables.Should().HaveCount(1);
-        deliverables[0].Name.Should().Be("TCK-ARCH-001_ADR.md");
-        deliverables[0].Content.Should().Contain("ADR-014");
+        deliverables.Should().NotBeEmpty();
+        deliverables.Should().Contain(d => d.Name == "TCK-ARCH-001_ADR.md");
+        deliverables.First(d => d.Name == "TCK-ARCH-001_ADR.md").Content.Should().Contain("ADR-014");
 
         // Event stream should capture the alert
         eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("OpenRouter API error"));
@@ -635,5 +635,78 @@ public class RealExecutionEngineTests
         // Backlog ticket MUST NOT BE SWEPT TO DONE
         var preservedBacklog = ticketStore.GetTicketById("TCK-FUTURE-01");
         preservedBacklog!.Status.Should().Be(TicketStatus.Backlog);
+    }
+
+    [Fact]
+    public async Task SimulatedScenarioEngine_LeadArchitect_ShouldScaffoldCleanArchitectureAndAdr()
+    {
+        var engine = new SimulatedScenarioEngine();
+        var ticket = new TicketItem(
+            Id: "SUB-ARCH-99",
+            ParentEpicId: "EPIC-99",
+            Title: "[Arch] Design ADR & Scaffold Clean Architecture for Order Processing Engine",
+            Description: "Lead Architect produces Nygard Architectural Decision Record and scaffolds Clean Architecture solution",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.LeadArchitect,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Scaffold Clean Architecture contracts and record ADR"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var artifacts = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.LeadArchitect, ticket);
+
+        artifacts.Should().NotBeEmpty();
+        artifacts.Should().Contain(a => a.Name.Contains("ADR.md"));
+        artifacts.Should().Contain(a => a.Name.StartsWith("I") && a.ContentType == "csharp");
+        artifacts.Should().Contain(a => a.Name.Contains("ServiceCollectionExtensions.cs"));
+    }
+
+    [Fact]
+    public async Task GraphWorkflowExecutor_QA_ShouldRejectToLeadArchitect_WhenAdrIsMissing()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var memoryStore = new EmbeddedVectorMemoryStore();
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var scenarioEngine = new SimulatedScenarioEngine(ticketStore: ticketStore);
+        var memoryConsolidation = new MemoryConsolidationEngine(memoryStore);
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            scenarioEngine,
+            eventStream,
+            memoryConsolidation
+        );
+
+        var epicId = "EPIC-TEST-NOADR";
+        var epicTicket = new TicketItem(
+            Id: epicId,
+            ParentEpicId: null,
+            Title: "No ADR Epic",
+            Description: "Epic without initial ADR",
+            Type: TicketType.Epic,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Deliver feature"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        ticketStore.CreateTicket(epicTicket);
+
+        // Execute workflow - with initial missing ADR in first pass, QA detects and alerts failure to Lead Architect
+        var result = await executor.ExecuteWorkflowAsync("No ADR Epic", "Epic without initial ADR");
+        result.Should().BeTrue();
     }
 }

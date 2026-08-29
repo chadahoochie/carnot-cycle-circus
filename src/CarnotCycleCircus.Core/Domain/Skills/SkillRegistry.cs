@@ -351,6 +351,17 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.PrincipalQAAnalyst]
         );
         RegisterSkill(s5);
+
+        var s6 = new SkillDefinition(
+            Id: "skill-repo-integration-packaging",
+            Name: "Repository Integration & Solution Packaging",
+            Description: "Patterns for Clean Architecture solution packaging, Central Package Management, and release manifest generation.",
+            Instructions: "Assemble multi-file artifacts into cohesive Clean Architecture folders, wire DI registration into host Program.cs, and generate release manifest.",
+            RecommendedTools: ["csharp_syntax_check", "test_runner", "file_writer"],
+            Category: "DevOps",
+            AssignedRoles: [AgentRole.IntegrationEngineer]
+        );
+        RegisterSkill(s6);
     }
 
     public IReadOnlyList<SkillDefinition> GetAllSkills()

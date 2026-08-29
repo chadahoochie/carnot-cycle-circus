@@ -187,7 +187,7 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         var activeTeam = teamManager.GetCurrentTeam();
         activeTeam.Id.Should().Be("team-raft-circus-e2e");
-        activeTeam.Members.Should().HaveCount(6);
+        activeTeam.Members.Should().HaveCount(7);
 
         // Validate JSON export and import roundtrip
         var exportedJson = teamManager.ExportToJson(customTeamDef.Id);
@@ -196,11 +196,11 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         var reimportedTeam = teamManager.ImportFromJson(exportedJson);
         reimportedTeam.Should().NotBeNull();
-        reimportedTeam.Members.Should().HaveCount(6);
+        reimportedTeam.Members.Should().HaveCount(7);
 
         // Define DAG Workflow Graph with failure loopback ports
         var workflowGraph = WorkflowGraph.CreateDefaultEngineeringCircus();
-        workflowGraph.Nodes.Should().HaveCount(6);
+        workflowGraph.Nodes.Should().HaveCount(7);
         workflowGraph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
 
         // =========================================================================
@@ -387,17 +387,17 @@ public class EndToEndSystemVerificationTests : IDisposable
         var archetype = teamManager.LoadArchetype("SecurityHardened");
 
         archetype.Should().NotBeNull();
-        archetype.Members.Should().HaveCount(6);
+        archetype.Members.Should().HaveCount(7);
 
         var json = teamManager.ExportToJson(archetype.Id);
         json.Should().Contain("SecurityHardened");
 
         var imported = teamManager.ImportFromJson(json);
         imported.Id.Should().StartWith("team-import-");
-        imported.Members.Should().HaveCount(6);
+        imported.Members.Should().HaveCount(7);
 
         var graph = WorkflowGraph.CreateDefaultEngineeringCircus();
-        graph.Nodes.Should().HaveCount(6);
+        graph.Nodes.Should().HaveCount(7);
 
         // Modify graph
         var customConnection = new PortConnection("node-sec", PortType.Output, "node-qa", PortType.Input);
