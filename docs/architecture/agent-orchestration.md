@@ -19,10 +19,10 @@ graph TD
     Opt["⚡ Optimization Engineer<br/>(Otto-Cycle Overclock)"]
     QA["🧪 Principal QA Analyst<br/>(Quinn the Build-Executioner)"]
 
-    TPM -->|Deconstructed Stories & AC| Arch
-    Arch -->|ADR, API Specs, & DAG Subtasks| Dev
-    Dev -->|C# Code & Unit Tests| Sec
-    Dev -->|C# Code & Unit Tests| Opt
+    TPM -->|PRD, Deconstructed Stories & AC| Arch
+    Arch -->|ADR, C# Type Contracts, & DAG Subtasks| Dev
+    Dev -->|Multi-File C# Bundle & Unit Tests| Sec
+    Dev -->|Multi-File C# Bundle & Unit Tests| Opt
     Sec -->|STRIDE Approved| QA
     Opt -->|Benchmarks Approved| QA
     Sec -.->|🔴 Security Reject / Remediation| Dev
@@ -34,11 +34,11 @@ graph TD
 | Role (`AgentRole`) | Persona Name | Default OpenRouter Model | Temp | Allowed Tools | Primary Technical Output |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Technical Product Manager** | **Barnum B. Buzzword** | `openai/gpt-4o` | `0.2` | `web_search`, `memory_lookup` | Product Requirements Documents (PRDs), Epics, User Stories, Acceptance Criteria |
-| **Lead Architect** | **Archduke Archibald Abstraction-o** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs), C4 Diagrams, Domain Boundaries, Technical Subtask Breakdown |
-| **Software Developer** | **Devon "Coldbrew" Crashdump** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Production C# 13 Source Code, Zero-Allocation Services, xUnit Test Suites |
-| **Security Engineer** | **Sari "Tinfoil" Sandbox** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models, Vulnerability Assessments, Permission Scopes, Secret Audits |
-| **Optimization Engineer** | **Otto-Cycle Overclock** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
-| **Principal QA Analyst** | **Quinn the Build-Executioner** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Edge-Case Verification Matrices, Acceptance Criteria Scorecards, Certification |
+| **Lead Architect** | **Archduke Archibald Abstraction-o** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs with exact C# Type Contracts), C4 Diagrams, Domain Boundaries, Technical Subtasks |
+| **Software Developer** | **Devon "Coldbrew" Crashdump** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Modular C# 13 Multi-File Bundles (Interfaces, Services, DI Extensions, xUnit Tests), Self-Healing Syntax Validation |
+| **Security Engineer** | **Sari "Tinfoil" Sandbox** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models against actual source code, Vulnerability Assessments, Permission Scopes, Secret Audits |
+| **Optimization Engineer** | **Otto-Cycle Overclock** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports against delivered methods, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
+| **Principal QA Analyst** | **Quinn the Build-Executioner** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Traceability Matrices mapped to unit tests, Quality Scorecards, Production Certification |
 
 ---
 

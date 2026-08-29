@@ -75,34 +75,44 @@
   - `StepNextNodeAsync(ct)`: Executes the next pending ready ticket in single-step mode.
   - Circuit Breakers: Configurable `FailurePolicy` tripping on excessive retries.
 
-### 4.4 Cryptographic Security & Key Vault (`CarnotCycleCircus.Core.Domain.Security`, `Inference`)
+### 4.4 Cryptographic Security, Key Vault & Inference (`CarnotCycleCircus.Core.Domain.Security`, `Inference`)
 - `ISecureKeyEncryptor` / `AesGcmKeyEncryptor`: Authenticated AES-256-GCM AEAD envelope encryption with 96-bit nonces, 128-bit integrity tags, associated authenticated data (AAD) context binding, and zero-allocation span operations.
 - `IMasterKeyProvider` / `MasterKeyProvider`: Multi-tier master encryption key derivation (Environment Variable -> Host-bound `.carnot.master.key` (0600) -> PBKDF2-HMAC-SHA256 310k iterations -> In-memory ephemeral).
 - `IApiKeyVaultService`: Encrypted-at-rest credential storage (`keys.vault.json`), key rotation (`RotateMasterKeyAsync`), passphrase-encrypted export/import (`ExportEncryptedVaultAsync` / `ImportEncryptedVaultAsync`), active key swapping, legacy `keys.json` migration, and security health audit.
 - `IOpenRouterClient`: Multi-model chat completion client with fallback to local simulation mode when using sandbox/mock keys.
 - `IAgentInferenceResolver`: Resolves effective model and API key per agent member with team inheritance.
-- `ISimulatedScenarioEngine`: Generates deterministic, high-quality engineering deliverables when operating in offline/sandbox mode.
+- `ISimulatedScenarioEngine`: Orchestrates live inference and deterministic offline fallbacks:
+  - **Multi-File Deliverable Parsing**: Parses ````csharp:FileName.cs```` code blocks into modular multi-file bundles (Interfaces, Services, DI Extensions, and Unit Tests).
+  - **Autonomous Syntax Self-Healing**: Runs `CSharpSyntaxCheckTool` on generated code, automatically triggering targeted remediation prompts if syntax errors are detected.
+  - **Upstream Context Continuity**: Recursively aggregates deliverables (`GatherUpstreamDeliverables`) from parent Epics (PRDs) and upstream dependency tickets (ADRs, source code, unit tests) and injects them into downstream prompts.
+  - **Repository Context**: Injects solution structure, target namespaces, and detected patterns from `ICodebaseHarvesterService`.
 
-### 4.5 Tool Sandbox (`CarnotCycleCircus.Core.Domain.Tools`)
+### 4.5 Deliverables & Artifacts Hub (`CarnotCycleCircus.Core.Domain.Artifacts`)
+- `IArtifactManager` / `ArtifactManager`: Manages lifecycle, categorization, and repository disk synchronization of agent deliverables.
+  - 6 Primary Categories: `PRD` (purple), `ADR` (blue), `Code` (green), `Security` (red), `Benchmark` (amber), `QA` (pink).
+  - Methods: `SaveDeliverableArtifactAsync`, `ExportAllDeliverablesAsync`, `GetAllArtifacts`, `GetArtifactsByCategory`, `GetArtifactsByRole`.
+  - Auto-exports deliverables to categorised disk folders (`artifacts/prds`, `artifacts/adrs`, `artifacts/code`, `artifacts/security`, `artifacts/benchmarks`, `artifacts/qa`).
+
+### 4.6 Tool Sandbox (`CarnotCycleCircus.Core.Domain.Tools`)
 - `IToolDefinition`: Interface exposing `Name`, `Description`, `ParameterSchema`, and `ExecuteAsync(ToolExecutionContext, CancellationToken)`.
 - Standard Tools: `web_search`, `csharp_syntax_check`, `test_runner`, `adr_writer`, `memory_lookup`.
 
-### 4.6 ADR & Documentation Hub (`CarnotCycleCircus.Core.Domain.Docs`)
+### 4.7 ADR & Documentation Hub (`CarnotCycleCircus.Core.Domain.Docs`)
 - `IAdrDocumentManager`: Manages ADRs (MADR/Nygard format) and Project Documents (C4 diagrams, STRIDE models). Exports complete markdown documentation bundles.
 
-### 4.7 Standards & Quality Gates (`CarnotCycleCircus.Core.Domain.Standards`)
+### 4.8 Standards & Quality Gates (`CarnotCycleCircus.Core.Domain.Standards`)
 - `IStandardsValidator`: Enforces quality gate policies: minimum coverage, unit tests for features, root cause analysis (RCA) + regression tests for bugs, and ADRs for epics.
 
-### 4.8 AI Knowledge Maps (`CarnotCycleCircus.Core.Domain.Knowledge`)
+### 4.9 AI Knowledge Maps (`CarnotCycleCircus.Core.Domain.Knowledge`)
 - `IKnowledgeMapService`: Graph of `KnowledgeNode` and `KnowledgeEdge` items (Concepts, Patterns, SecurityRules, AntiPatterns, LearnedInsights) with sub-graph query extraction for LLM prompt augmentation.
 
-### 4.9 Skills Registry (`CarnotCycleCircus.Core.Domain.Skills`)
+### 4.10 Skills Registry (`CarnotCycleCircus.Core.Domain.Skills`)
 - `ISkillRegistry` & `ISkillImporter`: Parses `SKILL.md` frontmatter, JSON, or remote URLs; manages role-to-skill assignment matrix.
 
-### 4.10 Real-Time Telemetry Stream (`CarnotCycleCircus.Core.Domain.Events`)
+### 4.11 Real-Time Telemetry Stream (`CarnotCycleCircus.Core.Domain.Events`)
 - `IAgentEventStream`: In-memory thread-safe pub/sub bus publishing `AgentMessage` items (Chat, Thought, ToolCall, ToolOutput, Handoff, StateChange, Alert, ArtifactCreated) with bounded 1,000-message buffer.
 
-### 4.11 Project Blueprints, Harvester & Showcase (`CarnotCycleCircus.Core.Domain.Blueprints`, `Harvester`, `Showcase`)
+### 4.12 Project Blueprints, Harvester & Showcase (`CarnotCycleCircus.Core.Domain.Blueprints`, `Harvester`, `Showcase`)
 - `IProjectBlueprintService`: 1-click curated architectural blueprints (IoT Ingestion, E-Commerce Saga, Zero-Trust Identity, Distributed CQRS, Chaos Benchmark Arena) and custom project ignition. Auto-decomposes Epics, registers initial ADRs, populates knowledge maps, and switches squad archetype.
 - `ICodebaseHarvesterService`: Scans local solutions/directories, discovers project boundaries, extracts dependencies, detects architecture patterns, audits tech debt, and generates prioritized improvement tickets.
 - `IShowcaseDemoService`: Zero-setup 1-click interactive demo runner for live swarm execution, failure remediation loopbacks, and nanosecond optimization benchmarking without API keys.
@@ -115,12 +125,13 @@ src/
 ├── CarnotCycleCircus.Core/
 │   ├── Domain/
 │   │   ├── Agents/      # AgentRole.cs, AgentPersona.cs, EngineeringTeam.cs
+│   │   ├── Artifacts/   # ArtifactDescriptor.cs, ArtifactManager.cs, IArtifactManager.cs
 │   │   ├── Blueprints/  # ProjectBlueprintService.cs
 │   │   ├── Docs/        # AdrDocumentManager.cs
 │   │   ├── Events/      # AgentEventStream.cs, ArtifactItem.cs
 │   │   ├── Graph/       # WorkflowGraph.cs, GraphWorkflowExecutor.cs
 │   │   ├── Harvester/   # CodebaseHarvesterService.cs
-│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs
+│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs, ModelCatalogService.cs
 │   │   ├── Knowledge/   # KnowledgeMapService.cs
 │   │   ├── Learning/    # SelfImprovementEngine.cs, AutonomousSelfImprovementWorker.cs
 │   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
@@ -138,9 +149,9 @@ src/
 │   ├── Components/
 │   │   ├── App.razor, Routes.razor, _Imports.razor
 │   │   ├── KeyVaultModal.razor, ProjectIgnitionModal.razor, CodebaseHarvesterModal.razor, ShowcaseModal.razor
-│   │   ├── QuickstartRingmasterBanner.razor, TicketCard.razor, TicketModal.razor
+│   │   ├── QuickstartRingmasterBanner.razor, TicketCard.razor, TicketModal.razor, ChaosQuoteModal.razor
 │   │   ├── Layout/      # MainLayout.razor, NavMenu.razor
-│   │   └── Pages/       # TicketManager, WorkflowCanvas, ExecutionDashboard, MemoryInspector, TeamDefinition, DocsAndAdrs, StandardsManager, KnowledgeMapExplorer, SkillManager, SkillMatrix, SelfImprovementStudio
+│   │   └── Pages/       # ArtifactsHub, DocsAndAdrs, ExecutionDashboard, KnowledgeMapExplorer, MemoryInspector, ModelCatalog, SelfImprovementStudio, SkillManager, SkillMatrix, StandardsManager, TeamDefinition, TicketManager, WorkflowCanvas
 │   └── Program.cs
 │
 tests/

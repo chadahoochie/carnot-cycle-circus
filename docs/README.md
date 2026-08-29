@@ -35,7 +35,13 @@ docs/
 │   ├── 0004-multi-key-openrouter-routing-and-key-vault-isolation.md
 │   ├── 0005-deliverable-isolation-contract-for-agent-personas.md
 │   ├── 0006-in-memory-reactive-event-stream-for-real-time-telemetry.md
-│   └── 0007-embedded-ticket-management-and-dag-decomposition.md
+│   ├── 0007-embedded-ticket-management-and-dag-decomposition.md
+│   ├── 0008-persistent-volume-stack-and-autonomous-self-improvement.md
+│   ├── 0009-secure-key-vault-storage-and-envelope-encryption.md
+│   ├── 0010-dynamic-agent-lifecycle-and-skill-infused-naming.md
+│   ├── 0011-project-ignition-wizard-codebase-harvester-and-showcase-arena.md
+│   ├── 0012-openrouter-model-catalog-caching-categorization-and-favorites.md
+│   └── 0013-multi-file-deliverables-syntax-self-healing-and-upstream-context-pipeline.md
 │
 ├── guides/                        # Step-by-step developer and agent execution guides
 │   ├── developer-onboarding.md    # Quickstart, local build, test execution, & project tour
@@ -77,8 +83,9 @@ docs/
 | :--- | :--- | :--- |
 | **Core Domain** | `CarnotCycleCircus.Core.Domain.Agents` | Defines 6 autonomous engineering roles, persona contracts, and team manifests. |
 | **Ticket Engine** | `CarnotCycleCircus.Core.Domain.Tickets` | Hierarchical work breakdown (Epics $\to$ Stories $\to$ Subtasks), DAG scheduling, and `HandoffPacket` routing. |
+| **Artifacts Hub** | `CarnotCycleCircus.Core.Domain.Artifacts` | Real-time deliverable categorization (PRDs, ADRs, Code, Security, Benchmarks, QA) and repository disk synchronization. |
 | **Memory System** | `CarnotCycleCircus.Core.Domain.Memory` | 4-tier persistent memory (Working, Episodic, Semantic, Procedural) with embedded 64-dim vector cosine similarity. |
-| **Inference Hub** | `CarnotCycleCircus.Core.Domain.Inference` | OpenRouter multi-key router, client-side Key Vault, and offline simulated scenario engine. |
+| **Inference Hub** | `CarnotCycleCircus.Core.Domain.Inference` | OpenRouter multi-key router, client-side Key Vault, model catalog, and offline simulated scenario engine. |
 | **Tool Sandbox** | `CarnotCycleCircus.Core.Domain.Tools` | Sandboxed tools: `web_search`, `csharp_syntax_check`, `test_runner`, `adr_writer`, `memory_lookup`. |
 | **Workflow Graph** | `CarnotCycleCircus.Core.Domain.Graph` | Visual connectable DAG engine with Input, Output, and Failure/Reject ports, circuit breakers, and loopbacks. |
 | **Docs & ADR Hub** | `CarnotCycleCircus.Core.Domain.Docs` | MADR/Nygard ADR management, C4 diagrams, STRIDE threat models, and markdown bundle exporter. |
@@ -86,4 +93,4 @@ docs/
 | **Knowledge Maps** | `CarnotCycleCircus.Core.Domain.Knowledge` | AI Knowledge graph mapping concepts, patterns, security rules, and sub-graph context extraction. |
 | **Skills Registry** | `CarnotCycleCircus.Core.Domain.Skills` | Dynamic `SKILL.md` parser, skill-to-role assignment matrix, and capability registry. |
 | **Event Stream** | `CarnotCycleCircus.Core.Domain.Events` | High-throughput, thread-safe real-time telemetry event bus (`IAgentEventStream`). |
-| **Blazor Frontend** | `CarnotCycleCircus.Web` | Interactive web dashboard: Kanban, Workflow Canvas, Memory Inspector, Key Vault, ADR Hub, and Replay. |
+| **Blazor Frontend** | `CarnotCycleCircus.Web` | Interactive web dashboard: Kanban, Workflow Canvas, Memory Inspector, Key Vault, Model Catalog, Artifacts Hub, and Replay. |

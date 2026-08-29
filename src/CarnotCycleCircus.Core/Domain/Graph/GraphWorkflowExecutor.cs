@@ -365,17 +365,24 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 var epicTicket = createdTickets.First(t => t.Type == TicketType.Epic);
                 epicId = epicTicket.Id;
 
+                var prdArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.TechnicalProductManager, epicTicket, cancellationToken);
+                foreach (var a in prdArtifacts)
+                {
+                    epicTicket = epicTicket.WithDeliverable(a);
+                }
+                _ticketStore.UpdateTicket(epicTicket);
+
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.TechnicalProductManager,
                     senderName: "Barnum B. Buzzword (TPM)",
-                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks at Ludicrous Speed.",
+                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks and produced Product Requirements Document (PRD).",
                     type: MessageType.Chat,
                     ticketId: epicTicket.Id
                 ));
 
                 if (tpmNode != null)
                 {
-                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"Decomposed into {createdTickets.Count} work items.", epicTicket.Id);
+                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"Decomposed into {createdTickets.Count} work items with PRD.", epicTicket.Id);
                 }
             }
 

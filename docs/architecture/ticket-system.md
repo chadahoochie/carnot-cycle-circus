@@ -122,6 +122,9 @@ public record TicketItem(
     public TicketItem WithDeliverable(ArtifactItem deliverable) =>
         this with { Deliverables = Deliverables.Append(deliverable).ToList() };
 
+    public TicketItem WithDeliverables(IEnumerable<ArtifactItem> deliverables) =>
+        this with { Deliverables = Deliverables.Concat(deliverables).ToList() };
+
     public TicketItem WithAssignee(AgentRole role) =>
         this with { AssigneeRole = role };
 }
@@ -152,13 +155,13 @@ public record HandoffPacket(
 
 The `WorkDecompositionEngine` automates the conversion of high-level objectives into granular technical DAGs:
 
-1. **TPM Stage**: Deconstructs the business goal into an `Epic` ticket and foundational `Feature` user stories with functional acceptance criteria.
-2. **Lead Architect Stage**: Automatically deconstructs user stories into five atomic technical subtasks:
-   - `Subtask 1 (Arch)`: ADR and system topology. Depends on: `[]`.
-   - `Subtask 2 (Dev)`: C# implementation and unit tests. Depends on: `[Subtask 1]`.
-   - `Subtask 3 (Security)`: STRIDE threat model and secret audit. Depends on: `[Subtask 2]`.
-   - `Subtask 4 (Optimization)`: Latency and zero-allocation audit. Depends on: `[Subtask 2]`.
-   - `Subtask 5 (QA)`: QA test strategy and acceptance criteria certification. Depends on: `[Subtask 3, Subtask 4]`.
+1. **TPM Stage**: Deconstructs the business goal into an `Epic` ticket (with an attached Product Requirements Document artifact) and foundational `Feature` user stories with functional acceptance criteria.
+2. **Lead Architect Stage**: Automatically deconstructs user stories into five atomic technical subtasks with exact contracts:
+   - `Subtask 1 (Arch)`: ADR and Type Signatures (`[Arch] Design Architecture, C# Contracts & ADR`). Explicitly defines domain records, interface contracts, and DI extensions. Depends on: `[]`.
+   - `Subtask 2 (Dev)`: Implementation and Test Suite (`[Dev] Implement Domain Models, Service & Tests`). Produces modular multi-file C# bundle matching Architect ADR. Depends on: `[Subtask 1]`.
+   - `Subtask 3 (Security)`: STRIDE Threat Model Audit (`[Security] STRIDE Threat Model & Code Audit`). Evaluates delivered source code methods, buffers, and permissions. Depends on: `[Subtask 2]`.
+   - `Subtask 4 (Optimization)`: Latency and Allocation Audit (`[Opt] Latency Bottleneck & Allocation Audit`). Benchmarks delivered service methods and audits 0B Gen0 GC allocations. Depends on: `[Subtask 2]`.
+   - `Subtask 5 (QA)`: Test Strategy & Acceptance Certification (`[QA] Test Strategy & Final Acceptance Validation`). Maps 100% of acceptance criteria directly to unit tests and certifies release. Depends on: `[Subtask 3, Subtask 4]`.
 
 ---
 

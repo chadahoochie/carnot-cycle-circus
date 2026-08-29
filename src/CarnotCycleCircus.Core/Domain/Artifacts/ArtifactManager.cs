@@ -55,6 +55,14 @@ public class ArtifactManager : IArtifactManager
 
     public static string CategorizeArtifact(string name, string? description, AgentRole? role)
     {
+        if (name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("PRD-", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("PRD", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.TechnicalProductManager)
+        {
+            return "PRD";
+        }
+
         if (name.EndsWith("_ADR.md", StringComparison.OrdinalIgnoreCase) ||
             name.StartsWith("ADR-", StringComparison.OrdinalIgnoreCase) ||
             (description?.Contains("ADR", StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -65,6 +73,8 @@ public class ArtifactManager : IArtifactManager
 
         if (name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ||
             (description?.Contains("Implementation", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Contract", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Test", StringComparison.OrdinalIgnoreCase) ?? false) ||
             role == AgentRole.SoftwareDeveloper)
         {
             return "Code";
@@ -110,6 +120,7 @@ public class ArtifactManager : IArtifactManager
         var category = CategorizeArtifact(deliverable.Name, deliverable.Description, ticket.AssigneeRole);
         var categorizedFolder = category switch
         {
+            "PRD" => "artifacts/prds",
             "ADR" => "artifacts/adrs",
             "Code" => "artifacts/code",
             "Security" => "artifacts/security",

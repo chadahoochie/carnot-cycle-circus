@@ -9,15 +9,18 @@ This document provides a technical reference for the interactive **Blazor Web Co
 | Route | Razor Component | Description |
 | :--- | :--- | :--- |
 | **`/`** | `ExecutionDashboard.razor` | Live workflow orchestrator, animated execution pulse map, real-time banter feed, quick-key swapper, and session report exporter. |
+| **`/artifacts`** | `ArtifactsHub.razor` | Real-time repository-synced deliverables hub (PRDs, ADRs, Code bundles, STRIDE models, Benchmark profiles, and QA scorecards) with category filtering and 1-click disk synchronization. |
 | **`/tickets`** | `TicketManager.razor` | Embedded ticket studio: Kanban board, backlog manager, dependency DAG visualizer, and handoff history. |
 | **`/canvas`** | `WorkflowCanvas.razor` | Visual drag-and-drop workflow canvas: node placement, Input/Output/Failure port cabling, and live state highlights. |
 | **`/memory`** | `MemoryInspector.razor` | Hierarchical memory viewer (Working, Episodic, Semantic, Procedural), 64-dim vector search tester, and memory pruner. |
-| **`/teams`** | `TeamDefinition.razor` | Roster manager, archetype loader (6 presets), persona prompt editor, and per-role model/key overrides. |
+| **`/teams`** | `TeamDefinition.razor` | Roster manager, archetype loader (6 presets), persona prompt editor, dynamic agent adding/removal, and per-role model/key overrides. |
+| **`/models`** | `ModelCatalog.razor` | OpenRouter model catalog browser: cost tier classification, engineering strength mapping, pricing calculations ($/1M tokens), and 1-click favorites management. |
 | **`/docs`** | `DocsAndAdrs.razor` | ADR editor/explorer, C4 system architecture diagrams, STRIDE threat models, and markdown bundle exporter. |
 | **`/standards`** | `StandardsManager.razor` | Quality gates editor, test coverage sliders, and ticket completion compliance policies. |
 | **`/knowledge`** | `KnowledgeMapExplorer.razor` | Visual concept graph explorer, node/edge relationship viewer, and semantic sub-graph query tester. |
 | **`/skills`** | `SkillManager.razor` | Dynamic `SKILL.md` parser, URL importer, and custom capability editor. |
 | **`/skill-matrix`** | `SkillMatrix.razor` | Interactive agent capability grid with one-click skill assignment toggles per role. |
+| **`/self-improvement`** | `SelfImprovementStudio.razor` | Autonomous self-improvement loop: failure lesson distillation, anti-pattern detection, and persistent rule synthesis. |
 
 ---
 
@@ -26,22 +29,35 @@ This document provides a technical reference for the interactive **Blazor Web Co
 ### 2.1 `MainLayout.razor`
 - **Header**: Displays system branding, active team name, live message stream counter, and active API Key quick-status.
 - **Key Vault Trigger**: Houses the global Key Vault button that opens `KeyVaultModal`.
-- **Navigation**: Collapsible sidebar linking to all 10 platform views.
+- **Navigation**: Collapsible sidebar linking to all 13 platform views.
 
 ### 2.2 `KeyVaultModal.razor`
-- In-memory client-side key storage dialog.
-- Allows adding named OpenRouter API keys.
+- In-memory and disk-encrypted client-side key storage dialog (`ApiKeyVaultService`).
+- Allows adding named OpenRouter API keys with AES-256-GCM AEAD encryption.
 - Masks raw credentials with asterisk obfuscation.
 - Performs live key connectivity tests against OpenRouter's auth endpoint.
+- Master key rotation and passphrase-encrypted backup export/import.
 - One-click active key switching.
 
-### 2.3 `TicketModal.razor`
+### 2.3 `ProjectIgnitionModal.razor`
+- 1-Click Curated Blueprint Launcher (IoT Telemetry Pipeline, E-Commerce Saga, Zero-Trust Identity, Distributed CQRS, Chaos Benchmark Arena) and Custom Project Starter.
+
+### 2.4 `CodebaseHarvesterModal.razor`
+- Local directory / solution scanner extracting project dependencies, architecture patterns, and technical debt audit into prioritized backlog tickets.
+
+### 2.5 `ShowcaseModal.razor`
+- Interactive zero-key live demo runner showcasing end-to-end swarm execution, failure remediation loopbacks, and nanosecond memory benchmarks.
+
+### 2.6 `TicketModal.razor`
 - Interactive dialog for creating and editing `TicketItem` entities.
 - Fields: Title, Description, Type (`Epic`, `Feature`, `Bug`, `Spike`, `Subtask`), Priority, Assignee Role, Acceptance Criteria, and Dependency selectors (`DependsOn`).
 
-### 2.4 `TicketCard.razor`
+### 2.7 `TicketCard.razor`
 - Compact visual card for tickets inside Kanban columns and backlog lists.
 - Badges: Assignee emoji/color, ticket type, priority, and dependency fulfillment indicators.
+
+### 2.8 `ChaosQuoteModal.razor`
+- Cult-classic comedy quote browser and chaos generator (Spaceballs, Spinal Tap, Silicon Valley, Ghostbusters, Monty Python).
 
 ---
 

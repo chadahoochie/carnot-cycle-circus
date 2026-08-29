@@ -11,16 +11,18 @@ The testing suite for Carnot Cycle Circus is located in `tests/CarnotCycleCircus
 
 ## 2. Test Suite Map
 
-The test project contains 14 specialized test suites covering all core domain services:
+The test project contains 17 specialized test suites covering all core domain services:
 
 | Test File | Target Service / Component | Key Verification Scenarios |
 | :--- | :--- | :--- |
 | `TicketStoreTests.cs` | `TicketStore` | Ticket CRUD, state machine transitions, dependency DAG ordering, and query filters. |
-| `WorkDecompositionTests.cs` | `WorkDecompositionEngine` | Automated TPM/Architect deconstruction of Epics into granular technical subtasks with DAG edges. |
+| `WorkDecompositionTests.cs` | `WorkDecompositionEngine` | Automated TPM/Architect deconstruction of Epics into granular technical subtasks with DAG edges and multi-file code expectations. |
 | `HandoffRouterTests.cs` | `HandoffRouter` | Success handoffs, failure remediation loopbacks, and DAG downstream activation. |
 | `WorkflowGraphTests.cs` | `GraphWorkflowExecutor` | End-to-end DAG execution, failure port routing, retry counters, and circuit breaker tripping. |
+| `RealExecutionEngineTests.cs` | `SimulatedScenarioEngine` & Execution | Multi-file C# deliverable parsing, autonomous syntax self-healing loop with `CSharpSyntaxCheckTool`, upstream context injection (Architecture $\to$ Dev, Dev $\to$ Sec, Dev $\to$ QA), and deterministic 4-file fallback generation. |
 | `PersistentMemoryTests.cs` | `EmbeddedVectorMemoryStore` | Multi-tier storage, 64-dim vector cosine similarity search, composite scoring, and pruning. |
 | `ToolSandboxTests.cs` | Tool Sandbox (`IToolDefinition`) | Execution and parameter validation for `WebSearch`, `CSharpSyntaxCheck`, `TestRunner`, `MemoryLookup`, and `AdrWriter`. |
+| `SecureKeyStorageTests.cs` | `ApiKeyVaultService` & Encryptor | AES-256-GCM AEAD envelope encryption, context-bound AAD, master key rotation, legacy migration, passphrase export/import. |
 | `ApiKeyVaultTests.cs` | `ApiKeyVaultService` | Credential storage, masking, role-to-key resolution, and connection testing. |
 | `OpenRouterClientTests.cs` | `OpenRouterClient` & Resolver | Multi-key resolution hierarchy, request formatting, and sandbox fallback. |
 | `AdrDocumentManagerTests.cs` | `AdrDocumentManager` | ADR authoring, markdown rendering, status lifecycle, and bundle export. |
@@ -29,6 +31,9 @@ The test project contains 14 specialized test suites covering all core domain se
 | `SkillImporterTests.cs` | `SkillImporter` & Registry | `SKILL.md` frontmatter parsing, JSON deserialization, and role assignment. |
 | `AgentPersonaTests.cs` | `AgentPersona` & Teams | Persona defaults, temperature validation, deliverable isolation prompt enforcement, and archetypes. |
 | `EventStreamTests.cs` | `AgentEventStream` | Real-time message streaming, subscriber notification, and bounded queue trimming. |
+| `PersistentStorageAndSelfImprovementTests.cs` | Persistence & Self-Improvement | Atomic storage persistence across restarts, volume health metrics, failure lesson distillation, and learned rule synthesis. |
+| `ShowcaseDemoServiceTests.cs` | `ShowcaseDemoService` | Zero-key end-to-end swarm execution, live remediation loopbacks, and nanosecond benchmark demo. |
+| `EndToEndSystemVerificationTests.cs` | Full Circus Integration | End-to-end complete lifecycle, skill matrix, and self-improvement integration. |
 
 ---
 
