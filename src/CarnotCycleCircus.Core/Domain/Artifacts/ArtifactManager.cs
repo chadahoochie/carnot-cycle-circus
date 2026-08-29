@@ -55,6 +55,23 @@ public class ArtifactManager : IArtifactManager
 
     public static string CategorizeArtifact(string name, string? description, AgentRole? role)
     {
+        if (name.EndsWith("_RESEARCH_BRIEF.md", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("RESEARCH-", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("Research", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Feasibility", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.RequirementsResearcher)
+        {
+            return "Research";
+        }
+
+        if (name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase) ||
+            name.StartsWith("PRD-", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("PRD", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.TechnicalProductManager)
+        {
+            return "PRD";
+        }
+
         if (name.EndsWith("_ADR.md", StringComparison.OrdinalIgnoreCase) ||
             name.StartsWith("ADR-", StringComparison.OrdinalIgnoreCase) ||
             (description?.Contains("ADR", StringComparison.OrdinalIgnoreCase) ?? false) ||
@@ -65,6 +82,8 @@ public class ArtifactManager : IArtifactManager
 
         if (name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ||
             (description?.Contains("Implementation", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Contract", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Test", StringComparison.OrdinalIgnoreCase) ?? false) ||
             role == AgentRole.SoftwareDeveloper)
         {
             return "Code";
@@ -91,6 +110,15 @@ public class ArtifactManager : IArtifactManager
             return "QA";
         }
 
+        if (name.EndsWith("_Release_Manifest.md", StringComparison.OrdinalIgnoreCase) ||
+            name.EndsWith("SolutionTree.json", StringComparison.OrdinalIgnoreCase) ||
+            (description?.Contains("Release", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (description?.Contains("Package", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            role == AgentRole.IntegrationEngineer)
+        {
+            return "Release";
+        }
+
         return "General";
     }
 
@@ -110,11 +138,14 @@ public class ArtifactManager : IArtifactManager
         var category = CategorizeArtifact(deliverable.Name, deliverable.Description, ticket.AssigneeRole);
         var categorizedFolder = category switch
         {
+            "Research" => "artifacts/research",
+            "PRD" => "artifacts/prds",
             "ADR" => "artifacts/adrs",
             "Code" => "artifacts/code",
             "Security" => "artifacts/security",
             "Benchmark" => "artifacts/benchmarks",
             "QA" => "artifacts/qa",
+            "Release" => "artifacts/releases",
             _ => "artifacts/general"
         };
 

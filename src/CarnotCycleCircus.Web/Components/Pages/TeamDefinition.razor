@@ -407,12 +407,14 @@
 
     private static bool IsRecommendedForRole(ModelCatalogEntry model, AgentRole role) => role switch
     {
+        AgentRole.RequirementsResearcher => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
         AgentRole.TechnicalProductManager => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
         AgentRole.LeadArchitect => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
         AgentRole.SoftwareDeveloper => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
         AgentRole.SecurityEngineer => model.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
         AgentRole.OptimizationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
         AgentRole.PrincipalQAAnalyst => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
+        AgentRole.IntegrationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
         _ => true
     };
 

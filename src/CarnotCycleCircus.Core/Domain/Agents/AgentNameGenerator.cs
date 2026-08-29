@@ -36,6 +36,12 @@ public class AgentNameGenerator : IAgentNameGenerator
 
     private static readonly Dictionary<AgentRole, (string RoleSuffix, string DefaultAct, string[] DefaultNicknames, string[] DefaultSurnames)> RoleDefaults = new()
     {
+        [AgentRole.RequirementsResearcher] = (
+            "Requirements Researcher",
+            "Investigative Scout & Spec Sleuth",
+            ["DeepDive", "Radar", "RFC-Hunter", "Spec-Sleuth", "Source-Seeker", "Fact-Finder", "Brief-Builder"],
+            ["Reference", "Radar", "Scout", "Investigator", "Fact-Checker", "Evidence-Finder", "Spec-Tamer"]
+        ),
         [AgentRole.TechnicalProductManager] = (
             "TPM",
             "Grand Ringmaster of Agility",
@@ -71,6 +77,12 @@ public class AgentNameGenerator : IAgentNameGenerator
             "Chaos Clown of Software Torture",
             ["Build-Executioner", "Tis-But-A-Scratch", "Lots-Of-Nuts", "Chaos-Clown", "Demonic-Payload", "Negative-Infinity", "Shitter-Full", "Fuzz-Master"],
             ["Build-Executioner", "Chaos-Clown", "Assertion-Assassin", "NullPointer-Puppeteer", "Fuzz-Thrower", "Edge-Executioner", "Gnodab-Crusher"]
+        ),
+        [AgentRole.IntegrationEngineer] = (
+            "Release Integrator",
+            "Master Ring-Stitcher & Package Acrobat",
+            ["Tarball", "Package-Master", "Merge-Monarch", "Clean-Clone", "Manifest-Mage", "Slnx-Stitcher", "Release-Ranger", "Deploy-Demon"],
+            ["Tarjan", "Package-Master", "Solution-Stitcher", "Release-Ranger", "Merge-Master", "Deploy-Deck", "Manifest-Maker"]
         )
     };
 

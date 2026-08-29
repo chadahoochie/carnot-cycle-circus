@@ -1,3 +1,4 @@
+using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Tickets;
 
 namespace CarnotCycleCircus.Core.Domain.Standards;
@@ -9,6 +10,7 @@ public record EngineeringStandardsProfile(
     bool RequireRcaForBugs = true,
     bool RequireRegressionTestForBugs = true,
     bool RequireAdrForEpics = true,
+    bool RequireCleanArchitectureScaffolding = true,
     bool RequireStrideSecurityReview = true,
     bool RequireZeroAllocationAudit = true
 )
@@ -29,6 +31,7 @@ public interface IStandardsValidator
 {
     EngineeringStandardsProfile CurrentProfile { get; set; }
     ValidationResult ValidateTicketForCompletion(TicketItem ticket);
+    ValidationResult ValidateArchitecturalCompliance(TicketItem ticket, IReadOnlyList<CarnotCycleCircus.Core.Domain.Events.ArtifactItem>? upstreamDeliverables = null);
 }
 
 public class StandardsValidator : IStandardsValidator
@@ -71,6 +74,32 @@ public class StandardsValidator : IStandardsValidator
             if (!hasAdr)
             {
                 violations.Add("Epic requires an Architectural Decision Record (ADR) etched in the documentation temple.");
+            }
+        }
+
+        return violations.Count == 0 ? ValidationResult.Success() : new ValidationResult(false, violations);
+    }
+
+    public ValidationResult ValidateArchitecturalCompliance(TicketItem ticket, IReadOnlyList<CarnotCycleCircus.Core.Domain.Events.ArtifactItem>? upstreamDeliverables = null)
+    {
+        var violations = new List<string>();
+        var deliverables = upstreamDeliverables ?? ticket.Deliverables;
+
+        if (CurrentProfile.RequireAdrForEpics)
+        {
+            var hasAdr = deliverables.Any(d => d.Name.Contains("ADR", StringComparison.OrdinalIgnoreCase) || d.Content.Contains("Architectural Decision Record", StringComparison.OrdinalIgnoreCase));
+            if (!hasAdr)
+            {
+                violations.Add("Missing Architectural Decision Record (ADR). Lead Architect must design and record an ADR before downstream implementation or QA signoff.");
+            }
+        }
+
+        if (CurrentProfile.RequireCleanArchitectureScaffolding)
+        {
+            var hasScaffold = deliverables.Any(d => d.ContentType == "csharp" || d.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase));
+            if (!hasScaffold && ticket.AssigneeRole == AgentRole.PrincipalQAAnalyst)
+            {
+                violations.Add("Missing Clean Architecture domain contracts or interfaces. Lead Architect must scaffold domain types and contracts.");
             }
         }
 

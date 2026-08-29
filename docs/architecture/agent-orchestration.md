@@ -6,39 +6,48 @@ The Carnot Cycle Circus Agent Orchestration Engine models an autonomous software
 
 ---
 
-## 2. The 6 Core Autonomous Roles
+## 2. Core Autonomous Roles
 
 Each agent role represents a specialized engineering discipline with distinct persona traits, default models, temperature settings, and tool access permissions.
 
 ```mermaid
 graph TD
+    Res["🔬 Requirements Researcher<br/>(Rachel 'DeepDive' Reference)"]
     TPM["🎯 Technical Product Manager<br/>(Barnum B. Buzzword)"]
     Arch["🏛️ Lead Architect<br/>(Archduke Archibald Abstraction-o)"]
     Dev["💻 Software Developer<br/>(Devon Crashdump)"]
     Sec["🛡️ Security Engineer<br/>(Sari Sandbox)"]
     Opt["⚡ Optimization Engineer<br/>(Otto-Cycle Overclock)"]
     QA["🧪 Principal QA Analyst<br/>(Quinn the Build-Executioner)"]
+    Int["📦 Integration Engineer<br/>(Ingrid Tarjan)"]
 
-    TPM -->|Deconstructed Stories & AC| Arch
-    Arch -->|ADR, API Specs, & DAG Subtasks| Dev
-    Dev -->|C# Code & Unit Tests| Sec
-    Dev -->|C# Code & Unit Tests| Opt
+    Res -->|Feasibility Brief & RFC Specs| TPM
+    TPM -->|PRD, Deconstructed Stories & AC| Arch
+    Arch -->|ADR, C# Type Contracts, & DAG Subtasks| Dev
+    Dev -->|Multi-File C# Bundle & Unit Tests| Sec
+    Dev -->|Multi-File C# Bundle & Unit Tests| Opt
     Sec -->|STRIDE Approved| QA
     Opt -->|Benchmarks Approved| QA
+    QA -->|Certification Passed| Int
+    TPM -.->|🔴 Requirements Ambiguity Reject| Res
     Sec -.->|🔴 Security Reject / Remediation| Dev
     QA -.->|🔴 QA Reject / Remediation| Dev
+    QA -.->|🔴 Architecture Flaw Reject| Arch
+    Int -.->|🔴 Packaging / DI Failure Reject| Dev
 ```
 
 ### 2.1 Role Specifications Matrix
 
 | Role (`AgentRole`) | Persona Name | Default OpenRouter Model | Temp | Allowed Tools | Primary Technical Output |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Technical Product Manager** | **Barnum B. Buzzword** | `openai/gpt-4o` | `0.2` | `web_search`, `memory_lookup` | Product Requirements Documents (PRDs), Epics, User Stories, Acceptance Criteria |
-| **Lead Architect** | **Archduke Archibald Abstraction-o** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs), C4 Diagrams, Domain Boundaries, Technical Subtask Breakdown |
-| **Software Developer** | **Devon "Coldbrew" Crashdump** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Production C# 13 Source Code, Zero-Allocation Services, xUnit Test Suites |
-| **Security Engineer** | **Sari "Tinfoil" Sandbox** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models, Vulnerability Assessments, Permission Scopes, Secret Audits |
-| **Optimization Engineer** | **Otto-Cycle Overclock** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
-| **Principal QA Analyst** | **Quinn the Build-Executioner** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Edge-Case Verification Matrices, Acceptance Criteria Scorecards, Certification |
+| **Requirements Researcher** | **Rachel "DeepDive" Reference** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `memory_lookup` | Requirements Research & Technical Feasibility Briefs (`*_RESEARCH_BRIEF.md`), RFC specifications, library ecosystem evaluation |
+| **Technical Product Manager** | **Barnum B. Buzzword** | `openai/gpt-4o` | `0.2` | `web_search`, `memory_lookup` | Product Requirements Documents (`*_PRD.md`), Epics, User Stories, Acceptance Criteria |
+| **Lead Architect** | **Archduke Archibald Abstraction-o** | `anthropic/claude-3.7-sonnet` | `0.1` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | Architectural Decision Records (ADRs with exact C# Type Contracts), C4 Diagrams, Domain Boundaries, Technical Subtasks |
+| **Software Developer** | **Devon "Coldbrew" Crashdump** | `qwen/qwen-2.5-coder-32b-instruct` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Modular C# 13 Multi-File Bundles (Interfaces, Services, DI Extensions, xUnit Tests), Self-Healing Syntax Validation |
+| **Security Engineer** | **Sari "Tinfoil" Sandbox** | `openai/o3-mini` | `0.0` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE Threat Models against actual source code, Vulnerability Assessments, Permission Scopes, Secret Audits |
+| **Optimization Engineer** | **Otto-Cycle Overclock** | `anthropic/claude-3.7-sonnet` | `0.0` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet Reports against delivered methods, Latency Profiles (<5ms P99), Zero Gen0 Allocation Audits |
+| **Principal QA Analyst** | **Quinn the Build-Executioner** | `deepseek/deepseek-r1` | `0.1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | QA Test Plans, Traceability Matrices mapped to unit tests, Quality Scorecards, Production Certification |
+| **Integration Engineer** | **Ingrid "The Tarball" Tarjan** | `anthropic/claude-3.7-sonnet` | `0.1` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | Release Manifests, Solution Trees (.slnx/.csproj), DI Composition Root Wiring |
 
 ---
 

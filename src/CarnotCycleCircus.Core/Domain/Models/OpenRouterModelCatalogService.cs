@@ -186,12 +186,14 @@ public class OpenRouterModelCatalogService : IModelCatalogService
 
         return role switch
         {
+            AgentRole.RequirementsResearcher => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration) || m.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)).ToList(),
             AgentRole.TechnicalProductManager => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)).ToList(),
             AgentRole.LeadArchitect => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || m.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)).ToList(),
             AgentRole.SoftwareDeveloper => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration)).ToList(),
             AgentRole.SecurityEngineer => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit) || m.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)).ToList(),
             AgentRole.OptimizationEngineer => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || m.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning)).ToList(),
             AgentRole.PrincipalQAAnalyst => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration)).ToList(),
+            AgentRole.IntegrationEngineer => all.Where(m => m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || m.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration)).ToList(),
             _ => all
         };
     }

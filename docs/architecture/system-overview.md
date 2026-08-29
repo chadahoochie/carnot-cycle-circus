@@ -85,13 +85,18 @@ carnot-cycle-circus/
 │   ├── CarnotCycleCircus.Core/         # Core Domain & Orchestration Library (.NET 10.0)
 │   │   ├── Domain/
 │   │   │   ├── Agents/                 # AgentRole, AgentPersona, EngineeringTeam
+│   │   │   ├── Artifacts/              # ArtifactDescriptor, ArtifactManager, IArtifactManager
+│   │   │   ├── Blueprints/             # ProjectBlueprintService
 │   │   │   ├── Docs/                   # AdrDocumentManager, ArchitecturalDecisionRecord
 │   │   │   ├── Events/                 # AgentEventStream, AgentMessage, ArtifactItem
 │   │   │   ├── Graph/                  # WorkflowGraph, GraphWorkflowExecutor, Ports
-│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, SimulatedScenarioEngine
+│   │   │   ├── Harvester/              # CodebaseHarvesterService
+│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, SimulatedScenarioEngine, ModelCatalogService
 │   │   │   ├── Knowledge/              # KnowledgeMapService, KnowledgeNode, KnowledgeEdge
 │   │   │   ├── Learning/               # SelfImprovementEngine, AutonomousSelfImprovementWorker
 │   │   │   ├── Memory/                 # MemoryEntry, PersistentMemoryStore, MemoryServices
+│   │   │   ├── Security/               # EncryptedPayload, MasterKeyProvider, AesGcmKeyEncryptor
+│   │   │   ├── Showcase/               # ShowcaseDemoService
 │   │   │   ├── Skills/                 # SkillRegistry, SkillImporter, SkillDefinition
 │   │   │   ├── Standards/              # StandardsValidator, EngineeringStandardsProfile
 │   │   │   ├── Storage/                # CarnotStorageOptions, FilePersistentStorageService
@@ -104,14 +109,14 @@ carnot-cycle-circus/
 │   └── CarnotCycleCircus.Web/          # Blazor Web Frontend (.NET 10.0)
 │       ├── Components/
 │       │   ├── Layout/                 # MainLayout, NavMenu
-│       │   ├── Pages/                  # 10 Interactive Blazor Pages
-│       │   └── Modals/                 # KeyVaultModal, TicketModal, TicketCard
+│       │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
+│       │   └── Modals/                 # KeyVaultModal, ProjectIgnitionModal, CodebaseHarvesterModal, ShowcaseModal, TicketModal
 │       ├── Program.cs                  # Host configuration & pipeline setup
 │       └── wwwroot/                    # Modern dark-theme stylesheets & UI assets
 │
 ├── tests/
 │   └── CarnotCycleCircus.Tests/        # Comprehensive Unit & Integration Tests (xUnit + FluentAssertions)
-│       └── [14 Test Suites]           # Complete coverage across all domain services
+│       └── [17 Test Suites]           # Complete coverage across all domain services
 │
 ├── skills/                             # Preserved engineering skills & .NET standards
 └── docs/                               # Comprehensive Human & LLM Documentation Suite
@@ -128,6 +133,7 @@ sequenceDiagram
     autonumber
     actor User as User / Operator
     participant Executor as GraphWorkflowExecutor
+    participant Res as Researcher (Rachel Reference)
     participant TPM as TPM (Barnum B. Buzzword)
     participant Decomp as WorkDecompositionEngine
     participant Store as TicketStore
@@ -143,16 +149,24 @@ sequenceDiagram
     User->>Executor: ExecuteWorkflowAsync("User Auth & Token Rotation", desc)
     Executor->>Bus: Publish Workflow Started Event
 
-    %% 1. TPM Phase
-    Executor->>TPM: Activate TPM Node
+    %% 1. Requirements Research Phase
+    Executor->>Res: Activate Requirements Researcher Node
+    Res->>Res: Scour RFCs, library ecosystem & codebase boundaries
+    Res->>Store: Generate & Attach Feasibility Brief (_RESEARCH_BRIEF.md)
+    Res->>Bus: Publish Research Feasibility banter
+
+    %% 2. TPM Phase
+    Executor->>TPM: Activate TPM Node (Injected Research Brief context)
     TPM->>Decomp: DeconstructEpic("User Auth...", desc)
     Decomp->>Store: Create Epic + User Story 1
-    Decomp->>Store: Create 5 Subtasks (Arch, Dev, Sec, Opt, QA) with DAG dependencies
+    Decomp->>Store: Create 6 Subtasks (Arch, Dev, Sec, Opt, QA, Release) with DAG dependencies
+    TPM->>TPM: Generate PRD Deliverable Artifact
+    TPM->>Store: Attach PRD Artifact to Epic Ticket
     TPM->>Bus: Publish PRD & Decomposition banter
 
     %% 2. Architect Phase
-    Executor->>Arch: Activate Lead Architect Node (Subtask 1)
-    Arch->>Arch: Produce ADR-014, C4 diagram, & Domain Boundaries
+    Executor->>Arch: Activate Lead Architect Node (Subtask 1, Injected PRD context)
+    Arch->>Arch: Produce ADR-014 with exact C# type & interface contracts
     Arch->>Store: Attach ADR Artifact to Subtask 1
     Arch->>Handoff: RouteSuccessHandoff(Subtask 1 -> Subtask 2 [Dev])
     Handoff->>Store: Record HandoffPacket
@@ -161,9 +175,10 @@ sequenceDiagram
     Arch->>Mem: ConsolidateTaskCompletionAsync(Subtask 1)
 
     %% 3. Developer Phase
-    Executor->>Dev: Activate Software Developer Node (Subtask 2)
-    Dev->>Dev: Author zero-allocation C# service & xUnit tests
-    Dev->>Store: Attach C# Code Artifact to Subtask 2
+    Executor->>Dev: Activate Software Developer Node (Subtask 2, Injected ADR context)
+    Dev->>Dev: Author modular multi-file C# bundle (Models, Service, DI, xUnit Tests)
+    Dev->>Dev: Autonomous syntax self-healing pass (CSharpSyntaxCheckTool)
+    Dev->>Store: Attach Multi-File C# Code Artifacts to Subtask 2
     Dev->>Handoff: RouteSuccessHandoff(Subtask 2 -> Sec & Opt)
     Handoff->>Store: AdvanceWorkflowOnTicketCompletion(Subtask 2 -> Done)
     Handoff->>Store: Subtask 3 [Sec] & Subtask 4 [Opt] status -> Ready
@@ -239,6 +254,9 @@ public static IServiceCollection AddCarnotCycleCircusCore(this IServiceCollectio
 
     // ADR & Documentation Hub
     services.AddSingleton<IAdrDocumentManager, AdrDocumentManager>();
+
+    // Deliverables & Artifacts Hub
+    services.AddSingleton<IArtifactManager, ArtifactManager>();
 
     // Standards & Quality Gates
     services.AddSingleton<IStandardsValidator, StandardsValidator>();

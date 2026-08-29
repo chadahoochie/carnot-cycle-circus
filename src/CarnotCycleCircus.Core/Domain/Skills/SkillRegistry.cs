@@ -351,6 +351,28 @@ public class SkillRegistry : ISkillRegistry
             AssignedRoles: [AgentRole.PrincipalQAAnalyst]
         );
         RegisterSkill(s5);
+
+        var s6 = new SkillDefinition(
+            Id: "skill-repo-integration-packaging",
+            Name: "Repository Integration & Solution Packaging",
+            Description: "Patterns for Clean Architecture solution packaging, Central Package Management, and release manifest generation.",
+            Instructions: "Assemble multi-file artifacts into cohesive Clean Architecture folders, wire DI registration into host Program.cs, and generate release manifest.",
+            RecommendedTools: ["csharp_syntax_check", "test_runner", "file_writer"],
+            Category: "DevOps",
+            AssignedRoles: [AgentRole.IntegrationEngineer]
+        );
+        RegisterSkill(s6);
+
+        var s7 = new SkillDefinition(
+            Id: "skill-requirements-research",
+            Name: "Requirements Scouting & Spec Investigation",
+            Description: "Deep discovery of RFC specifications, domain standards, library ecosystems, and architectural feasibility.",
+            Instructions: "Scour RFCs, API contracts, and codebase boundaries to produce comprehensive feasibility briefs before PRD generation.",
+            RecommendedTools: ["web_search", "memory_lookup"],
+            Category: "Research",
+            AssignedRoles: [AgentRole.RequirementsResearcher]
+        );
+        RegisterSkill(s7);
     }
 
     public IReadOnlyList<SkillDefinition> GetAllSkills()

@@ -10,12 +10,14 @@ This document provides a comprehensive technical reference of all primary interf
 ```csharp
 public enum AgentRole
 {
+    RequirementsResearcher,
     TechnicalProductManager,
     LeadArchitect,
     SoftwareDeveloper,
     SecurityEngineer,
     OptimizationEngineer,
-    PrincipalQAAnalyst
+    PrincipalQAAnalyst,
+    IntegrationEngineer
 }
 ```
 
@@ -73,7 +75,27 @@ public record TicketItem(
     IReadOnlyDictionary<string, string> Metadata,
     DateTimeOffset CreatedAt,
     DateTimeOffset? CompletedAt = null
-);
+)
+{
+    public bool IsTerminal => Status is TicketStatus.Done;
+    public bool HasDependencies => DependsOnTicketIds.Count > 0;
+
+    public TicketItem WithStatus(TicketStatus newStatus, DateTimeOffset? completedAt = null) =>
+        this with
+        {
+            Status = newStatus,
+            CompletedAt = newStatus == TicketStatus.Done ? (completedAt ?? DateTimeOffset.UtcNow) : (newStatus != TicketStatus.Done ? null : CompletedAt)
+        };
+
+    public TicketItem WithDeliverable(ArtifactItem deliverable) =>
+        this with { Deliverables = Deliverables.Append(deliverable).ToList() };
+
+    public TicketItem WithDeliverables(IEnumerable<ArtifactItem> deliverables) =>
+        this with { Deliverables = Deliverables.Concat(deliverables).ToList() };
+
+    public TicketItem WithAssignee(AgentRole role) =>
+        this with { AssigneeRole = role };
+}
 ```
 
 ### `HandoffPacket` (Record)
@@ -202,12 +224,66 @@ public interface IApiKeyVaultService
 public interface IOpenRouterClient
 {
     Task<OpenRouterChatResponse> CompleteAsync(OpenRouterChatRequest request, string apiKey, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(string? apiKey = null, CancellationToken cancellationToken = default);
+}
+```
+
+### `ISimulatedScenarioEngine` (Interface)
+Coordinates live inference, autonomous syntax self-healing, inter-agent context injection, and deterministic offline fallbacks.
+```csharp
+public interface ISimulatedScenarioEngine
+{
+    Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskSimulationAsync(AgentRole role, TicketItem ticket, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArtifactItem>> GenerateDeterministicFallbackAsync(AgentRole role, TicketItem ticket, CancellationToken cancellationToken = default);
 }
 ```
 
 ---
 
-## 6. Domain: Standards, ADRs, Knowledge, & Tools
+## 6. Domain: Deliverables & Artifacts (`CarnotCycleCircus.Core.Domain.Artifacts`)
+
+### `ArtifactDescriptor` (Record)
+```csharp
+public record ArtifactDescriptor(
+    string Name,
+    string RelativePath,
+    string FullPath,
+    string ContentType,
+    string Description,
+    string Content,
+    string? TicketId,
+    string? TicketTitle,
+    AgentRole? Role,
+    string Category,
+    DateTimeOffset Timestamp,
+    long SizeBytes
+);
+```
+
+### `IArtifactManager` (Interface)
+```csharp
+public interface IArtifactManager
+{
+    string ArtifactsDirectory { get; }
+    bool IsArtifactsDirectoryWriteable { get; }
+    
+    IReadOnlyList<ArtifactDescriptor> GetAllArtifacts();
+    IReadOnlyList<ArtifactDescriptor> GetArtifactsByTicket(string ticketId);
+    IReadOnlyList<ArtifactDescriptor> GetArtifactsByCategory(string category);
+    IReadOnlyList<ArtifactDescriptor> GetArtifactsByRole(AgentRole role);
+
+    Task<string> SaveDeliverableArtifactAsync(TicketItem ticket, ArtifactItem deliverable, CancellationToken cancellationToken = default);
+    Task<int> ExportAllDeliverablesAsync(CancellationToken cancellationToken = default);
+    Task<string?> ReadArtifactContentAsync(string relativePath, CancellationToken cancellationToken = default);
+    string GetArtifactPath(string ticketId, string artifactName);
+
+    event Action<ArtifactDescriptor>? OnArtifactExported;
+}
+```
+
+---
+
+## 7. Domain: Standards, ADRs, Knowledge, & Tools
 
 ### `IStandardsValidator` (`CarnotCycleCircus.Core.Domain.Standards`)
 ```csharp

@@ -92,13 +92,13 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var subtasks = new List<TicketItem>();
         var parentEpicId = userStory.ParentEpicId ?? userStory.Id;
 
-        // Subtask 1: Architecture Design & ADR
+        // Subtask 1: Architecture Design & Clean Architecture Scaffolding
         var adrSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var adrSubtask = new TicketItem(
             Id: adrSubtaskId,
             ParentEpicId: parentEpicId,
-            Title: $"[Arch] Design ADR & System Boundaries for {userStory.Title}",
-            Description: "Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, and resilience policies.",
+            Title: $"[Arch] Design ADR & Scaffold Clean Architecture for {userStory.Title}",
+            Description: "Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, and scaffolds the Clean Architecture solution (Domain, Contracts, DI extensions) before implementation begins.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Ready,
             AssigneeRole: AgentRole.LeadArchitect,
@@ -107,7 +107,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             DependsOnTicketIds: userStory.DependsOnTicketIds,
             AcceptanceCriteria: [
                 "ADR documents context, decision, alternatives, positive and negative trade-offs.",
-                "Defines immutable records, value objects, and cancellation token contracts.",
+                "Scaffolds Clean Architecture solution structure: Domain immutable records, Application contracts/interfaces, and DI extensions.",
                 "Approved and registered in ADR Document Hub."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
@@ -122,8 +122,8 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var devSubtask = new TicketItem(
             Id: devSubtaskId,
             ParentEpicId: parentEpicId,
-            Title: $"[Dev] Implement Feature & Unit Tests for {userStory.Title}",
-            Description: "Senior Developer writes C# 13 / .NET 10 implementation, validates syntax, and creates comprehensive unit tests.",
+            Title: $"[Dev] Implement Domain Models, Service & Tests for {userStory.Title}",
+            Description: "Senior Developer writes C# 13 / .NET 10 multi-file implementation bundle (Models, Interfaces, Services, DI extensions, and Unit Tests) matching Lead Architect's ADR.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Backlog,
             AssigneeRole: AgentRole.SoftwareDeveloper,
@@ -131,9 +131,9 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Priority: userStory.Priority,
             DependsOnTicketIds: [adrSubtaskId],
             AcceptanceCriteria: [
-                "Code follows clean modern C# standards and compiles cleanly.",
-                "Implements required business logic with zero-allocation considerations.",
-                "Accompanied by xUnit test suite."
+                "Code strictly implements the exact types and interfaces specified in the Lead Architect ADR.",
+                "Implements required business logic with zero heap allocations on hot paths.",
+                "Accompanied by complete xUnit unit test suite verifying acceptance criteria."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
             Metadata: new Dictionary<string, string> { ["Stage"] = "Implementation" },
@@ -147,8 +147,8 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var secSubtask = new TicketItem(
             Id: secSubtaskId,
             ParentEpicId: parentEpicId,
-            Title: $"[Security] STRIDE Threat Model & Vulnerability Audit for {userStory.Title}",
-            Description: "Security Engineer analyzes code for secret exposure, permission boundaries, input validation, and STRIDE threats.",
+            Title: $"[Security] STRIDE Threat Model & Code Audit for {userStory.Title}",
+            Description: "Security Engineer audits delivered C# source code for secret exposure, permission boundaries, buffer slices, input sanitization, and STRIDE threats.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Backlog,
             AssigneeRole: AgentRole.SecurityEngineer,
@@ -156,8 +156,8 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Priority: userStory.Priority,
             DependsOnTicketIds: [devSubtaskId],
             AcceptanceCriteria: [
-                "STRIDE threat model completed and documented.",
-                "No secret leakage or unchecked input vectors.",
+                "STRIDE threat model completed against actual delivered code.",
+                "No secret leakage or unchecked input vectors in service methods.",
                 "Security signoff or remediation reject packet issued."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
@@ -173,7 +173,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Id: optSubtaskId,
             ParentEpicId: parentEpicId,
             Title: $"[Opt] Latency Bottleneck & Allocation Audit for {userStory.Title}",
-            Description: "Optimization Engineer reviews hot paths, audits heap allocations, memory spans, and asymptotic time complexity.",
+            Description: "Optimization Engineer benchmarks delivered service methods, auditing heap allocations, memory spans, ValueTask state machines, and asymptotic time complexity.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Backlog,
             AssigneeRole: AgentRole.OptimizationEngineer,
@@ -181,9 +181,9 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Priority: userStory.Priority,
             DependsOnTicketIds: [devSubtaskId],
             AcceptanceCriteria: [
-                "Memory allocations audited and hot-path allocations minimized.",
-                "Zero-allocation Span/Memory patterns applied where critical.",
-                "Performance review signoff recorded."
+                "Memory allocations audited on actual service methods and hot-path allocations minimized.",
+                "Zero-allocation Span/Memory patterns verified on hot paths.",
+                "BenchmarkDotNet report and performance signoff recorded."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
             Metadata: new Dictionary<string, string> { ["Stage"] = "Optimization" },
@@ -198,7 +198,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Id: qaSubtaskId,
             ParentEpicId: parentEpicId,
             Title: $"[QA] Test Strategy & Final Acceptance Validation for {userStory.Title}",
-            Description: "Principal QA Analyst validates all acceptance criteria, executes automated test suites, verifies edge cases, and certifies release readiness.",
+            Description: "Principal QA Analyst validates all acceptance criteria against delivered code and unit tests, confirms test execution pass rate, and certifies release readiness.",
             Type: TicketType.Subtask,
             Status: TicketStatus.Backlog,
             AssigneeRole: AgentRole.PrincipalQAAnalyst,
@@ -206,8 +206,8 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Priority: userStory.Priority,
             DependsOnTicketIds: [secSubtaskId, optSubtaskId],
             AcceptanceCriteria: [
-                "100% acceptance criteria validated against actual deliverables.",
-                "Automated test runner confirms passing test suite.",
+                "100% acceptance criteria mapped and validated against unit tests and code.",
+                "Automated test verification confirms passing test suite.",
                 "Final quality scorecard approved."
             ],
             Deliverables: Array.Empty<Events.ArtifactItem>(),
@@ -216,6 +216,31 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         );
         _ticketStore.CreateTicket(qaSubtask);
         subtasks.Add(qaSubtask);
+
+        // Subtask 6: Solution Packaging & Repository Integration
+        var intSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var intSubtask = new TicketItem(
+            Id: intSubtaskId,
+            ParentEpicId: parentEpicId,
+            Title: $"[Integration] Solution Packaging & Repository Integration for {userStory.Title}",
+            Description: "Integration & Release Engineer packages multi-file deliverables into Clean Architecture project folders, updates .csproj and .slnx solution files, wires DI into Program.cs, and publishes Release Manifest.",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Backlog,
+            AssigneeRole: AgentRole.IntegrationEngineer,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: userStory.Priority,
+            DependsOnTicketIds: [qaSubtaskId],
+            AcceptanceCriteria: [
+                "Multi-file artifacts mapped and placed into Clean Architecture folder structure.",
+                "Project and solution files (.slnx, .csproj, CPM) properly wired and compilable.",
+                "Release manifest and integrated solution package generated."
+            ],
+            Deliverables: Array.Empty<Events.ArtifactItem>(),
+            Metadata: new Dictionary<string, string> { ["Stage"] = "Integration" },
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        _ticketStore.CreateTicket(intSubtask);
+        subtasks.Add(intSubtask);
 
         return subtasks;
     }

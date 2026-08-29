@@ -35,6 +35,9 @@ public record TicketItem(
     public TicketItem WithDeliverable(ArtifactItem deliverable) =>
         this with { Deliverables = Deliverables.Append(deliverable).ToList() };
 
+    public TicketItem WithDeliverables(IEnumerable<ArtifactItem> deliverables) =>
+        this with { Deliverables = Deliverables.Concat(deliverables).ToList() };
+
     public TicketItem WithAssignee(AgentRole role) =>
         this with { AssigneeRole = role };
 }

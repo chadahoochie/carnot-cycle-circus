@@ -11,12 +11,14 @@ public class AgentPersonaTests
     private readonly SimulatedScenarioEngine _scenarioEngine = new();
 
     [Theory]
+    [InlineData(AgentRole.RequirementsResearcher)]
     [InlineData(AgentRole.TechnicalProductManager)]
     [InlineData(AgentRole.LeadArchitect)]
     [InlineData(AgentRole.SoftwareDeveloper)]
     [InlineData(AgentRole.SecurityEngineer)]
     [InlineData(AgentRole.OptimizationEngineer)]
     [InlineData(AgentRole.PrincipalQAAnalyst)]
+    [InlineData(AgentRole.IntegrationEngineer)]
     public void PersonaSystemPrompt_ShouldEnforceDeliverableIsolationContract(AgentRole role)
     {
         var persona = AgentPersona.CreateDefault(role);
@@ -27,12 +29,14 @@ public class AgentPersonaTests
     }
 
     [Theory]
+    [InlineData(AgentRole.RequirementsResearcher)]
     [InlineData(AgentRole.TechnicalProductManager)]
     [InlineData(AgentRole.LeadArchitect)]
     [InlineData(AgentRole.SoftwareDeveloper)]
     [InlineData(AgentRole.SecurityEngineer)]
     [InlineData(AgentRole.OptimizationEngineer)]
     [InlineData(AgentRole.PrincipalQAAnalyst)]
+    [InlineData(AgentRole.IntegrationEngineer)]
     public async Task RoleDeliverables_ShouldBeProfessionalAndSyntacticallyValid(AgentRole role)
     {
         var ticket = new TicketItem(

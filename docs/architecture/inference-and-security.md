@@ -103,17 +103,46 @@ public (string Model, string ApiKey) ResolveInferenceParameters(AgentMember memb
 
 ---
 
-## 4. Offline Simulation Engine (`SimulatedScenarioEngine`)
+## 4. Inference Orchestration & Simulation Engine (`SimulatedScenarioEngine`)
 
-When live API keys are not provided (or when using sandbox/mock keys), the platform automatically engages the **Simulated Scenario Engine**:
+The **`SimulatedScenarioEngine`** coordinates live OpenRouter inference, autonomous self-healing, upstream context continuity, and deterministic offline simulation fallbacks:
 
-- Generates realistic, fully compliant engineering deliverables:
-  - **TPM**: PRDs with executive summaries, user context, and acceptance criteria.
-  - **Lead Architect**: ADRs in MADR format with immutable record contracts.
-  - **Developer**: Compilable C# 13 zero-allocation service classes.
-  - **Security**: Complete STRIDE threat models with 0 findings.
-  - **Optimization**: BenchmarkDotNet tables showing sub-5ms P99 and 0B Gen0 allocations.
-  - **QA**: QA certification scorecards with 100% acceptance traceability.
+### 4.1 Upstream Inter-Agent Context Continuity (`GatherUpstreamDeliverables`)
+To ensure downstream agents have complete visibility into upstream artifacts:
+- **Parent Epic Traversal**: Retrieves PRD artifacts produced by the TPM.
+- **Dependency Ticket Traversal**: Aggregates ADRs from the Lead Architect, C# source code & test suites from the Developer.
+- **Prompt Injection**: Injects formatted `=== UPSTREAM INTER-AGENT DELIVERABLE CONTEXT ===` blocks into role prompts, allowing:
+  - Lead Architect to align system design with the TPM's PRD.
+  - Developer to implement the exact C# type contracts specified in the Architect's ADR.
+  - Security Engineer to perform STRIDE audits against actual C# source code.
+  - Optimization Engineer to benchmark actual service methods.
+  - Principal QA Analyst to map 100% of acceptance criteria directly to unit test assertions.
+- **Host Codebase Context**: Injects solution name, target namespace, project names, and detected architecture patterns from `ICodebaseHarvesterService`.
+
+### 4.2 Multi-File Deliverable Parsing
+When generating C# implementations, the Software Developer agent outputs modular files tagged via markdown code blocks:
+- ````csharp:I<Domain>Pipeline.cs```` (Domain models and service interface contracts)
+- ````csharp:<Domain>PipelineService.cs```` (Zero-allocation service implementations)
+- ````csharp:<Domain>ServiceCollectionExtensions.cs```` (Dependency injection registration extensions)
+- ````csharp:<Domain>PipelineTests.cs```` (xUnit unit test suites)
+
+`ParseDeliverableArtifacts` extracts each block into individual, named `ArtifactItem` objects for discrete storage and downstream routing.
+
+### 4.3 Autonomous C# Syntax Self-Healing Loop
+When live inference generates C# source code, the engine executes an immediate syntax validation pass:
+1. `CSharpSyntaxCheckTool` parses AST syntax, balanced tokens, and method declarations.
+2. If syntax errors are found, the engine publishes an alert event to `IAgentEventStream` and constructs a targeted remediation prompt detailing the exact syntax defects.
+3. The LLM produces a corrected multi-file bundle at low temperature (`temp=0.1`).
+4. The healed bundle is validated and returned, preventing avoidable pipeline failure rejections.
+
+### 4.4 Deterministic Offline Fallback
+When live API keys are unavailable (or when using sandbox/mock keys), the platform automatically engages deterministic fallback generation:
+- **TPM**: Produces structured PRD with executive summary, domain entities, acceptance criteria, and NFRs.
+- **Lead Architect**: Produces MADR-compliant ADR with exact C# type contracts, interface signatures, and DI extension specifications.
+- **Developer**: Produces a 4-file C# bundle (Interface, Service, DI Extensions, and Unit Tests) adhering to zero-allocation ValueTask patterns.
+- **Security Engineer**: Produces STRIDE threat model evaluating actual method signatures and memory buffers.
+- **Optimization Engineer**: Produces BenchmarkDotNet report with 0 Gen0 allocations and sub-5ms P99 latency.
+- **Principal QA Analyst**: Produces QA acceptance scorecard verifying 100% traceability against unit test cases.
 - Guarantees 100% deterministic test execution in CI/CD pipelines without incurring LLM inference costs or requiring network access.
 
 ---

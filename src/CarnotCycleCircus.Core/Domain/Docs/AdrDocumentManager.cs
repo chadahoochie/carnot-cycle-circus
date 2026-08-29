@@ -310,6 +310,57 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr12.Id] = adr12;
 
+        var adr13 = new ArchitecturalDecisionRecord(
+            Id: "ADR-013",
+            Title: "Multi-File Deliverable Generation, Autonomous Syntax Self-Healing, and Inter-Agent Context Pipeline",
+            Status: AdrStatus.Accepted,
+            Context: "Complex enterprise .NET architectures require modular multi-file code structures (Models, Services, DI Extensions, Unit Tests), resilient syntax verification, upstream deliverable context across DAG nodes, and first-class PRD tracking.",
+            Decision: "Implement multi-file csharp:FileName.cs parsing in SimulatedScenarioEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
+            AlternativesConsidered: [
+                "Single monolithic file generation (rejected: violates .NET clean architecture and test separation)",
+                "Fail-fast pipeline abort on syntax errors (rejected: creates avoidable pipeline rejections when immediate remediation resolves defects)",
+                "Passing entire ticket store to prompts (rejected: causes token context window exhaustion)"
+            ],
+            ConsequencesPositive: [
+                "Software Developer agents produce clean modular multi-file bundles matching enterprise conventions",
+                "Self-healing syntax loop eliminates avoidable compilation failure rejections before review",
+                "Strict upstream context continuity ensures reviewers evaluate actual upstream code and architectural decisions",
+                "PRDs are tracked as first-class deliverables with repository disk sync"
+            ],
+            ConsequencesNegative: [
+                "Self-healing loop incurs additional LLM completion call when syntax errors are detected in live inference",
+                "Upstream deliverable injection increases prompt token payload, requiring truncation limits on large artifacts"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr13.Id] = adr13;
+
+        var adr14 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0014",
+            Title: "Dedicated Requirements Researcher Agent and Upstream Discovery DAG Stage",
+            Status: AdrStatus.Accepted,
+            Context: "Monolithic TPM discovery overloaded context windows with raw search outputs and mixed convergent discovery with structured ticket decomposition, leading to hallucination risks before architectural design.",
+            Decision: "Introduce RequirementsResearcher (Rachel 'DeepDive' Reference) as Stage 1 of the DAG prior to TPM, generating formal _RESEARCH_BRIEF.md deliverables grounded in RFCs and codebase boundaries.",
+            AlternativesConsidered: [
+                "Monolithic TPM with integrated web search tools (rejected: token budget exhaustion and prompt distraction)",
+                "Ad-hoc dynamic subagent tool calls (rejected: loses explicit DAG visualization and dedicated failure recovery cabling)",
+                "Optional unverified research spikes (rejected: ungrounded assumptions cascade into developer code generation)"
+            ],
+            ConsequencesPositive: [
+                "Clean cognitive separation between exploratory requirement scouting and structured epic decomposition",
+                "Downstream TPM PRDs are grounded in real RFC standards and harvested repository context",
+                "First-class visual observability and failure recovery cables on the workflow canvas",
+                "Research briefs are versioned and categorized under artifacts/research/"
+            ],
+            ConsequencesNegative: [
+                "Adds one sequential LLM inference hop before ticket decomposition during full-lifecycle workflows"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr14.Id] = adr14;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",
