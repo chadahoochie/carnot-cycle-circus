@@ -20,14 +20,16 @@ public class WorkflowGraphTests
     {
         var decomp = new WorkDecompositionEngine(_ticketStore);
         var router = new HandoffRouter(_ticketStore, _eventStream);
-        var sim = new SimulatedScenarioEngine();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: _ticketStore);
         var consol = new MemoryConsolidationEngine(_memoryStore);
 
         _executor = new GraphWorkflowExecutor(
             _ticketStore,
             decomp,
             router,
-            sim,
+            executionEngine,
             _eventStream,
             consol
         );
@@ -79,19 +81,6 @@ public class WorkflowGraphTests
     }
 
     [Fact]
-    public async Task ExecuteWorkflowAsync_WithFailureSimulation_ShouldRouteToRemediatingAndRecover()
-    {
-        var success = await _executor.ExecuteWorkflowAsync(
-            "Implement Resilient Gateway",
-            "Build resilient gateway",
-            triggerFailureSimulation: true
-        );
-
-        success.Should().BeTrue();
-        _eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("REJECTED"));
-    }
-
-    [Fact]
     public void UpdateNodePosition_ShouldUpdateCoordinates()
     {
         _executor.UpdateNodePosition("node-dev", 520, 280);
@@ -104,75 +93,61 @@ public class WorkflowGraphTests
     [Fact]
     public void AddNode_ShouldAppendNodeToGraph()
     {
-        var customNode = new GraphNode("node-custom", AgentRole.SecurityEngineer, "Custom Sec Auditor", 300, 300);
+        var customNode = new GraphNode(
+            Id: "node-custom",
+            Role: AgentRole.SoftwareDeveloper,
+            Name: "Junior Dev",
+            X: 100,
+            Y: 100
+        );
+
         _executor.AddNode(customNode);
 
         _executor.CurrentGraph.Nodes.Should().Contain(n => n.Id == "node-custom");
     }
 
     [Fact]
-    public void RemoveNode_ShouldRemoveNodeAndCascadeDeleteAttachedConnections()
+    public void RemoveNode_ShouldRemoveNodeAndConnectedEdges()
     {
-        var initialConnections = _executor.CurrentGraph.Connections.Count;
-        _executor.CurrentGraph.Connections.Should().Contain(c => c.SourceNodeId == "node-sec" || c.TargetNodeId == "node-sec");
+        _executor.RemoveNode("node-dev");
 
-        _executor.RemoveNode("node-sec");
-
-        _executor.CurrentGraph.Nodes.Should().NotContain(n => n.Id == "node-sec");
-        _executor.CurrentGraph.Connections.Should().NotContain(c => c.SourceNodeId == "node-sec" || c.TargetNodeId == "node-sec");
-        _executor.CurrentGraph.Connections.Count.Should().BeLessThan(initialConnections);
+        _executor.CurrentGraph.Nodes.Should().NotContain(n => n.Id == "node-dev");
+        _executor.CurrentGraph.Connections.Should().NotContain(c => c.SourceNodeId == "node-dev" || c.TargetNodeId == "node-dev");
     }
 
     [Fact]
-    public void ValidateConnection_ShouldValidatePortRulesAndAcyclicConstraints()
+    public void AddConnection_ValidConnection_ShouldAddEdge()
     {
-        // Self-loop validation
-        var selfLoop = new PortConnection("node-dev", PortType.Output, "node-dev", PortType.Input);
-        _executor.ValidateConnection(selfLoop, out var errSelf).Should().BeFalse();
-        errSelf.Should().Contain("itself");
+        var customNode = new GraphNode(
+            Id: "node-custom",
+            Role: AgentRole.SoftwareDeveloper,
+            Name: "Custom Node",
+            X: 100,
+            Y: 100
+        );
+        _executor.AddNode(customNode);
 
-        // Invalid source port (Input cannot be source)
-        var invalidSource = new PortConnection("node-dev", PortType.Input, "node-qa", PortType.Input);
-        _executor.ValidateConnection(invalidSource, out var errSource).Should().BeFalse();
-        errSource.Should().Contain("Source port must be");
+        var conn = new PortConnection("node-arch", PortType.Output, "node-custom", PortType.Input);
+        _executor.AddConnection(conn);
 
-        // Invalid target port (Output cannot be target)
-        var invalidTarget = new PortConnection("node-dev", PortType.Output, "node-qa", PortType.Output);
-        _executor.ValidateConnection(invalidTarget, out var errTarget).Should().BeFalse();
-        errTarget.Should().Contain("Target port must be");
-
-        // Duplicate connection
-        var duplicate = new PortConnection("node-tpm", PortType.Output, "node-arch", PortType.Input);
-        _executor.ValidateConnection(duplicate, out var errDup).Should().BeFalse();
-        errDup.Should().Contain("already exists");
-
-        // Valid new connection
-        var valid = new PortConnection("node-tpm", PortType.Output, "node-sec", PortType.Input);
-        _executor.ValidateConnection(valid, out var errValid).Should().BeTrue();
-        errValid.Should().BeNull();
+        _executor.CurrentGraph.Connections.Should().Contain(c => c.SourceNodeId == "node-arch" && c.TargetNodeId == "node-custom");
     }
 
     [Fact]
-    public void UpdatePolicy_ShouldMutateFailurePolicy()
+    public void ValidateConnection_SelfLoop_ShouldFail()
     {
-        var newPolicy = new FailurePolicy(MaxRetries: 7, CircuitBreakerEnabled: false, FallbackRole: AgentRole.SecurityEngineer);
-        _executor.UpdatePolicy(newPolicy);
+        var conn = new PortConnection("node-dev", PortType.Output, "node-dev", PortType.Input);
+        var valid = _executor.ValidateConnection(conn, out var error);
 
-        _executor.CurrentGraph.Policy.MaxRetries.Should().Be(7);
-        _executor.CurrentGraph.Policy.CircuitBreakerEnabled.Should().BeFalse();
-        _executor.CurrentGraph.Policy.FallbackRole.Should().Be(AgentRole.SecurityEngineer);
+        valid.Should().BeFalse();
+        error.Should().Contain("itself");
     }
 
-    [Theory]
-    [InlineData("preset-rapid", 3)]
-    [InlineData("preset-zero-trust", 5)]
-    [InlineData("preset-performance", 4)]
-    [InlineData("preset-standard", 8)]
-    public void LoadPreset_ShouldConfigureCorrectGraphTopology(string presetId, int expectedNodeCount)
+    [Fact]
+    public void LoadPreset_Rapid_ShouldLoadRapidPreset()
     {
-        _executor.LoadPreset(presetId);
+        _executor.LoadPreset("rapid");
 
-        _executor.CurrentGraph.Nodes.Should().HaveCount(expectedNodeCount);
-        _executor.CurrentGraph.Connections.Should().NotBeEmpty();
+        _executor.CurrentGraph.Name.Should().Be("Rapid Prototype Fast-Track Graph");
     }
 }

@@ -87,24 +87,6 @@ public class ApiKeyVaultService : IApiKeyVaultService
         {
             loaded = MigrateFromLegacyStorage();
         }
-
-        if (!loaded)
-        {
-            // Seed with a default simulated sandbox key
-            var defaultKey = new ApiKeyVaultEntry(
-                KeyId: "key-circus-sandbox",
-                KeyName: "Default OpenRouter Sandbox (Simulation Mode)",
-                RawApiKey: "sk-or-v1-sandbox-mock-carnot-circus-0001",
-                Provider: "OpenRouter",
-                IsActive: true,
-                CreatedAt: DateTimeOffset.UtcNow,
-                LastAccessedAt: DateTimeOffset.UtcNow,
-                EncryptionAlgorithm: _encryptor.Algorithm,
-                KeyVersion: 1
-            );
-            _keys[defaultKey.KeyId] = defaultKey;
-            SaveToStorage();
-        }
     }
 
     private static byte[] GetAssociatedData(string keyId, string provider) =>

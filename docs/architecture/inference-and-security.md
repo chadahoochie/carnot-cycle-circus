@@ -103,9 +103,9 @@ public (string Model, string ApiKey) ResolveInferenceParameters(AgentMember memb
 
 ---
 
-## 4. Inference Orchestration & Simulation Engine (`SimulatedScenarioEngine`)
+## 4. Inference Orchestration & Execution Engine (`AgentExecutionEngine`)
 
-The **`SimulatedScenarioEngine`** coordinates live OpenRouter inference, autonomous self-healing, upstream context continuity, and deterministic offline simulation fallbacks:
+The **`AgentExecutionEngine`** coordinates live OpenRouter inference, autonomous self-healing, upstream context continuity, and multi-file deliverable synthesis:
 
 ### 4.1 Upstream Inter-Agent Context Continuity (`GatherUpstreamDeliverables`)
 To ensure downstream agents have complete visibility into upstream artifacts:
@@ -135,15 +135,8 @@ When live inference generates C# source code, the engine executes an immediate s
 3. The LLM produces a corrected multi-file bundle at low temperature (`temp=0.1`).
 4. The healed bundle is validated and returned, preventing avoidable pipeline failure rejections.
 
-### 4.4 Deterministic Offline Fallback
-When live API keys are unavailable (or when using sandbox/mock keys), the platform automatically engages deterministic fallback generation:
-- **TPM**: Produces structured PRD with executive summary, domain entities, acceptance criteria, and NFRs.
-- **Lead Architect**: Produces MADR-compliant ADR with exact C# type contracts, interface signatures, and DI extension specifications.
-- **Developer**: Produces a 4-file C# bundle (Interface, Service, DI Extensions, and Unit Tests) adhering to zero-allocation ValueTask patterns.
-- **Security Engineer**: Produces STRIDE threat model evaluating actual method signatures and memory buffers.
-- **Optimization Engineer**: Produces BenchmarkDotNet report with 0 Gen0 allocations and sub-5ms P99 latency.
-- **Principal QA Analyst**: Produces QA acceptance scorecard verifying 100% traceability against unit test cases.
-- Guarantees 100% deterministic test execution in CI/CD pipelines without incurring LLM inference costs or requiring network access.
+### 4.4 Test Isolation & Mock Fixtures
+For fast, zero-cost unit and integration test execution, tests utilize `MockOpenRouterClient` (implementing `IOpenRouterClient`), ensuring 100% test isolation without incurring API costs or requiring network access in CI/CD pipelines.
 
 ---
 

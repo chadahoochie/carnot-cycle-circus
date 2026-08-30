@@ -23,12 +23,8 @@
             ➕ Add Node
         </button>
 
-        <button class="btn btn-primary" @onclick="() => RunWorkflow(false)" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
+        <button class="btn btn-primary" @onclick="() => RunWorkflow()" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
             🚀 Unleash Workflow
-        </button>
-
-        <button class="btn btn-danger" @onclick="() => RunWorkflow(true)" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
-            🚨 Panic / Failure Sim
         </button>
 
         <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
@@ -701,12 +697,12 @@
         }
     }
 
-    private async Task RunWorkflow(bool triggerFailure = false)
+    private async Task RunWorkflow()
     {
         _errorMessage = null;
-        _successMessage = $"Workflow execution running (Failure Simulation: {(triggerFailure ? "ON" : "OFF")})...";
+        _successMessage = "Workflow execution running...";
         var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
-        if (readyTickets.Count > 0 && !triggerFailure)
+        if (readyTickets.Count > 0)
         {
             await GraphExecutor.ExecuteReadyTicketsAsync();
         }
@@ -714,8 +710,7 @@
         {
             await GraphExecutor.ExecuteWorkflowAsync(
                 "Visual DAG Workflow Execution",
-                "Execute end-to-end multi-agent engineering workflow directly from interactive DAG canvas.",
-                triggerFailureSimulation: triggerFailure
+                "Execute end-to-end multi-agent engineering workflow directly from interactive DAG canvas."
             );
         }
         _successMessage = "Workflow execution completed!";

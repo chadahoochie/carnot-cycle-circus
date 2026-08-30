@@ -71,6 +71,7 @@ public interface IAdrDocumentManager
     bool DeleteDoc(string id);
 
     string ExportCompleteMarkdownBundle();
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class AdrDocumentManager : IAdrDocumentManager
@@ -78,6 +79,7 @@ public class AdrDocumentManager : IAdrDocumentManager
     private readonly ConcurrentDictionary<string, ArchitecturalDecisionRecord> _adrs = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ProjectDocument> _docs = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string AdrsFileName = "adrs.json";
     private const string DocsFileName = "docs.json";
 
@@ -122,26 +124,37 @@ public class AdrDocumentManager : IAdrDocumentManager
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _storageService.SaveJsonAsync(AdrsFileName, _adrs.Values.ToList(), cancellationToken);
+            await _storageService.SaveJsonAsync(DocsFileName, _docs.Values.ToList(), cancellationToken);
+
+            // Also persist markdown versions in artifacts directory
+            foreach (var adr in _adrs.Values)
+            {
+                await _storageService.SaveTextAsync($"artifacts/adrs/{adr.Id}.md", adr.ToMarkdown(), cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ignore transient write errors
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                await _storageService.SaveJsonAsync(AdrsFileName, _adrs.Values.ToList());
-                await _storageService.SaveJsonAsync(DocsFileName, _docs.Values.ToList());
-
-                // Also persist markdown versions in artifacts directory
-                foreach (var adr in _adrs.Values)
-                {
-                    await _storageService.SaveTextAsync($"artifacts/adrs/{adr.Id}.md", adr.ToMarkdown());
-                }
-            }
-            catch
-            {
-                // Ignore transient write errors
-            }
+            await FlushAsync();
         });
     }
 
@@ -315,7 +328,7 @@ public class AdrDocumentManager : IAdrDocumentManager
             Title: "Multi-File Deliverable Generation, Autonomous Syntax Self-Healing, and Inter-Agent Context Pipeline",
             Status: AdrStatus.Accepted,
             Context: "Complex enterprise .NET architectures require modular multi-file code structures (Models, Services, DI Extensions, Unit Tests), resilient syntax verification, upstream deliverable context across DAG nodes, and first-class PRD tracking.",
-            Decision: "Implement multi-file csharp:FileName.cs parsing in SimulatedScenarioEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
+            Decision: "Implement multi-file csharp:FileName.cs parsing in AgentExecutionEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
             AlternativesConsidered: [
                 "Single monolithic file generation (rejected: violates .NET clean architecture and test separation)",
                 "Fail-fast pipeline abort on syntax errors (rejected: creates avoidable pipeline rejections when immediate remediation resolves defects)",

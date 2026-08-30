@@ -49,7 +49,7 @@ C4Container
             Component(tickets, "Ticket & Handoff Engine", "ITicketStore, IWorkDecompositionEngine, IHandoffRouter", "Manages Epics, Stories, Subtasks, DAG dependency resolution, and inter-agent handoff packets.")
             Component(memory, "Hierarchical Memory System", "IPersistentMemoryStore, IMemoryConsolidationEngine", "4-tier memory, 64-dim vector cosine similarity search, and automated task consolidation.")
             Component(orchestrator, "Graph Workflow Orchestrator", "IGraphWorkflowExecutor, WorkflowGraph", "Executes DAG nodes, tracks execution states, routes failure ports, and applies circuit breakers.")
-            Component(inference, "Inference & Key Vault Hub", "IApiKeyVaultService, IOpenRouterClient, ISimulatedScenarioEngine", "Resolves keys and models per agent, routes LLM completions, or executes offline deterministic simulations.")
+            Component(inference, "Inference & Key Vault Hub", "IApiKeyVaultService, IOpenRouterClient, IAgentExecutionEngine", "Resolves keys and models per agent and routes real LLM completions.")
             Component(governance, "Standards & ADR Hub", "IStandardsValidator, IAdrDocumentManager", "Validates ticket policies, generates MADR/Nygard ADRs, and formats documentation bundles.")
             Component(knowledge, "Knowledge Maps & Skills", "IKnowledgeMapService, ISkillRegistry", "Maintains AI concept graphs, extracts sub-graphs, and registers role capabilities.")
             Component(stream, "Real-Time Event Stream", "IAgentEventStream", "Thread-safe in-memory pub/sub message bus broadcasting telemetry and agent banter.")
@@ -91,7 +91,7 @@ carnot-cycle-circus/
 │   │   │   ├── Events/                 # AgentEventStream, AgentMessage, ArtifactItem
 │   │   │   ├── Graph/                  # WorkflowGraph, GraphWorkflowExecutor, Ports
 │   │   │   ├── Harvester/              # CodebaseHarvesterService
-│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, SimulatedScenarioEngine, ModelCatalogService
+│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, AgentExecutionEngine, ModelCatalogService
 │   │   │   ├── Knowledge/              # KnowledgeMapService, KnowledgeNode, KnowledgeEdge
 │   │   │   ├── Learning/               # SelfImprovementEngine, AutonomousSelfImprovementWorker
 │   │   │   ├── Memory/                 # MemoryEntry, PersistentMemoryStore, MemoryServices
@@ -243,7 +243,7 @@ public static IServiceCollection AddCarnotCycleCircusCore(this IServiceCollectio
     services.AddSingleton<IApiKeyVaultService, ApiKeyVaultService>();
     services.AddSingleton<IOpenRouterClient, OpenRouterClient>();
     services.AddSingleton<IAgentInferenceResolver, AgentInferenceResolver>();
-    services.AddSingleton<ISimulatedScenarioEngine, SimulatedScenarioEngine>();
+    services.AddSingleton<IAgentExecutionEngine, AgentExecutionEngine>();
 
     // Tools Sandbox
     services.AddSingleton<IToolDefinition, WebSearchTool>();

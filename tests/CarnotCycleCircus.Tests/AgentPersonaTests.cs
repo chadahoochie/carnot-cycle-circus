@@ -8,7 +8,14 @@ namespace CarnotCycleCircus.Tests;
 
 public class AgentPersonaTests
 {
-    private readonly SimulatedScenarioEngine _scenarioEngine = new();
+    private readonly AgentExecutionEngine _executionEngine;
+
+    public AgentPersonaTests()
+    {
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        _executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver);
+    }
 
     [Theory]
     [InlineData(AgentRole.RequirementsResearcher)]
@@ -60,7 +67,7 @@ public class AgentPersonaTests
             CreatedAt: DateTimeOffset.UtcNow
         );
 
-        var artifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(role, ticket);
+        var artifacts = await _executionEngine.ExecuteRoleTaskAsync(role, ticket);
 
         artifacts.Should().NotBeEmpty();
         foreach (var artifact in artifacts)

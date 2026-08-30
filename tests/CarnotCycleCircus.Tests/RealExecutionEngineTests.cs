@@ -12,64 +12,8 @@ namespace CarnotCycleCircus.Tests;
 
 public class RealExecutionEngineTests
 {
-    private sealed class MockOpenRouterClient : IOpenRouterClient
-    {
-        public OpenRouterChatRequest? LastRequest { get; private set; }
-        public string? LastApiKey { get; private set; }
-        public bool ShouldThrow { get; set; }
-
-        public Task<OpenRouterChatResponse> CompleteAsync(
-            OpenRouterChatRequest request,
-            string apiKey,
-            CancellationToken cancellationToken = default)
-        {
-            if (ShouldThrow)
-            {
-                throw new HttpRequestException("OpenRouter API returned 401 Unauthorized: Invalid API key.");
-            }
-
-            LastRequest = request;
-            LastApiKey = apiKey;
-
-            var codeContent = """
-            namespace CarnotCycleCircus.Services;
-            using System;
-            using System.Threading;
-            using System.Threading.Tasks;
-
-            public sealed class RealLlmService
-            {
-                public async ValueTask<bool> ExecuteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
-                {
-                    await Task.Yield();
-                    return true;
-                }
-            }
-            """;
-
-            var response = new OpenRouterChatResponse(
-                Id: "gen-12345",
-                Model: request.Model,
-                Choices: [
-                    new OpenRouterChoice(0, new OpenRouterMessage("assistant", $"```csharp\n{codeContent}\n```"), "stop")
-                ],
-                Usage: new OpenRouterUsage(200, 150, 350)
-            );
-
-            return Task.FromResult(response);
-        }
-
-        public Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(
-            string? apiKey = null,
-            CancellationToken cancellationToken = default)
-        {
-            IReadOnlyList<OpenRouterRawModelDto> list = Array.Empty<OpenRouterRawModelDto>();
-            return Task.FromResult(list);
-        }
-    }
-
     [Fact]
-    public async Task SimulatedScenarioEngine_WithRealOpenRouterKey_ShouldCallOpenRouterAndProduceDeliverable()
+    public async Task AgentExecutionEngine_WithRealOpenRouterKey_ShouldCallOpenRouterAndProduceDeliverable()
     {
         var mockClient = new MockOpenRouterClient();
         var keyVault = new ApiKeyVaultService();
@@ -79,7 +23,7 @@ public class RealExecutionEngineTests
         var inferenceResolver = new AgentInferenceResolver(keyVault);
         var eventStream = new AgentEventStream();
 
-        var engine = new SimulatedScenarioEngine(
+        var engine = new AgentExecutionEngine(
             openRouterClient: mockClient,
             inferenceResolver: inferenceResolver,
             teamManager: teamManager,
@@ -103,7 +47,7 @@ public class RealExecutionEngineTests
             CreatedAt: DateTimeOffset.UtcNow
         );
 
-        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.SoftwareDeveloper, ticket);
+        var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
 
         deliverables.Should().HaveCount(1);
         mockClient.LastRequest.Should().NotBeNull();
@@ -111,11 +55,11 @@ public class RealExecutionEngineTests
 
         var artifact = deliverables[0];
         artifact.ContentType.Should().Be("csharp");
-        artifact.Content.Should().Contain("class RealLlmService");
+        artifact.Content.Should().Contain("class Service");
     }
 
     [Fact]
-    public async Task SimulatedScenarioEngine_WithUpstreamADR_ShouldInjectADRIntoDeveloperPrompt()
+    public async Task AgentExecutionEngine_WithUpstreamADR_ShouldInjectADRIntoDeveloperPrompt()
     {
         var mockClient = new MockOpenRouterClient();
         var keyVault = new ApiKeyVaultService();
@@ -183,7 +127,7 @@ public class RealExecutionEngineTests
         );
         ticketStore.CreateTicket(devTicket);
 
-        var engine = new SimulatedScenarioEngine(
+        var engine = new AgentExecutionEngine(
             openRouterClient: mockClient,
             inferenceResolver: inferenceResolver,
             teamManager: teamManager,
@@ -191,7 +135,7 @@ public class RealExecutionEngineTests
             ticketStore: ticketStore
         );
 
-        await engine.ExecuteRoleTaskSimulationAsync(AgentRole.SoftwareDeveloper, devTicket);
+        await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket);
 
         mockClient.LastRequest.Should().NotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
@@ -203,7 +147,7 @@ public class RealExecutionEngineTests
     }
 
     [Fact]
-    public async Task SimulatedScenarioEngine_WithMultiFileCodeBlock_ShouldParseMultipleArtifacts()
+    public async Task AgentExecutionEngine_WithMultiFileCodeBlock_ShouldParseMultipleArtifacts()
     {
         var multiFileContent = """
         ```csharp:Contracts/IPubSubStream.cs
@@ -222,15 +166,15 @@ public class RealExecutionEngineTests
         ```
         """;
 
-        var mockClient = new MockOpenRouterClient();
+        var mockClient = new MockOpenRouterClient
+        {
+            ResponseFactory = _ => multiFileContent
+        };
         var keyVault = new ApiKeyVaultService();
         keyVault.AddOrUpdateKey("Key", "sk-or-v1-custom-key", isActive: true);
 
-        // Subclass mock to return multi-file response
-        var multiMock = new MultiFileMockClient(multiFileContent);
-
-        var engine = new SimulatedScenarioEngine(
-            openRouterClient: multiMock,
+        var engine = new AgentExecutionEngine(
+            openRouterClient: mockClient,
             inferenceResolver: new AgentInferenceResolver(keyVault),
             teamManager: new TeamDefinitionManager(),
             eventStream: new AgentEventStream()
@@ -253,14 +197,14 @@ public class RealExecutionEngineTests
             CreatedAt: DateTimeOffset.UtcNow
         );
 
-        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.SoftwareDeveloper, ticket);
+        var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
 
         deliverables.Should().HaveCount(3);
         deliverables.Select(d => d.Name).Should().Contain(["IPubSubStream.cs", "PubSubStreamService.cs", "PubSubStreamTests.cs"]);
     }
 
     [Fact]
-    public async Task SimulatedScenarioEngine_WithDeveloperDeliverables_ShouldInjectCodeIntoSecurityPrompt()
+    public async Task AgentExecutionEngine_WithDeveloperDeliverables_ShouldInjectCodeIntoSecurityPrompt()
     {
         var mockClient = new MockOpenRouterClient();
         var keyVault = new ApiKeyVaultService();
@@ -303,7 +247,7 @@ public class RealExecutionEngineTests
         );
         ticketStore.CreateTicket(secTicket);
 
-        var engine = new SimulatedScenarioEngine(
+        var engine = new AgentExecutionEngine(
             openRouterClient: mockClient,
             inferenceResolver: new AgentInferenceResolver(keyVault),
             teamManager: new TeamDefinitionManager(),
@@ -311,7 +255,7 @@ public class RealExecutionEngineTests
             ticketStore: ticketStore
         );
 
-        await engine.ExecuteRoleTaskSimulationAsync(AgentRole.SecurityEngineer, secTicket);
+        await engine.ExecuteRoleTaskAsync(AgentRole.SecurityEngineer, secTicket);
 
         mockClient.LastRequest.Should().NotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
@@ -323,7 +267,7 @@ public class RealExecutionEngineTests
     }
 
     [Fact]
-    public async Task SimulatedScenarioEngine_WithDeveloperDeliverables_ShouldInjectCodeIntoQAPrompt()
+    public async Task AgentExecutionEngine_WithDeveloperDeliverables_ShouldInjectCodeIntoQAPrompt()
     {
         var mockClient = new MockOpenRouterClient();
         var keyVault = new ApiKeyVaultService();
@@ -369,7 +313,7 @@ public class RealExecutionEngineTests
         );
         ticketStore.CreateTicket(qaTicket);
 
-        var engine = new SimulatedScenarioEngine(
+        var engine = new AgentExecutionEngine(
             openRouterClient: mockClient,
             inferenceResolver: new AgentInferenceResolver(keyVault),
             teamManager: new TeamDefinitionManager(),
@@ -377,7 +321,7 @@ public class RealExecutionEngineTests
             ticketStore: ticketStore
         );
 
-        await engine.ExecuteRoleTaskSimulationAsync(AgentRole.PrincipalQAAnalyst, qaTicket);
+        await engine.ExecuteRoleTaskAsync(AgentRole.PrincipalQAAnalyst, qaTicket);
 
         mockClient.LastRequest.Should().NotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
@@ -389,77 +333,16 @@ public class RealExecutionEngineTests
     }
 
     [Fact]
-    public async Task SimulatedScenarioEngine_DeterministicFallback_ShouldProduceMultiFileCSharpBundle()
+    public async Task AgentExecutionEngine_WhenNoApiKey_ShouldThrowAndPublishAlert()
     {
-        var engine = new SimulatedScenarioEngine();
-
-        var ticket = new TicketItem(
-            Id: "SUB-DEV-FALLBACK",
-            ParentEpicId: "EPIC-FB",
-            Title: "Implement IoT Telemetry Ingestion Pipeline",
-            Description: "Deterministic fallback test",
-            Type: TicketType.Subtask,
-            Status: TicketStatus.Ready,
-            AssigneeRole: AgentRole.SoftwareDeveloper,
-            CreatedByRole: AgentRole.LeadArchitect,
-            Priority: TicketPriority.High,
-            DependsOnTicketIds: Array.Empty<string>(),
-            AcceptanceCriteria: ["Zero allocations", "xUnit tests included"],
-            Deliverables: Array.Empty<ArtifactItem>(),
-            Metadata: new Dictionary<string, string>(),
-            CreatedAt: DateTimeOffset.UtcNow
-        );
-
-        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.SoftwareDeveloper, ticket);
-
-        // Fallback should produce 4 files: Interface, Service, DI, Tests
-        deliverables.Should().HaveCount(4);
-        deliverables.Select(d => d.Name).Should().Contain([
-            "IIoTTelemetryIngestionPipelinePipeline.cs",
-            "IoTTelemetryIngestionPipelinePipelineService.cs",
-            "IoTTelemetryIngestionPipelineServiceCollectionExtensions.cs",
-            "IoTTelemetryIngestionPipelinePipelineTests.cs"
-        ]);
-
-        var serviceFile = deliverables.First(d => d.Name.EndsWith("Service.cs"));
-        serviceFile.Content.Should().Contain("class IoTTelemetryIngestionPipelinePipelineService");
-        serviceFile.Content.Should().Contain("ValueTask<IoTTelemetryIngestionPipelineResult>");
-    }
-
-    private sealed class MultiFileMockClient : IOpenRouterClient
-    {
-        private readonly string _content;
-        public MultiFileMockClient(string content) => _content = content;
-
-        public Task<OpenRouterChatResponse> CompleteAsync(OpenRouterChatRequest request, string apiKey, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(new OpenRouterChatResponse(
-                Id: "multi-123",
-                Model: request.Model,
-                Choices: [new OpenRouterChoice(0, new OpenRouterMessage("assistant", _content), "stop")],
-                Usage: new OpenRouterUsage(100, 100, 200)
-            ));
-        }
-
-        public Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(string? apiKey = null, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<OpenRouterRawModelDto>>(Array.Empty<OpenRouterRawModelDto>());
-    }
-
-    [Fact]
-    public async Task SimulatedScenarioEngine_WhenOpenRouterFails_ShouldFallBackToDeterministicAndPublishAlert()
-    {
-        var mockClient = new MockOpenRouterClient { ShouldThrow = true };
-        var keyVault = new ApiKeyVaultService();
-        keyVault.AddOrUpdateKey("Real Key But Expired", "sk-or-v1-real-key-expired", isActive: true);
-
-        var teamManager = new TeamDefinitionManager();
-        var inferenceResolver = new AgentInferenceResolver(keyVault);
+        var mockClient = new MockOpenRouterClient();
+        var keyVault = new ApiKeyVaultService(); // Empty vault
         var eventStream = new AgentEventStream();
 
-        var engine = new SimulatedScenarioEngine(
+        var engine = new AgentExecutionEngine(
             openRouterClient: mockClient,
-            inferenceResolver: inferenceResolver,
-            teamManager: teamManager,
+            inferenceResolver: new AgentInferenceResolver(keyVault),
+            teamManager: new TeamDefinitionManager(),
             eventStream: eventStream
         );
 
@@ -480,15 +363,10 @@ public class RealExecutionEngineTests
             CreatedAt: DateTimeOffset.UtcNow
         );
 
-        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.LeadArchitect, ticket);
+        var act = () => engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*API key*");
 
-        // Should cleanly return fallback deliverables without unhandled exception
-        deliverables.Should().NotBeEmpty();
-        deliverables.Should().Contain(d => d.Name == "TCK-ARCH-001_ADR.md");
-        deliverables.First(d => d.Name == "TCK-ARCH-001_ADR.md").Content.Should().Contain("ADR-014");
-
-        // Event stream should capture the alert
-        eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("OpenRouter API error"));
+        eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
     }
 
     [Fact]
@@ -497,7 +375,9 @@ public class RealExecutionEngineTests
         var ticketStore = new TicketStore();
         var eventStream = new AgentEventStream();
         var handoffRouter = new HandoffRouter(ticketStore, eventStream);
-        var scenarioEngine = new SimulatedScenarioEngine();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore);
         var memoryStore = new EmbeddedVectorMemoryStore();
         var consolidationEngine = new MemoryConsolidationEngine(memoryStore);
         var decompositionEngine = new WorkDecompositionEngine(ticketStore);
@@ -506,7 +386,7 @@ public class RealExecutionEngineTests
             ticketStore,
             decompositionEngine,
             handoffRouter,
-            scenarioEngine,
+            executionEngine,
             eventStream,
             consolidationEngine
         );
@@ -572,7 +452,9 @@ public class RealExecutionEngineTests
         var ticketStore = new TicketStore();
         var eventStream = new AgentEventStream();
         var handoffRouter = new HandoffRouter(ticketStore, eventStream);
-        var scenarioEngine = new SimulatedScenarioEngine();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore);
         var memoryStore = new EmbeddedVectorMemoryStore();
         var consolidationEngine = new MemoryConsolidationEngine(memoryStore);
         var decompositionEngine = new WorkDecompositionEngine(ticketStore);
@@ -581,7 +463,7 @@ public class RealExecutionEngineTests
             ticketStore,
             decompositionEngine,
             handoffRouter,
-            scenarioEngine,
+            executionEngine,
             eventStream,
             consolidationEngine
         );
@@ -635,151 +517,5 @@ public class RealExecutionEngineTests
         // Backlog ticket MUST NOT BE SWEPT TO DONE
         var preservedBacklog = ticketStore.GetTicketById("TCK-FUTURE-01");
         preservedBacklog!.Status.Should().Be(TicketStatus.Backlog);
-    }
-
-    [Fact]
-    public async Task SimulatedScenarioEngine_LeadArchitect_ShouldScaffoldCleanArchitectureAndAdr()
-    {
-        var engine = new SimulatedScenarioEngine();
-        var ticket = new TicketItem(
-            Id: "SUB-ARCH-99",
-            ParentEpicId: "EPIC-99",
-            Title: "[Arch] Design ADR & Scaffold Clean Architecture for Order Processing Engine",
-            Description: "Lead Architect produces Nygard Architectural Decision Record and scaffolds Clean Architecture solution",
-            Type: TicketType.Subtask,
-            Status: TicketStatus.InProgress,
-            AssigneeRole: AgentRole.LeadArchitect,
-            CreatedByRole: AgentRole.LeadArchitect,
-            Priority: TicketPriority.High,
-            DependsOnTicketIds: Array.Empty<string>(),
-            AcceptanceCriteria: ["Scaffold Clean Architecture contracts and record ADR"],
-            Deliverables: Array.Empty<ArtifactItem>(),
-            Metadata: new Dictionary<string, string>(),
-            CreatedAt: DateTimeOffset.UtcNow
-        );
-
-        var artifacts = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.LeadArchitect, ticket);
-
-        artifacts.Should().NotBeEmpty();
-        artifacts.Should().Contain(a => a.Name.Contains("ADR.md"));
-        artifacts.Should().Contain(a => a.Name.StartsWith("I") && a.ContentType == "csharp");
-        artifacts.Should().Contain(a => a.Name.Contains("ServiceCollectionExtensions.cs"));
-    }
-
-    [Fact]
-    public async Task GraphWorkflowExecutor_QA_ShouldRejectToLeadArchitect_WhenAdrIsMissing()
-    {
-        var ticketStore = new TicketStore();
-        var eventStream = new AgentEventStream();
-        var memoryStore = new EmbeddedVectorMemoryStore();
-        var decomp = new WorkDecompositionEngine(ticketStore);
-        var router = new HandoffRouter(ticketStore, eventStream);
-        var scenarioEngine = new SimulatedScenarioEngine(ticketStore: ticketStore);
-        var memoryConsolidation = new MemoryConsolidationEngine(memoryStore);
-
-        var executor = new GraphWorkflowExecutor(
-            ticketStore,
-            decomp,
-            router,
-            scenarioEngine,
-            eventStream,
-            memoryConsolidation
-        );
-
-        var epicId = "EPIC-TEST-NOADR";
-        var epicTicket = new TicketItem(
-            Id: epicId,
-            ParentEpicId: null,
-            Title: "No ADR Epic",
-            Description: "Epic without initial ADR",
-            Type: TicketType.Epic,
-            Status: TicketStatus.InProgress,
-            AssigneeRole: AgentRole.TechnicalProductManager,
-            CreatedByRole: AgentRole.TechnicalProductManager,
-            Priority: TicketPriority.High,
-            DependsOnTicketIds: Array.Empty<string>(),
-            AcceptanceCriteria: ["Deliver feature"],
-            Deliverables: Array.Empty<ArtifactItem>(),
-            Metadata: new Dictionary<string, string>(),
-            CreatedAt: DateTimeOffset.UtcNow
-        );
-        ticketStore.CreateTicket(epicTicket);
-
-        // Execute workflow - with initial missing ADR in first pass, QA detects and alerts failure to Lead Architect
-        var result = await executor.ExecuteWorkflowAsync("No ADR Epic", "Epic without initial ADR");
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task RequirementsResearcher_ShouldProduceStructuredFeasibilityBrief_AndRecommendationsForTpm()
-    {
-        var ticketStore = new TicketStore();
-        var engine = new SimulatedScenarioEngine(ticketStore: ticketStore);
-
-        var ticket = new TicketItem(
-            Id: "RES-TEST-001",
-            ParentEpicId: null,
-            Title: "OAuth 2.1 PKCE & Token Rotation Protocol",
-            Description: "Research authorization server requirements, RFC 9068, and zero-allocation JWT tokens.",
-            Type: TicketType.ResearchSpike,
-            Status: TicketStatus.InProgress,
-            AssigneeRole: AgentRole.RequirementsResearcher,
-            CreatedByRole: AgentRole.RequirementsResearcher,
-            Priority: TicketPriority.High,
-            DependsOnTicketIds: Array.Empty<string>(),
-            AcceptanceCriteria: ["Identify relevant RFCs", "Analyze .NET 10 token libraries", "Provide TPM scope recommendations"],
-            Deliverables: Array.Empty<ArtifactItem>(),
-            Metadata: new Dictionary<string, string>(),
-            CreatedAt: DateTimeOffset.UtcNow
-        );
-
-        var deliverables = await engine.ExecuteRoleTaskSimulationAsync(AgentRole.RequirementsResearcher, ticket);
-
-        deliverables.Should().NotBeEmpty();
-        var brief = deliverables.First();
-        brief.Name.Should().Be("RES-TEST-001_RESEARCH_BRIEF.md");
-        brief.ContentType.Should().Be("markdown");
-        brief.Content.Should().Contain("Requirements Research & Technical Feasibility Brief");
-        brief.Content.Should().Contain("Standards, RFCs & Technical Specifications");
-        brief.Content.Should().Contain("Recommendations for Technical Product Manager");
-    }
-
-    [Fact]
-    public async Task GraphWorkflowExecutor_ShouldExecuteRequirementsResearcher_BeforeTpm_AndAttachResearchBriefToEpic()
-    {
-        var ticketStore = new TicketStore();
-        var eventStream = new AgentEventStream();
-        var memoryStore = new EmbeddedVectorMemoryStore();
-        var decomp = new WorkDecompositionEngine(ticketStore);
-        var router = new HandoffRouter(ticketStore, eventStream);
-        var scenarioEngine = new SimulatedScenarioEngine(ticketStore: ticketStore);
-        var memoryConsolidation = new MemoryConsolidationEngine(memoryStore);
-
-        var executor = new GraphWorkflowExecutor(
-            ticketStore,
-            decomp,
-            router,
-            scenarioEngine,
-            eventStream,
-            memoryConsolidation
-        );
-
-        var epicTitle = "High-Throughput Distributed Rate Limiter";
-        var epicDesc = "Build token bucket rate limiter with zero GC allocations.";
-
-        var success = await executor.ExecuteWorkflowAsync(epicTitle, epicDesc);
-        success.Should().BeTrue();
-
-        // Verify research node completed
-        var resNode = executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.RequirementsResearcher);
-        resNode.State.Should().Be(NodeExecutionState.Completed);
-
-        // Verify Epic ticket has both Research Brief and PRD deliverables attached
-        var epicTicket = ticketStore.GetAllTickets().First(t => t.Type == TicketType.Epic);
-        epicTicket.Deliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
-        epicTicket.Deliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
-
-        // Verify event stream broadcasted research banter
-        eventStream.GetHistory().Should().Contain(m => m.Role == AgentRole.RequirementsResearcher && m.Content.Contains("Feasibility Brief"));
     }
 }

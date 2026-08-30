@@ -19,9 +19,6 @@
         <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
             ⏭️ Poke Next Agent
         </button>
-        <button class="btn btn-danger" @onclick="RunFailureSimulation" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
-            🚨 Simulate Panic & Meltdown
-        </button>
         <button class="btn btn-secondary" @onclick="Reset" style="white-space: nowrap;">
             🔄 Sweep the Tent
         </button>
@@ -220,19 +217,9 @@
         {
             await GraphExecutor.ExecuteWorkflowAsync(
                 "Build High-Throughput PubSub Event Stream",
-                "Implement high-performance zero-allocation pub/sub event pipeline with STRIDE security review and QA test scorecard.",
-                triggerFailureSimulation: false
+                "Implement high-performance zero-allocation pub/sub event pipeline with STRIDE security review and QA test scorecard."
             );
         }
-    }
-
-    private async Task RunFailureSimulation()
-    {
-        await GraphExecutor.ExecuteWorkflowAsync(
-            "Build High-Throughput PubSub Event Stream",
-            "Implement high-performance zero-allocation pub/sub event pipeline with simulated security vulnerability remediation.",
-            triggerFailureSimulation: true
-        );
     }
 
     private async Task StepNext()

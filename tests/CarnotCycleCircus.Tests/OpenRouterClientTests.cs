@@ -1,4 +1,6 @@
+using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Inference;
+using CarnotCycleCircus.Core.Domain.Teams;
 using FluentAssertions;
 using Xunit;
 
@@ -9,19 +11,28 @@ public class OpenRouterClientTests
     private readonly OpenRouterClient _client = new();
 
     [Fact]
-    public async Task CompleteAsync_WithSandboxKey_ShouldReturnOfflineSimulatedResponse()
+    public async Task CompleteAsync_WithEmptyApiKey_ShouldThrowInvalidOperationException()
     {
         var request = new OpenRouterChatRequest(
             Model: "anthropic/claude-3.7-sonnet",
             Messages: [new OpenRouterMessage("user", "Hello world from test")]
         );
 
-        var response = await _client.CompleteAsync(request, "sk-or-v1-sandbox-mock-carnot-circus-0001");
+        var act = () => _client.CompleteAsync(request, "");
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*API key is required*");
+    }
 
-        response.Should().NotBeNull();
-        response.Model.Should().Be("anthropic/claude-3.7-sonnet");
-        response.FirstContent.Should().Contain("Sandbox Output");
-        response.Usage.Should().NotBeNull();
-        response.Usage!.TotalTokens.Should().BeGreaterThan(0);
+    [Fact]
+    public void AgentInferenceResolver_WhenNoKeyConfigured_ShouldReturnEmptyString()
+    {
+        var keyVault = new ApiKeyVaultService(); // unseeded
+        var resolver = new AgentInferenceResolver(keyVault);
+        var team = EngineeringTeam.CreateDefault();
+        var member = team.GetMember(AgentRole.SoftwareDeveloper)!;
+
+        var (model, apiKey) = resolver.ResolveInferenceParameters(member, team);
+
+        model.Should().NotBeNullOrWhiteSpace();
+        apiKey.Should().BeEmpty();
     }
 }

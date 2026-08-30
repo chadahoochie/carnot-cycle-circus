@@ -228,13 +228,12 @@ public interface IOpenRouterClient
 }
 ```
 
-### `ISimulatedScenarioEngine` (Interface)
-Coordinates live inference, autonomous syntax self-healing, inter-agent context injection, and deterministic offline fallbacks.
+### `IAgentExecutionEngine` (Interface)
+Coordinates live inference, autonomous syntax self-healing, inter-agent context injection, and deliverable parsing.
 ```csharp
-public interface ISimulatedScenarioEngine
+public interface IAgentExecutionEngine
 {
-    Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskSimulationAsync(AgentRole role, TicketItem ticket, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ArtifactItem>> GenerateDeterministicFallbackAsync(AgentRole role, TicketItem ticket, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(AgentRole role, TicketItem ticket, CancellationToken cancellationToken = default);
 }
 ```
 

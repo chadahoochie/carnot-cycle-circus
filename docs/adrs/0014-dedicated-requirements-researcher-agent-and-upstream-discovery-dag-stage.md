@@ -30,7 +30,7 @@ We introduce a dedicated **Requirements Researcher Agent** (`AgentRole.Requireme
    - Added remediation failure cable from `node-tpm` (Failure) $\to$ `node-res` (Input) if the TPM determines research is ambiguous or incomplete.
    - `GraphWorkflowExecutor.ExecuteWorkflowAsync` executes the Requirements Researcher prior to TPM decomposition and attaches the resulting `_RESEARCH_BRIEF.md` deliverable to the parent Epic.
 
-3. **Upstream Context Synthesis into PRD (`SimulatedScenarioEngine`)**:
+3. **Upstream Context Synthesis into PRD (`AgentExecutionEngine`)**:
    - The TPM's user prompt automatically ingests the upstream `_RESEARCH_BRIEF.md` via `GatherUpstreamDeliverables`.
    - Grounds PRD generation in actual RFC constraints, verified .NET 10 package dependencies, and codebase boundaries extracted by `ICodebaseHarvesterService`.
 

@@ -81,9 +81,9 @@
 - `ISecureKeyEncryptor` / `AesGcmKeyEncryptor`: Authenticated AES-256-GCM AEAD envelope encryption with 96-bit nonces, 128-bit integrity tags, associated authenticated data (AAD) context binding, and zero-allocation span operations.
 - `IMasterKeyProvider` / `MasterKeyProvider`: Multi-tier master encryption key derivation (Environment Variable -> Host-bound `.carnot.master.key` (0600) -> PBKDF2-HMAC-SHA256 310k iterations -> In-memory ephemeral).
 - `IApiKeyVaultService`: Encrypted-at-rest credential storage (`keys.vault.json`), key rotation (`RotateMasterKeyAsync`), passphrase-encrypted export/import (`ExportEncryptedVaultAsync` / `ImportEncryptedVaultAsync`), active key swapping, legacy `keys.json` migration, and security health audit.
-- `IOpenRouterClient`: Multi-model chat completion client with fallback to local simulation mode when using sandbox/mock keys.
+- `IOpenRouterClient`: Multi-model chat completion client executing real HTTP inference via OpenRouter API.
 - `IAgentInferenceResolver`: Resolves effective model and API key per agent member with team inheritance.
-- `ISimulatedScenarioEngine`: Orchestrates live inference and deterministic offline fallbacks:
+- `IAgentExecutionEngine`: Orchestrates live LLM inference, deliverable parsing, and autonomous self-healing:
   - **Multi-File Deliverable Parsing**: Parses ````csharp:FileName.cs```` code blocks into modular multi-file bundles (Interfaces, Services, DI Extensions, and Unit Tests).
   - **Autonomous Syntax Self-Healing**: Runs `CSharpSyntaxCheckTool` on generated code, automatically triggering targeted remediation prompts if syntax errors are detected.
   - **Upstream Context Continuity**: Recursively aggregates deliverables (`GatherUpstreamDeliverables`) from parent Epics (PRDs) and upstream dependency tickets (ADRs, source code, unit tests) and injects them into downstream prompts.
@@ -133,7 +133,7 @@ src/
 │   │   ├── Events/      # AgentEventStream.cs, ArtifactItem.cs
 │   │   ├── Graph/       # WorkflowGraph.cs, GraphWorkflowExecutor.cs
 │   │   ├── Harvester/   # CodebaseHarvesterService.cs
-│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, SimulatedScenarioEngine.cs, ModelCatalogService.cs
+│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, AgentExecutionEngine.cs, ModelCatalogService.cs
 │   │   ├── Knowledge/   # KnowledgeMapService.cs
 │   │   ├── Learning/    # SelfImprovementEngine.cs, AutonomousSelfImprovementWorker.cs
 │   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
