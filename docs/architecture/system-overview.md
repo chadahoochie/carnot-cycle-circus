@@ -49,7 +49,7 @@ C4Container
             Component(tickets, "Ticket & Handoff Engine", "ITicketStore, IWorkDecompositionEngine, IHandoffRouter", "Manages Epics, Stories, Subtasks, DAG dependency resolution, and inter-agent handoff packets.")
             Component(memory, "Hierarchical Memory System", "IPersistentMemoryStore, IMemoryConsolidationEngine", "4-tier memory, 64-dim vector cosine similarity search, and automated task consolidation.")
             Component(orchestrator, "Graph Workflow Orchestrator", "IGraphWorkflowExecutor, WorkflowGraph", "Executes DAG nodes, tracks execution states, routes failure ports, and applies circuit breakers.")
-            Component(inference, "Inference & Key Vault Hub", "IApiKeyVaultService, IOpenRouterClient, ISimulatedScenarioEngine", "Resolves keys and models per agent, routes LLM completions, or executes offline deterministic simulations.")
+            Component(inference, "Inference & Key Vault Hub", "IApiKeyVaultService, IOpenRouterClient, IAgentExecutionEngine", "Resolves keys and models per agent and routes real LLM completions.")
             Component(governance, "Standards & ADR Hub", "IStandardsValidator, IAdrDocumentManager", "Validates ticket policies, generates MADR/Nygard ADRs, and formats documentation bundles.")
             Component(knowledge, "Knowledge Maps & Skills", "IKnowledgeMapService, ISkillRegistry", "Maintains AI concept graphs, extracts sub-graphs, and registers role capabilities.")
             Component(stream, "Real-Time Event Stream", "IAgentEventStream", "Thread-safe in-memory pub/sub message bus broadcasting telemetry and agent banter.")
@@ -91,7 +91,7 @@ carnot-cycle-circus/
 │   │   │   ├── Events/                 # AgentEventStream, AgentMessage, ArtifactItem
 │   │   │   ├── Graph/                  # WorkflowGraph, GraphWorkflowExecutor, Ports
 │   │   │   ├── Harvester/              # CodebaseHarvesterService
-│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, SimulatedScenarioEngine, ModelCatalogService
+│   │   │   ├── Inference/              # ApiKeyVaultService, OpenRouterClient, AgentExecutionEngine, ModelCatalogService
 │   │   │   ├── Knowledge/              # KnowledgeMapService, KnowledgeNode, KnowledgeEdge
 │   │   │   ├── Learning/               # SelfImprovementEngine, AutonomousSelfImprovementWorker
 │   │   │   ├── Memory/                 # MemoryEntry, PersistentMemoryStore, MemoryServices
@@ -105,19 +105,32 @@ carnot-cycle-circus/
 │   │   │   └── Tools/                  # IToolDefinition, WebSearch, CSharpSyntaxCheck, TestRunner
 │   │   └── Extensions/
 │   │       └── ServiceCollectionExtensions.cs # Centralized DI registration
+│   ├── CarnotCycleCircus.UI/           # Shared Razor Class Library (.NET 10.0)
+│   │   ├── Components/
+│   │   │   ├── Layout/                 # MainLayout, NavMenu
+│   │   │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
+│   │   │   └── Modals/                 # KeyVaultModal, ProjectIgnitionModal, CodebaseHarvesterModal, ShowcaseModal, TicketModal
+│   │   ├── Services/                   # INativeFolderPicker & UI contracts
+│   │   └── wwwroot/                    # Cyberpunk theme stylesheets (app.css)
 │   │
-│   └── CarnotCycleCircus.Web/          # Blazor Web Frontend (.NET 10.0)
-│       ├── Components/
-│       │   ├── Layout/                 # MainLayout, NavMenu
-│       │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
-│       │   └── Modals/                 # KeyVaultModal, ProjectIgnitionModal, CodebaseHarvesterModal, ShowcaseModal, TicketModal
-│       ├── Program.cs                  # Host configuration & pipeline setup
-│       └── wwwroot/                    # Modern dark-theme stylesheets & UI assets
+│   ├── CarnotCycleCircus.Desktop/      # Cross-Platform Desktop Client (Photino.Blazor)
+│   │   ├── Services/                   # DesktopNativeFolderPicker (Linux GTK/Zenity, macOS, Windows)
+│   │   ├── Program.cs                  # Photino native window runner (WebKitGTK on Linux)
+│   │   └── wwwroot/                    # WebKit webview host
+│   │
+│   ├── CarnotCycleCircus.Server/       # Headless Docker Agent Host Server (.NET 10.0)
+│   │   ├── Hubs/                       # AgentStreamHub (SignalR live event streaming)
+│   │   ├── Services/                   # SignalREventBridge background worker
+│   │   └── Program.cs                  # Minimal REST API endpoints & SignalR host
+│   │
+│   └── CarnotCycleCircus.Web/          # Blazor Interactive Web Host (.NET 10.0)
+│       └── Program.cs                  # Interactive Server web pipeline
 │
 ├── tests/
 │   └── CarnotCycleCircus.Tests/        # Comprehensive Unit & Integration Tests (xUnit + FluentAssertions)
-│       └── [17 Test Suites]           # Complete coverage across all domain services
+│       └── [30+ Test Suites]           # Complete coverage across all domain services
 │
+├── scripts/                            # Local install and Docker orchestration scripts
 ├── skills/                             # Preserved engineering skills & .NET standards
 └── docs/                               # Comprehensive Human & LLM Documentation Suite
 ```
@@ -243,7 +256,7 @@ public static IServiceCollection AddCarnotCycleCircusCore(this IServiceCollectio
     services.AddSingleton<IApiKeyVaultService, ApiKeyVaultService>();
     services.AddSingleton<IOpenRouterClient, OpenRouterClient>();
     services.AddSingleton<IAgentInferenceResolver, AgentInferenceResolver>();
-    services.AddSingleton<ISimulatedScenarioEngine, SimulatedScenarioEngine>();
+    services.AddSingleton<IAgentExecutionEngine, AgentExecutionEngine>();
 
     // Tools Sandbox
     services.AddSingleton<IToolDefinition, WebSearchTool>();

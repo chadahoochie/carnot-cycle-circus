@@ -26,7 +26,13 @@ dotnet build CarnotCycleCircus.slnx
 # 3. Run all unit and integration test suites
 dotnet test CarnotCycleCircus.slnx --logger "console;verbosity=normal"
 
-# 4. Launch the Blazor web application
+# 4. Launch the Native Desktop Client (Linux / macOS / Windows)
+dotnet run --project src/CarnotCycleCircus.Desktop
+
+# Or launch the Headless Agent Server in Docker
+docker compose up -d
+
+# Or launch the Blazor Web Application
 dotnet run --project src/CarnotCycleCircus.Web
 ```
 
@@ -44,7 +50,7 @@ carnot-cycle-circus/
 │
 ├── src/
 │   ├── CarnotCycleCircus.Core/         # Core domain library & orchestrator
-│   │   ├── Domain/Agents/              # 6 engineering roles, personas, & team manifests
+│   │   ├── Domain/Agents/              # 8 engineering roles, personas, & team manifests
 │   │   ├── Domain/Tickets/             # Hierarchical tickets, DAG engine, & handoff router
 │   │   ├── Domain/Memory/              # 4-tier OpenViking memory & embedded vector store
 │   │   ├── Domain/Inference/           # OpenRouter client, Key Vault, & simulation engine
@@ -54,15 +60,18 @@ carnot-cycle-circus/
 │   │   ├── Domain/Knowledge/           # AI knowledge map graph & semantic extraction
 │   │   ├── Domain/Skills/              # Dynamic SKILL.md parser & skill matrix
 │   │   ├── Domain/Tools/               # Sandboxed executable agent tools
+│   │   ├── Domain/Storage/             # Persistent storage engine (~/.carnot)
 │   │   └── Domain/Events/              # Real-time pub/sub event stream
 │   │
-│   └── CarnotCycleCircus.Web/          # Blazor interactive server application
-│       ├── Components/Pages/           # 10 interactive UI pages
-│       └── Components/                 # Layouts, modals (KeyVaultModal, TicketModal), and cards
+│   ├── CarnotCycleCircus.UI/           # Shared Razor Class Library (Pages, Modals, Themes)
+│   ├── CarnotCycleCircus.Desktop/      # Native Desktop App (Photino.Blazor)
+│   ├── CarnotCycleCircus.Server/       # Headless Docker Agent Host (Minimal API + SignalR)
+│   └── CarnotCycleCircus.Web/          # Blazor Interactive Server Web Host
 │
 ├── tests/
-│   └── CarnotCycleCircus.Tests/        # 14 xUnit & FluentAssertions test suites
+│   └── CarnotCycleCircus.Tests/        # 30+ xUnit & FluentAssertions test suites
 │
+├── scripts/                            # Local install & Docker scripts
 ├── skills/                             # Preserved engineering skills & .NET standards
 └── docs/                               # Comprehensive Human & LLM Documentation Suite
 ```

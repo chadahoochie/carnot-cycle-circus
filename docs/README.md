@@ -41,7 +41,10 @@ docs/
 │   ├── 0010-dynamic-agent-lifecycle-and-skill-infused-naming.md
 │   ├── 0011-project-ignition-wizard-codebase-harvester-and-showcase-arena.md
 │   ├── 0012-openrouter-model-catalog-caching-categorization-and-favorites.md
-│   └── 0013-multi-file-deliverables-syntax-self-healing-and-upstream-context-pipeline.md
+│   ├── 0013-multi-file-deliverables-syntax-self-healing-and-upstream-context-pipeline.md
+│   ├── 0014-dedicated-requirements-researcher-agent-and-upstream-discovery-dag-stage.md
+│   ├── 0015-collaborative-discovery-and-two-phase-architectural-ticket-refinement.md
+│   └── 0016-photino-desktop-client-headless-docker-server-and-local-user-storage.md
 │
 ├── guides/                        # Step-by-step developer and agent execution guides
 │   ├── developer-onboarding.md    # Quickstart, local build, test execution, & project tour

@@ -21,9 +21,9 @@ graph TD
     QA["🧪 Principal QA Analyst<br/>(Quinn the Build-Executioner)"]
     Int["📦 Integration Engineer<br/>(Ingrid Tarjan)"]
 
-    Res -->|Feasibility Brief & RFC Specs| TPM
-    TPM -->|PRD, Deconstructed Stories & AC| Arch
-    Arch -->|ADR, C# Type Contracts, & DAG Subtasks| Dev
+    Res <-->|Collaborative Co-Discovery: RFC Specs & Feasibility| TPM
+    TPM -->|PRD, High-Level Features & Acceptance Criteria| Arch
+    Arch -->|Backlog Refinement: Subtasks & Clean Architecture ADR| Dev
     Dev -->|Multi-File C# Bundle & Unit Tests| Sec
     Dev -->|Multi-File C# Bundle & Unit Tests| Opt
     Sec -->|STRIDE Approved| QA

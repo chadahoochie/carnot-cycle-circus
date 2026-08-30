@@ -209,7 +209,9 @@ public class EndToEndSystemVerificationTests : IDisposable
         var ticketStore = new TicketStore(_storageService);
         var eventStream = new AgentEventStream();
         var memoryStore = new EmbeddedVectorMemoryStore(_storageService);
-        var scenarioEngine = new SimulatedScenarioEngine();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore);
         var consolidationEngine = new MemoryConsolidationEngine(memoryStore);
         var decompositionEngine = new WorkDecompositionEngine(ticketStore);
         var handoffRouter = new HandoffRouter(ticketStore, eventStream);
@@ -220,7 +222,7 @@ public class EndToEndSystemVerificationTests : IDisposable
             ticketStore,
             decompositionEngine,
             handoffRouter,
-            scenarioEngine,
+            executionEngine,
             eventStream,
             consolidationEngine,
             selfImprovement
@@ -228,11 +230,44 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         executor.SetGraph(workflowGraph);
 
-        // Execute workflow with failure simulation triggered on Security node
+        // Pre-flight failure remediation test: Security rejects an initial draft to Developer
+        var testTicket = new TicketItem(
+            Id: "TCK-RAFT-DEV-001",
+            ParentEpicId: null,
+            Title: "Raft State Machine Implementation",
+            Description: "Initial draft with unvalidated input buffers",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.SoftwareDeveloper,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Wrap input in ReadOnlySpan<char>"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        ticketStore.CreateTicket(testTicket);
+
+        handoffRouter.RouteFailureRemediation(
+            testTicket.Id,
+            AgentRole.SecurityEngineer,
+            AgentRole.SoftwareDeveloper,
+            "Unsanitized input vector in state machine transition.",
+            "Wrap input in ReadOnlySpan<char> and sanitize with allow-list regex immediately."
+        );
+
+        // Verify ticket transitioned to Remediating
+        ticketStore.GetTicketById(testTicket.Id)!.Status.Should().Be(TicketStatus.Remediating);
+
+        // Execute remediation
+        await executor.ExecuteTicketAsync(testTicket.Id);
+        ticketStore.GetTicketById(testTicket.Id)!.Status.Should().Be(TicketStatus.Done);
+
+        // Execute full workflow
         var workflowSuccess = await executor.ExecuteWorkflowAsync(
             epicTitle: "Zero-Allocation Distributed Raft Consensus Engine",
-            epicDescription: "Build a high-performance Raft cluster engine in C# 13 with zero Gen0 allocations, connectable failure recovery, and strict validation.",
-            triggerFailureSimulation: true
+            epicDescription: "Build a high-performance Raft cluster engine in C# 13 with zero Gen0 allocations, connectable failure recovery, and strict validation."
         );
 
         workflowSuccess.Should().BeTrue();

@@ -58,7 +58,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IOpenRouterClient, OpenRouterClient>();
         services.AddSingleton<IModelCatalogService, OpenRouterModelCatalogService>();
         services.AddSingleton<IAgentInferenceResolver, AgentInferenceResolver>();
-        services.AddSingleton<ISimulatedScenarioEngine, SimulatedScenarioEngine>();
+        services.AddSingleton<IAgentExecutionEngine, AgentExecutionEngine>();
 
         // Tools Sandbox
         services.AddSingleton<IToolDefinition, WebSearchTool>();

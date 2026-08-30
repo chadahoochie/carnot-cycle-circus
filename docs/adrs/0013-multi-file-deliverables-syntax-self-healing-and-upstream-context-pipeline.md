@@ -14,10 +14,9 @@ In the multi-role autonomous engineering pipeline (Technical Product Manager $\t
 ## Decision
 We implement a unified multi-file deliverable engine, autonomous syntax self-healing verification loop, and upstream inter-agent context pipeline:
 
-1. **Multi-File Code Block Parsing (`SimulatedScenarioEngine.ParseDeliverableArtifacts`)**:
+1. **Multi-File Code Block Parsing (`AgentExecutionEngine.ParseDeliverableArtifacts`)**:
    - Software Developer agent outputs multi-file bundles using tagged code blocks (e.g. ````csharp:I<Domain>Pipeline.cs````, ````csharp:<Domain>PipelineService.cs````, ````csharp:<Domain>ServiceCollectionExtensions.cs````, ````csharp:<Domain>PipelineTests.cs````).
    - The engine automatically extracts each block into a distinct `ArtifactItem` with appropriate names, content types, and metadata.
-   - Deterministic offline fallback generates complete 4-file C# bundles adhering to zero-allocation and async dogma.
 
 2. **Autonomous Syntax Verification & Self-Healing Loop (`CSharpSyntaxCheckTool`)**:
    - For all generated C# source files, the engine runs `CSharpSyntaxCheckTool` immediately upon generation.

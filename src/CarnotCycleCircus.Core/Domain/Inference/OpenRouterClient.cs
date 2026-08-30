@@ -146,20 +146,9 @@ public class OpenRouterClient : IOpenRouterClient
         string apiKey,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(apiKey) ||
-            apiKey.Contains("sandbox", StringComparison.OrdinalIgnoreCase) ||
-            apiKey.Contains("mock", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            // Offline sandbox mode fallback
-            await Task.Delay(100, cancellationToken);
-            return new OpenRouterChatResponse(
-                Id: $"sim-{Guid.NewGuid().ToString("N")[..8]}",
-                Model: request.Model,
-                Choices: [
-                    new OpenRouterChoice(0, new OpenRouterMessage("assistant", $"[Sandbox Output from {request.Model}]\nProcessed request with prompt length {request.Messages.Sum(m => m.Content.Length)} characters."), "stop")
-                ],
-                Usage: new OpenRouterUsage(120, 85, 205)
-            );
+            throw new InvalidOperationException("An active OpenRouter API key is required to perform LLM inference.");
         }
 
         var json = JsonSerializer.Serialize(new
@@ -224,7 +213,7 @@ public class AgentInferenceResolver : IAgentInferenceResolver
 
         if (string.IsNullOrEmpty(apiKey))
         {
-            apiKey = _keyVault.GetActiveKey()?.RawApiKey ?? "sk-or-v1-sandbox-mock-carnot-circus-0001";
+            apiKey = _keyVault.GetActiveKey()?.RawApiKey ?? string.Empty;
         }
 
         return (model, apiKey);

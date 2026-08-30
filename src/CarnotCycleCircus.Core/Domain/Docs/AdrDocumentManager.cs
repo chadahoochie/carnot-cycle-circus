@@ -71,6 +71,7 @@ public interface IAdrDocumentManager
     bool DeleteDoc(string id);
 
     string ExportCompleteMarkdownBundle();
+    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 }
 
 public class AdrDocumentManager : IAdrDocumentManager
@@ -78,6 +79,7 @@ public class AdrDocumentManager : IAdrDocumentManager
     private readonly ConcurrentDictionary<string, ArchitecturalDecisionRecord> _adrs = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, ProjectDocument> _docs = new(StringComparer.OrdinalIgnoreCase);
     private readonly IPersistentStorageService? _storageService;
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
     private const string AdrsFileName = "adrs.json";
     private const string DocsFileName = "docs.json";
 
@@ -122,26 +124,37 @@ public class AdrDocumentManager : IAdrDocumentManager
         }
     }
 
+    public async Task FlushAsync(CancellationToken cancellationToken = default)
+    {
+        if (_storageService == null) return;
+        await _saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _storageService.SaveJsonAsync(AdrsFileName, _adrs.Values.ToList(), cancellationToken);
+            await _storageService.SaveJsonAsync(DocsFileName, _docs.Values.ToList(), cancellationToken);
+
+            // Also persist markdown versions in artifacts directory
+            foreach (var adr in _adrs.Values)
+            {
+                await _storageService.SaveTextAsync($"artifacts/adrs/{adr.Id}.md", adr.ToMarkdown(), cancellationToken);
+            }
+        }
+        catch
+        {
+            // Ignore transient write errors
+        }
+        finally
+        {
+            _saveLock.Release();
+        }
+    }
+
     private void SaveToStorage()
     {
         if (_storageService == null) return;
         _ = Task.Run(async () =>
         {
-            try
-            {
-                await _storageService.SaveJsonAsync(AdrsFileName, _adrs.Values.ToList());
-                await _storageService.SaveJsonAsync(DocsFileName, _docs.Values.ToList());
-
-                // Also persist markdown versions in artifacts directory
-                foreach (var adr in _adrs.Values)
-                {
-                    await _storageService.SaveTextAsync($"artifacts/adrs/{adr.Id}.md", adr.ToMarkdown());
-                }
-            }
-            catch
-            {
-                // Ignore transient write errors
-            }
+            await FlushAsync();
         });
     }
 
@@ -315,7 +328,7 @@ public class AdrDocumentManager : IAdrDocumentManager
             Title: "Multi-File Deliverable Generation, Autonomous Syntax Self-Healing, and Inter-Agent Context Pipeline",
             Status: AdrStatus.Accepted,
             Context: "Complex enterprise .NET architectures require modular multi-file code structures (Models, Services, DI Extensions, Unit Tests), resilient syntax verification, upstream deliverable context across DAG nodes, and first-class PRD tracking.",
-            Decision: "Implement multi-file csharp:FileName.cs parsing in SimulatedScenarioEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
+            Decision: "Implement multi-file csharp:FileName.cs parsing in AgentExecutionEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
             AlternativesConsidered: [
                 "Single monolithic file generation (rejected: violates .NET clean architecture and test separation)",
                 "Fail-fast pipeline abort on syntax errors (rejected: creates avoidable pipeline rejections when immediate remediation resolves defects)",
@@ -360,6 +373,53 @@ public class AdrDocumentManager : IAdrDocumentManager
             UpdatedAt: DateTimeOffset.UtcNow
         );
         _adrs[adr14.Id] = adr14;
+
+        var adr15 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0015",
+            Title: "Collaborative Discovery and Two-Phase Architectural Ticket Refinement",
+            Status: AdrStatus.Accepted,
+            Context: "Project ignition lacked collaborative synergy between PM and Research Analyst, while work decomposition prematurely generated static subtasks before the Lead Architect had an opportunity to refine technical requirements and dependencies.",
+            Decision: "Formalize collaborative discovery between PM and Research Analyst at project ignition, and institute a two-phase Lead Architect lifecycle where technical backlog refinement precedes ADR authoring and Clean Architecture scaffolding.",
+            AlternativesConsidered: [
+                "TPM-only story and subtask decomposition (rejected: bypasses architect evaluation of technical boundaries and dependency graphs)",
+                "Immediate ADR generation without story grooming (rejected: architectural blueprints drift from concrete engineering subtasks)"
+            ],
+            ConsequencesPositive: [
+                "Clear separation between product user stories and granular technical subtasks",
+                "Lead Architect refines backlog and locks dependency graphs before authoring ADRs",
+                "Downstream engineering roles receive dependency-ordered, contract-grounded subtasks"
+            ],
+            ConsequencesNegative: [
+                "Adds explicit refinement stage to workflow before architectural scaffolding"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr15.Id] = adr15;
+
+        var adr16 = new ArchitecturalDecisionRecord(
+            Id: "ADR-016",
+            Title: "Photino.Blazor Desktop Client, Headless Docker Server & Local ~/.carnot Multi-Mount Storage",
+            Status: AdrStatus.Accepted,
+            Context: ".NET MAUI lacks official Linux desktop support, while containerized deployment required running only the headless agent engine with isolated volume mounts. Local desktop execution required home directory state resolution and direct interaction with target codebases.",
+            Decision: "Decouple into shared Razor UI (CarnotCycleCircus.UI), native cross-platform desktop using Photino.Blazor (CarnotCycleCircus.Desktop) on Linux/macOS/Windows, headless Docker server (CarnotCycleCircus.Server) with SignalR streaming, and multi-mount storage defaulting to ~/.carnot/data and ~/.carnot/artifacts.",
+            AlternativesConsidered: [
+                ".NET MAUI desktop on Linux (rejected: lacks official Microsoft support and stable Linux BlazorWebView)",
+                "Monolithic Blazor Server only (rejected: requires full web browser overhead and lacks headless container operation)",
+                "Electron.NET desktop wrapper (rejected: excessive memory footprint compared to Photino's lightweight ~40MB WebKitGTK shell)"
+            ],
+            ConsequencesPositive: [
+                "Native Linux desktop window with native OS folder picker dialogs",
+                "Dedicated headless Docker container with explicit data and artifacts volume mounts",
+                "Local persistence homed in ~/.carnot with direct workspace directory interaction"
+            ],
+            ConsequencesNegative: [
+                "Requires WebKitGTK installed on Linux distributions"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr16.Id] = adr16;
 
         // Seed default system documentation
         var c4Doc = new ProjectDocument(

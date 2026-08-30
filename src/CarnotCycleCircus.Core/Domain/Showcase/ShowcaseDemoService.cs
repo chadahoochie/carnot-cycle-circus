@@ -10,8 +10,7 @@ public record ShowcaseScenario(
     string Title,
     string Tagline,
     string Description,
-    string HighlightPersona,
-    bool SimulateRemediation
+    string HighlightPersona
 );
 
 public interface IShowcaseDemoService
@@ -39,42 +38,37 @@ public class ShowcaseDemoService : IShowcaseDemoService
         new(
             Id: "full-circus-sprint",
             Title: "🚀 Ludicrous Speed Swarm Sprint (They've Gone to Plaid!)",
-            Tagline: "Watch all 6 roles decompose, architect, code, audit, optimize, and verify an end-to-end feature at Mach 10.",
-            Description: "Barnum yells 'Ludicrous speed, GO!' as Devon, Archibald, Sari, Otto, and Quinn ship an immutable ValueTask pipeline with bounded channels and automated STRIDE verification.",
-            HighlightPersona: "The Whole Troupe (Barnum & Devon)",
-            SimulateRemediation: false
+            Tagline: "Watch all 8 roles research, decompose, architect, code, audit, optimize, verify, and package an end-to-end feature at Mach 10.",
+            Description: "Rachel, Barnum, Archibald, Devon, Sari, Otto, Quinn, and Ingrid ship an immutable ValueTask pipeline with bounded channels and automated STRIDE verification.",
+            HighlightPersona: "The Whole Troupe (Rachel, Barnum & Devon)"
         ),
         new(
             Id: "friday-panic-meltdown",
             Title: "⚔️ 'Tis But a Scratch: The Friday 4:59 PM Meltdown & Self-Healing Loopback",
-            Tagline: "QA and Security violently reject broken code and slice off limbs; Developer screams 'Just a flesh wound!' and remediates via DAG failure ports.",
-            Description: "Simulates an unhandled null exception and leaked secrets. Quinn ('That's a lot of nuts!') and Sari ('It's a trap!') trip the circuit breaker and route the payload back to Devon ('Like a glove!') for remediation.",
-            HighlightPersona: "Quinn (QA), Sari (Security) & Devon (Dev)",
-            SimulateRemediation: true
+            Tagline: "QA and Security reject non-compliant code; Developer screams 'Just a flesh wound!' and remediates via DAG failure ports.",
+            Description: "Quinn ('That's a lot of nuts!') and Sari ('It's a trap!') verify strict standards and route remediation packets to Devon ('Like a glove!') across failure ports.",
+            HighlightPersona: "Quinn (QA), Sari (Security) & Devon (Dev)"
         ),
         new(
             Id: "nanosecond-shootout",
             Title: "🕵️ Super Troopers 'Enhance' Optimization Shootout",
             Tagline: "Otto enhances memory allocations down to zero on the hot path ('So I got sub-nanosecond latency goin' for me, which is nice').",
             Description: "Demonstrates hot path profiling, converting LINQ aggregations to ReadOnlySpan<char> and MemoryPool slicing with zero heap overhead and zero Gen0 collections.",
-            HighlightPersona: "Otto (Optimization Engineer)",
-            SimulateRemediation: false
+            HighlightPersona: "Otto (Optimization Engineer)"
         ),
         new(
             Id: "holy-hand-grenade-security",
             Title: "💣 The Holy Hand Grenade STRIDE Security Audit",
             Tagline: "Sari audits the system with zero tolerance for prompt injection or open ports ('Nobody expects the Spanish Inquisition!').",
             Description: "First shalt thou take out the holy pin. Then shalt thou count to three, no more, no less. Performs cryptographic envelope inspection and token sanitization.",
-            HighlightPersona: "Sari \"Tinfoil\" Sandbox",
-            SimulateRemediation: false
+            HighlightPersona: "Sari \"Tinfoil\" Sandbox"
         ),
         new(
             Id: "high-quality-h2o-refactor",
             Title: "💧 High Quality H2O: Devon Banishes Heap Allocations",
             Tagline: "Mama says the Garbage Collector is ornery 'cause it's got all them heap allocations and no buffer pooling.",
             Description: "Devon refactors bloated legacy POCOs into ultra-pure readonly record structs and bounded Channels while drinking cold brew at 800 WPM.",
-            HighlightPersona: "Devon \"Coldbrew\" Crashdump",
-            SimulateRemediation: false
+            HighlightPersona: "Devon \"Coldbrew\" Crashdump"
         )
     ];
 
@@ -90,14 +84,13 @@ public class ShowcaseDemoService : IShowcaseDemoService
         _eventStream.Publish(AgentMessage.Create(
             role: AgentRole.TechnicalProductManager,
             senderName: "🍿 Showcase Arena",
-            content: $"Starting Showcase: '{scenario.Title}'! Fasten seatbelts, zero API keys required.",
+            content: $"Starting Showcase: '{scenario.Title}'! Unleashing autonomous multi-agent engineering troupe.",
             type: MessageType.StateChange
         ));
 
         return await _workflowExecutor.ExecuteWorkflowAsync(
             scenario.Title,
             scenario.Description,
-            triggerFailureSimulation: scenario.SimulateRemediation,
             cancellationToken: cancellationToken
         );
     }

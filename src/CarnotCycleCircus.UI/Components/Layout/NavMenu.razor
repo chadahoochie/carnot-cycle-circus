@@ -1,0 +1,101 @@
+<div class="@CssClass">
+    <div class="sidebar-header">
+        <span style="font-size: 1.6rem;">🎪</span>
+        <div>
+            <h1>Carnot Circus</h1>
+            <div style="font-size: 0.72rem; color: #f59e0b; letter-spacing: 0.5px;">AUTONOMOUS AGENT CHAOS</div>
+        </div>
+    </div>
+
+    <ul class="nav-list">
+        <li class="nav-item">
+            <NavLink href="" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <span>🎯</span> Team Circus Ring
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="tickets" @onclick="HandleNavigate">
+                <span>📋</span> The Jira Graveyard
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="artifacts" @onclick="HandleNavigate">
+                <span>📦</span> Repo Deliverables
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="canvas" @onclick="HandleNavigate">
+                <span>🎨</span> Rube Goldberg Canvas
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="dashboard" @onclick="HandleNavigate">
+                <span>⚡</span> Panic & Telemetry
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="memory" @onclick="HandleNavigate">
+                <span>🧠</span> Existential Brain Scan
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="docs" @onclick="HandleNavigate">
+                <span>🏛️</span> Ivory Tower & ADRs
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="standards" @onclick="HandleNavigate">
+                <span>📏</span> The Fun Police (QA)
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="knowledge" @onclick="HandleNavigate">
+                <span>🗺️</span> Tech Debt Compass
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="skills" @onclick="HandleNavigate">
+                <span>🧩</span> Skill Importer
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="skills/matrix" @onclick="HandleNavigate">
+                <span>📊</span> Dunning-Kruger Matrix
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="models" @onclick="HandleNavigate">
+                <span>🎭</span> Model Ammo & Catalog
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="persistence" @onclick="HandleNavigate">
+                <span>🧬</span> Cryo-Evolution & Volume
+            </NavLink>
+        </li>
+    </ul>
+
+    <div style="padding: 16px; border-top: 1px solid var(--border-color); font-size: 0.75rem; color: var(--text-muted);">
+        <div>.NET 10 / C# 13 Engine</div>
+        <div style="color: #10b981; margin-top: 4px;">● OpenRouter Ammo Loaded</div>
+        <div style="color: #f59e0b; font-size: 0.68rem; margin-top: 2px;">⚡ Ludicrous Speed: Ready</div>
+        <div style="color: #38bdf8; font-size: 0.68rem; margin-top: 2px; font-style: italic;">"Now that's high quality H2O!"</div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string CssClass { get; set; } = "sidebar";
+
+    [Parameter]
+    public EventCallback OnNavigate { get; set; }
+
+    private async Task HandleNavigate()
+    {
+        if (OnNavigate.HasDelegate)
+        {
+            await OnNavigate.InvokeAsync();
+        }
+    }
+}
+

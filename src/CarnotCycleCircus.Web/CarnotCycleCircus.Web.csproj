@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\CarnotCycleCircus.Core\CarnotCycleCircus.Core.csproj" />
+    <ProjectReference Include="..\CarnotCycleCircus.UI\CarnotCycleCircus.UI.csproj" />
   </ItemGroup>
 
 </Project>

@@ -14,7 +14,7 @@ public class ShowcaseDemoServiceTests
     private readonly TicketStore _ticketStore = new();
     private readonly WorkDecompositionEngine _decompositionEngine;
     private readonly HandoffRouter _handoffRouter;
-    private readonly SimulatedScenarioEngine _scenarioEngine = new();
+    private readonly AgentExecutionEngine _executionEngine;
     private readonly AgentEventStream _eventStream = new();
     private readonly EmbeddedVectorMemoryStore _memoryStore = new();
     private readonly MemoryConsolidationEngine _memoryConsolidation;
@@ -26,11 +26,16 @@ public class ShowcaseDemoServiceTests
         _decompositionEngine = new WorkDecompositionEngine(_ticketStore);
         _handoffRouter = new HandoffRouter(_ticketStore, _eventStream);
         _memoryConsolidation = new MemoryConsolidationEngine(_memoryStore);
+
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        _executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: _ticketStore);
+
         _workflowExecutor = new GraphWorkflowExecutor(
             _ticketStore,
             _decompositionEngine,
             _handoffRouter,
-            _scenarioEngine,
+            _executionEngine,
             _eventStream,
             _memoryConsolidation
         );

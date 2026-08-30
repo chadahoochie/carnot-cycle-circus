@@ -1,0 +1,112 @@
+@page "/standards"
+@inject IStandardsValidator StandardsValidator
+@inject ITicketStore TicketStore
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">📏 The Fun Police Quality Gates & Standards</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Enforce non-negotiable acceptance criteria, mandatory Root Cause Analysis (confessions), and zero-tolerance test coverage.</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
+    <!-- Standards Policy Editor -->
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #38bdf8;">Configured Quality Gate Rules</h3>
+
+        <div class="form-group">
+            <label class="form-label">Active Enforcement Profile</label>
+            <input class="form-control" value="@StandardsValidator.CurrentProfile.Name" disabled />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Minimum Code Coverage Threshold (@StandardsValidator.CurrentProfile.MinimumCodeCoveragePercent%)</label>
+            <input type="range" min="50" max="100" step="5" value="@StandardsValidator.CurrentProfile.MinimumCodeCoveragePercent" @onchange="UpdateCoverage" style="width: 100%;" />
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireUnitTestsForFeatures" @onchange="(e) => ToggleFlag(1, e)" />
+                Require unit tests for Features ("Badges? We don't need no stinkin' badges!")
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRcaForBugs" @onchange="(e) => ToggleFlag(2, e)" />
+                Require Root Cause Analysis (RCA) on Bug tickets ("Laces out, Dan!")
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireRegressionTestForBugs" @onchange="(e) => ToggleFlag(3, e)" />
+                Require automated regression tests ("You're my boy, Blue!")
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireAdrForEpics" @onchange="(e) => ToggleFlag(4, e)" />
+                Require registered ADR on all Epic tickets ("Listen, strange developers lyin' in Slack...")
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; cursor: pointer;">
+                <input type="checkbox" checked="@StandardsValidator.CurrentProfile.RequireStrideSecurityReview" @onchange="(e) => ToggleFlag(5, e)" />
+                Enforce paranoid STRIDE security review ("Nobody expects the Spanish Inquisition!")
+            </label>
+        </div>
+    </div>
+
+    <!-- Live Compliance Auditor -->
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: #10b981;">Live Ticket Interrogation & Audit</h3>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; max-height: 480px; overflow-y: auto;">
+            @foreach (var ticket in TicketStore.GetAllTickets())
+            {
+                var val = StandardsValidator.ValidateTicketForCompletion(ticket);
+                <div style="background: var(--bg-primary); border: 1px solid @(val.IsValid ? "rgba(34, 197, 94, 0.3)" : "rgba(239, 68, 68, 0.3)"); border-radius: 8px; padding: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 700; font-family: monospace; color: #38bdf8; font-size: 0.8rem;">@ticket.Id</span>
+                            <span style="font-weight: 600; font-size: 0.85rem;">@ticket.Title</span>
+                        </div>
+                        <span class="badge" style="background: @(val.IsValid ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"); color: @(val.IsValid ? "#22c55e" : "#ef4444");">
+                            @(val.IsValid ? "COMPLIANT" : "VIOLATIONS")
+                        </span>
+                    </div>
+
+                    @if (!val.IsValid)
+                    {
+                        <div style="margin-top: 6px; font-size: 0.78rem; color: #ef4444;">
+                            @foreach (var violation in val.Violations)
+                            {
+                                <div>⚠️ @violation</div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private void UpdateCoverage(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var cov))
+        {
+            StandardsValidator.CurrentProfile = StandardsValidator.CurrentProfile with { MinimumCodeCoveragePercent = cov };
+        }
+    }
+
+    private void ToggleFlag(int index, ChangeEventArgs e)
+    {
+        var val = (bool)(e.Value ?? true);
+        var p = StandardsValidator.CurrentProfile;
+        StandardsValidator.CurrentProfile = index switch
+        {
+            1 => p with { RequireUnitTestsForFeatures = val },
+            2 => p with { RequireRcaForBugs = val },
+            3 => p with { RequireRegressionTestForBugs = val },
+            4 => p with { RequireAdrForEpics = val },
+            5 => p with { RequireStrideSecurityReview = val },
+            _ => p
+        };
+    }
+}

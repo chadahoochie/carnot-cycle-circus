@@ -249,7 +249,8 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         adrManager1.SaveAdr(newAdr);
         skillRegistry1.RegisterSkill(newSkill);
 
-        await Task.Delay(250);
+        await adrManager1.FlushAsync();
+        await skillRegistry1.FlushAsync();
 
         // Assert instance 2 loads persisted data
         var adrManager2 = new AdrDocumentManager(_storageService);
@@ -262,6 +263,51 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         loadedSkill.Should().NotBeNull();
         loadedSkill!.Name.Should().Be("Docker Persistence Master");
         loadedSkill.AssignedRoles.Should().Contain(AgentRole.LeadArchitect);
+    }
+
+    [Fact]
+    public void CarnotStorageOptions_DefaultResolution_ShouldIncludeUserCarnotDirectory()
+    {
+        var options = new CarnotStorageOptions();
+        options.DataDirectory.Should().NotBeNullOrWhiteSpace();
+        options.ArtifactsDirectory.Should().NotBeNullOrWhiteSpace();
+        options.WorkspaceDirectory.Should().NotBeNullOrWhiteSpace();
+        options.SkillsDirectory.Should().Contain("skills");
+        options.AdrsDirectory.Should().Contain("adrs");
+        options.VaultDirectory.Should().Contain("vault");
+
+        var userCarnot = CarnotStorageOptions.ResolveUserCarnotRoot();
+        userCarnot.Should().EndWith(".carnot");
+    }
+
+    [Fact]
+    public void CarnotStorageOptions_WithEnvironmentVariables_ShouldOverrideDefaults()
+    {
+        var originalData = Environment.GetEnvironmentVariable("CARNOT_DATA_DIR");
+        var originalArtifacts = Environment.GetEnvironmentVariable("CARNOT_ARTIFACTS_DIR");
+        var originalWorkspace = Environment.GetEnvironmentVariable("CARNOT_WORKSPACE_DIR");
+
+        try
+        {
+            var customData = Path.Combine(Path.GetTempPath(), "carnot_env_data");
+            var customArtifacts = Path.Combine(Path.GetTempPath(), "carnot_env_artifacts");
+            var customWorkspace = Path.Combine(Path.GetTempPath(), "carnot_env_workspace");
+
+            Environment.SetEnvironmentVariable("CARNOT_DATA_DIR", customData);
+            Environment.SetEnvironmentVariable("CARNOT_ARTIFACTS_DIR", customArtifacts);
+            Environment.SetEnvironmentVariable("CARNOT_WORKSPACE_DIR", customWorkspace);
+
+            var options = new CarnotStorageOptions();
+            options.DataDirectory.Should().Be(customData);
+            options.ArtifactsDirectory.Should().Be(customArtifacts);
+            options.WorkspaceDirectory.Should().Be(customWorkspace);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CARNOT_DATA_DIR", originalData);
+            Environment.SetEnvironmentVariable("CARNOT_ARTIFACTS_DIR", originalArtifacts);
+            Environment.SetEnvironmentVariable("CARNOT_WORKSPACE_DIR", originalWorkspace);
+        }
     }
 
     public void Dispose()

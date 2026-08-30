@@ -1,0 +1,314 @@
+@using CarnotCycleCircus.Core.Domain.Security
+@inject IApiKeyVaultService KeyVaultService
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-dialog" style="max-width: 720px; max-height: 90vh; overflow-y: auto;" @onclick:stopPropagation="true">
+        <div class="modal-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.3rem;">🛡️</span>
+                <h3 style="font-size: 1.15rem; font-weight: 700;">Secure API Key Vault & Encryption Hub</h3>
+            </div>
+            <button class="btn btn-secondary" @onclick="Close" style="padding: 4px 8px;">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Cryptographic Envelope Security Status Banner -->
+            @{
+                var secStatus = KeyVaultService.GetSecurityStatus();
+            }
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid #0284c7; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1rem;">🔒</span>
+                        <span style="font-weight: 700; color: #38bdf8; font-size: 0.88rem;">AUTHENTICATED ENVELOPE ENCRYPTION ACTIVE</span>
+                    </div>
+                    <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; font-size: 0.7rem;">
+                        @(secStatus.IsEncryptedAtRest ? "ENCRYPTED AT REST" : "IN-MEMORY SECURE")
+                    </span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.76rem; color: var(--text-muted);">
+                    <div><strong style="color: #f8fafc;">Cipher:</strong> @secStatus.EncryptionAlgorithm (256-bit AEAD)</div>
+                    <div><strong style="color: #f8fafc;">Key Derivation:</strong> @secStatus.KeyDerivationAlgorithm</div>
+                    <div><strong style="color: #f8fafc;">Master Key Source:</strong> @secStatus.MasterKeySource</div>
+                    <div><strong style="color: #f8fafc;">Key Fingerprint:</strong> <code style="color: #38bdf8;">@secStatus.MasterKeyFingerprint</code></div>
+                </div>
+            </div>
+
+            <!-- Stored Keys Section -->
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h4 style="font-size: 0.95rem; font-weight: 600; color: #38bdf8;">Stored API Keys (@KeyVaultService.GetAllKeys().Count)</h4>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" @onclick="@(() => ToggleTab("backup"))">
+                            🔐 Backup & Recovery
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.75rem;" @onclick="@(() => ToggleTab("rotate"))">
+                            🔄 Rotate Master Key
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    @foreach (var key in KeyVaultService.GetAllKeys())
+                    {
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-primary); border: 1px solid @(key.IsActive ? "#38bdf8" : "var(--border-color)"); border-radius: 8px;">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-weight: 600;">@key.KeyName</span>
+                                    @if (key.IsActive)
+                                    {
+                                        <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">ACTIVE GLOBAL</span>
+                                    }
+                                    <span class="badge" style="background: rgba(148, 163, 184, 0.1); color: #94a3b8; font-size: 0.68rem;">
+                                        @(key.EncryptionAlgorithm ?? "AES-256-GCM")
+                                    </span>
+                                </div>
+                                <div style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                    @key.ApiKeyMasked (@key.Provider)
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 8px;">
+                                @if (!key.IsActive)
+                                {
+                                    <button class="btn btn-primary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => ActivateKey(key.KeyId)">
+                                        Load Key
+                                    </button>
+                                }
+                                <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem;" @onclick="() => TestKey(key.RawApiKey)">
+                                    Ping OpenRouter
+                                </button>
+                                @if (KeyVaultService.GetAllKeys().Count > 1)
+                                {
+                                    <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.78rem;" @onclick="() => DeleteKey(key.KeyId)">
+                                        🗑️
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(testResultStatus))
+            {
+                <div style="padding: 10px; border-radius: 8px; margin-bottom: 16px; font-size: 0.85rem; background: @(testResultSuccess ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"); border: 1px solid @(testResultSuccess ? "#22c55e" : "#ef4444"); color: @(testResultSuccess ? "#22c55e" : "#ef4444");">
+                    @testResultStatus
+                </div>
+            }
+
+            @if (activeTab == "rotate")
+            {
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid #f59e0b; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <h4 style="font-size: 0.92rem; font-weight: 700; color: #f59e0b; margin-bottom: 8px;">🔄 Master Key Rotation</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+                        Re-encrypt all stored API credentials using a newly derived 256-bit symmetric key with fresh nonces and PBKDF2 salt.
+                    </p>
+                    <div class="form-group" style="margin-bottom: 8px;">
+                        <input class="form-control" type="password" placeholder="Enter new master passphrase / secret" @bind="newMasterPassphrase" />
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-warning" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="RotateMasterKey">
+                            Apply Key Rotation
+                        </button>
+                        <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="@(() => activeTab = "keys")">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (activeTab == "backup")
+            {
+                <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid #38bdf8; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                    <h4 style="font-size: 0.92rem; font-weight: 700; color: #38bdf8; margin-bottom: 8px;">🔐 Encrypted Backup & Import</h4>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px;">
+                        Export an encrypted vault bundle protected by a custom passphrase, or import and merge an existing backup package.
+                    </p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+                        <div>
+                            <label class="form-label" style="font-size: 0.78rem;">Passphrase for Export / Import</label>
+                            <input class="form-control" type="password" placeholder="Passphrase" @bind="backupPassphrase" />
+                        </div>
+                        <div style="display: flex; align-items: flex-end; gap: 8px;">
+                            <button class="btn btn-primary" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="ExportVault">
+                                📤 Export Encrypted JSON
+                            </button>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(backupPackageJson))
+                    {
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label" style="font-size: 0.78rem;">Vault Package (JSON Payload):</label>
+                            <textarea class="form-control" rows="3" style="font-family: monospace; font-size: 0.72rem;" @bind="backupPackageJson"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-success" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="ImportVault">
+                                📥 Restore / Merge from Package
+                            </button>
+                            <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="@(() => backupPackageJson = string.Empty)">
+                                Clear
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary" style="font-size: 0.8rem; padding: 6px 12px;" @onclick="@(() => backupPackageJson = " ")">
+                            📥 Paste Package to Import
+                        </button>
+                    }
+                </div>
+            }
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px;">Add New OpenRouter Key</h4>
+                <div class="form-group">
+                    <label class="form-label">Key Label / Friendly Name</label>
+                    <input class="form-control" placeholder="e.g. Production Anthropic Key / Dev DeepSeek Key" @bind="newKeyName" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">OpenRouter API Key (sk-or-v1-...)</label>
+                    <input class="form-control" type="password" placeholder="sk-or-v1-xxxxxxxx" @bind="newRawApiKey" />
+                </div>
+                <button class="btn btn-success" style="width: 100%; justify-content: center;" @onclick="AddKey">
+                    ➕ Add Key to Encrypted Vault
+                </button>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="Close">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string newKeyName = "";
+    private string newRawApiKey = "";
+    private string? testResultStatus;
+    private bool testResultSuccess;
+
+    private string activeTab = "keys";
+    private string newMasterPassphrase = "";
+    private string backupPassphrase = "";
+    private string backupPackageJson = "";
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private void ToggleTab(string tab)
+    {
+        activeTab = activeTab == tab ? "keys" : tab;
+    }
+
+    private void ActivateKey(string keyId)
+    {
+        KeyVaultService.SetActiveKey(keyId);
+        testResultStatus = "Active global key updated successfully.";
+        testResultSuccess = true;
+    }
+
+    private void DeleteKey(string keyId)
+    {
+        KeyVaultService.DeleteKey(keyId);
+        testResultStatus = "Key removed from encrypted vault.";
+        testResultSuccess = true;
+    }
+
+    private async Task TestKey(string rawApiKey)
+    {
+        testResultStatus = "Testing connection to OpenRouter API...";
+        StateHasChanged();
+        testResultSuccess = await KeyVaultService.TestKeyConnectionAsync(rawApiKey);
+        testResultStatus = testResultSuccess
+            ? "✅ Key verified! Successfully authenticated with OpenRouter inference hub."
+            : "❌ Key authentication failed. Verify the API key string.";
+    }
+
+    private void AddKey()
+    {
+        if (string.IsNullOrWhiteSpace(newKeyName) || string.IsNullOrWhiteSpace(newRawApiKey))
+        {
+            testResultStatus = "Key name and API key string cannot be empty.";
+            testResultSuccess = false;
+            return;
+        }
+
+        KeyVaultService.AddOrUpdateKey(newKeyName.Trim(), newRawApiKey.Trim(), isActive: true);
+        newKeyName = "";
+        newRawApiKey = "";
+        testResultStatus = "New key encrypted (AES-256-GCM) and saved as active global key.";
+        testResultSuccess = true;
+    }
+
+    private async Task RotateMasterKey()
+    {
+        if (string.IsNullOrWhiteSpace(newMasterPassphrase))
+        {
+            testResultStatus = "Please provide a non-empty passphrase to rotate the master key.";
+            testResultSuccess = false;
+            return;
+        }
+
+        try
+        {
+            await KeyVaultService.RotateMasterKeyAsync(newMasterPassphrase.Trim());
+            newMasterPassphrase = "";
+            activeTab = "keys";
+            testResultStatus = "✅ Master key rotated successfully. All vault credentials re-encrypted.";
+            testResultSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            testResultStatus = $"Key rotation failed: {ex.Message}";
+            testResultSuccess = false;
+        }
+    }
+
+    private async Task ExportVault()
+    {
+        if (string.IsNullOrWhiteSpace(backupPassphrase))
+        {
+            testResultStatus = "Please enter an export passphrase to protect the backup package.";
+            testResultSuccess = false;
+            return;
+        }
+
+        try
+        {
+            backupPackageJson = await KeyVaultService.ExportEncryptedVaultAsync(backupPassphrase.Trim());
+            testResultStatus = "✅ Encrypted backup package generated successfully.";
+            testResultSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            testResultStatus = $"Export failed: {ex.Message}";
+            testResultSuccess = false;
+        }
+    }
+
+    private async Task ImportVault()
+    {
+        if (string.IsNullOrWhiteSpace(backupPassphrase) || string.IsNullOrWhiteSpace(backupPackageJson))
+        {
+            testResultStatus = "Please provide both the backup package JSON and passphrase.";
+            testResultSuccess = false;
+            return;
+        }
+
+        try
+        {
+            var count = await KeyVaultService.ImportEncryptedVaultAsync(backupPackageJson.Trim(), backupPassphrase.Trim());
+            backupPackageJson = "";
+            activeTab = "keys";
+            testResultStatus = $"✅ Successfully imported and re-encrypted {count} API keys into local vault.";
+            testResultSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            testResultStatus = $"Import failed: {ex.Message} (Check passphrase and JSON format).";
+            testResultSuccess = false;
+        }
+    }
+}

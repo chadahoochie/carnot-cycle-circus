@@ -194,8 +194,13 @@ public class TicketStore : ITicketStore
     public IReadOnlyList<TicketItem> GetReadyTickets()
     {
         return _tickets.Values
-            .Where(t => t.Status is TicketStatus.Backlog or TicketStatus.Ready)
+            .Where(t => t.Status is TicketStatus.Backlog or TicketStatus.Ready or TicketStatus.Remediating)
             .Where(t => AreDependenciesSatisfied(t.Id))
+            .OrderByDescending(t => t.Status == TicketStatus.Remediating) // Remediations take highest precedence
+            .ThenByDescending(t => t.Priority)                           // Critical -> High -> Medium -> Low
+            .ThenBy(t => (int)t.AssigneeRole)                            // 8-agent pecking order: Res -> TPM -> Arch -> Dev -> Sec -> Opt -> QA -> Int
+            .ThenBy(t => t.CreatedAt)
+            .ThenBy(t => t.Id)
             .ToList();
     }
 

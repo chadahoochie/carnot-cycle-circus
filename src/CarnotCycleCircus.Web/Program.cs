@@ -10,6 +10,7 @@ builder.Services.AddRazorComponents()
 
 // Add Carnot Cycle Circus Core Engine & Domain Services
 builder.Services.AddCarnotCycleCircusCore();
+builder.Services.AddSingleton<CarnotCycleCircus.UI.Services.INativeFolderPicker, CarnotCycleCircus.UI.Services.DefaultNativeFolderPicker>();
 
 var app = builder.Build();
 

@@ -1,0 +1,39 @@
+@page "/Error"
+@using System.Diagnostics
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Error - Carnot Cycle Circus</title>
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+    <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px;">
+        <div class="glass-card" style="max-width: 600px; text-align: center;">
+            <span style="font-size: 3rem;">🎪💥</span>
+            <h1 style="font-size: 1.5rem; margin: 16px 0 8px 0; color: #ef4444;">Circus Malfunction</h1>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">
+                An unexpected entropy surge occurred in the agent runtime engine.
+            </p>
+            @if (ShowRequestId)
+            {
+                <p style="font-size: 0.8rem; font-family: monospace; color: var(--text-muted); margin-bottom: 20px;">
+                    <strong>Request ID:</strong> <code>@RequestId</code>
+                </p>
+            }
+            <a href="/" class="btn btn-primary">🎪 Return to Circus Ring</a>
+        </div>
+    </div>
+</body>
+
+</html>
+
+@code {
+    private string? RequestId => Activity.Current?.Id;
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+}

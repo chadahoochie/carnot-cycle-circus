@@ -18,8 +18,8 @@ The test project contains 17 specialized test suites covering all core domain se
 | `TicketStoreTests.cs` | `TicketStore` | Ticket CRUD, state machine transitions, dependency DAG ordering, and query filters. |
 | `WorkDecompositionTests.cs` | `WorkDecompositionEngine` | Automated TPM/Architect deconstruction of Epics into granular technical subtasks with DAG edges and multi-file code expectations. |
 | `HandoffRouterTests.cs` | `HandoffRouter` | Success handoffs, failure remediation loopbacks, and DAG downstream activation. |
-| `WorkflowGraphTests.cs` | `GraphWorkflowExecutor` | End-to-end DAG execution, failure port routing, retry counters, and circuit breaker tripping. |
-| `RealExecutionEngineTests.cs` | `SimulatedScenarioEngine` & Execution | Multi-file C# deliverable parsing, autonomous syntax self-healing loop with `CSharpSyntaxCheckTool`, upstream context injection (Architecture $\to$ Dev, Dev $\to$ Sec, Dev $\to$ QA), and deterministic 4-file fallback generation. |
+| `RealExecutionEngineTests.cs` | `AgentExecutionEngine` & Real Inference | Real OpenRouter execution, multi-file C# deliverable parsing, autonomous syntax self-healing loop with `CSharpSyntaxCheckTool`, upstream context injection (Architecture $\to$ Dev, Dev $\to$ Sec, Dev $\to$ QA), and offline mock test isolation. |
+| `AgentPeckingOrderTests.cs` | `TicketStore` & `GraphWorkflowExecutor` | Strict 8-agent pecking order, Remediating ticket precedence, multi-branch downstream handoffs, and complete handoff chaining. |
 | `PersistentMemoryTests.cs` | `EmbeddedVectorMemoryStore` | Multi-tier storage, 64-dim vector cosine similarity search, composite scoring, and pruning. |
 | `ToolSandboxTests.cs` | Tool Sandbox (`IToolDefinition`) | Execution and parameter validation for `WebSearch`, `CSharpSyntaxCheck`, `TestRunner`, `MemoryLookup`, and `AdrWriter`. |
 | `SecureKeyStorageTests.cs` | `ApiKeyVaultService` & Encryptor | AES-256-GCM AEAD envelope encryption, context-bound AAD, master key rotation, legacy migration, passphrase export/import. |

@@ -1,4 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using FluentAssertions;
 using Xunit;
@@ -54,5 +55,70 @@ public class WorkDecompositionTests
         qaSubtask.DependsOnTicketIds.Should().Contain(secSubtask.Id);
         qaSubtask.DependsOnTicketIds.Should().Contain(optSubtask.Id);
         intSubtask.DependsOnTicketIds.Should().Contain(qaSubtask.Id);
+    }
+
+    [Fact]
+    public void DeconstructEpicIntoUserStories_ShouldCreateEpicAndUserStories_WithoutPrematureSubtasks()
+    {
+        var researchBrief = new ArtifactItem(
+            Name: "RESEARCH_BRIEF.md",
+            Content: "# Research Brief: Distributed PubSub",
+            ContentType: "markdown",
+            Description: "RFC Feasibility Analysis"
+        );
+
+        var tickets = _engine.DeconstructEpicIntoUserStories(
+            "Build Distributed PubSub",
+            "Implement high-throughput in-memory pub/sub channels",
+            researchBrief
+        );
+
+        tickets.Should().HaveCount(2);
+        var epic = tickets.First(t => t.Type == TicketType.Epic);
+        epic.Deliverables.Should().Contain(d => d.Name == "RESEARCH_BRIEF.md");
+        epic.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
+
+        var story = tickets.First(t => t.Type == TicketType.Feature);
+        story.ParentEpicId.Should().Be(epic.Id);
+        story.AssigneeRole.Should().Be(AgentRole.LeadArchitect);
+        story.Status.Should().Be(TicketStatus.InProgress);
+        story.CreatedByRole.Should().Be(AgentRole.TechnicalProductManager);
+
+        // Ensure subtasks are NOT prematurely created during TPM story generation phase
+        tickets.Where(t => t.Type == TicketType.Subtask).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RefineStoryIntoTechnicalSubtasks_ShouldDecomposeStory_IntoSixTechnicalSubtasks()
+    {
+        var story = new TicketItem(
+            Id: "STORY-TEST-001",
+            ParentEpicId: "EPIC-TEST",
+            Title: "Distributed PubSub Engine",
+            Description: "High-throughput in-memory pub/sub channels",
+            Type: TicketType.Feature,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.LeadArchitect,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Zero-allocation channel buffers"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var subtasks = _engine.RefineStoryIntoTechnicalSubtasks(story);
+
+        subtasks.Should().HaveCount(6);
+        subtasks.Should().OnlyContain(s => s.Type == TicketType.Subtask);
+        subtasks.Should().OnlyContain(s => s.ParentEpicId == "EPIC-TEST");
+
+        // The first subtask (Arch ADR) must be Ready; downstream subtasks must be in Backlog
+        var adrSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.LeadArchitect);
+        adrSubtask.Status.Should().Be(TicketStatus.Ready);
+
+        var otherSubtasks = subtasks.Where(s => s.AssigneeRole != AgentRole.LeadArchitect).ToList();
+        otherSubtasks.Should().OnlyContain(s => s.Status == TicketStatus.Backlog);
     }
 }

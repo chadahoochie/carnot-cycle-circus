@@ -274,6 +274,7 @@ public class SecureKeyStorageTests : IDisposable
     {
         // Arrange
         var vault = new ApiKeyVaultService(null, _storageService);
+        var added = vault.AddOrUpdateKey("Primary Production Key", "sk-or-v1-prod-key-12345", isActive: true);
 
         // Act
         var status = vault.GetSecurityStatus();
@@ -283,8 +284,8 @@ public class SecureKeyStorageTests : IDisposable
         status.EncryptionAlgorithm.Should().Be("AES-256-GCM");
         status.KeyDerivationAlgorithm.Should().Contain("PBKDF2-HMAC-SHA256");
         status.MasterKeyFingerprint.Should().StartWith("sha256:");
-        status.TotalKeysCount.Should().BeGreaterThan(0);
-        status.ActiveKeyId.Should().NotBeNullOrEmpty();
+        status.TotalKeysCount.Should().Be(1);
+        status.ActiveKeyId.Should().Be(added.KeyId);
     }
 
     [Fact]

@@ -50,6 +50,18 @@ dotnet build CarnotCycleCircus.slnx
 # Run all test suites
 dotnet test CarnotCycleCircus.slnx --logger "console;verbosity=normal"
 
+# Launch native cross-platform desktop application (Linux WebKitGTK / macOS / Windows)
+dotnet run --project src/CarnotCycleCircus.Desktop
+
+# Launch headless Agent Host Server (Minimal API + SignalR Hub)
+dotnet run --project src/CarnotCycleCircus.Server
+
 # Launch Blazor web application
 dotnet run --project src/CarnotCycleCircus.Web
+
+# Launch containerized Agent Server with Docker multi-mounts
+docker compose up -d
+
+# Install desktop & server binaries locally into ~/.carnot/bin
+./scripts/install-local.sh
 ```

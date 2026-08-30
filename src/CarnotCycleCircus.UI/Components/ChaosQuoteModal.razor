@@ -1,0 +1,118 @@
+@using CarnotCycleCircus.Core.Domain.Quotes
+@inject IComedyQuoteService QuoteService
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-content" style="max-width: 680px; max-height: 85vh; overflow-y: auto;" @onclick:stopPropagation="true">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.8rem;">🎬</span>
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
+                        Comedy Chaos Cannon & Movie Lore
+                    </h3>
+                    <div style="font-size: 0.78rem; color: #38bdf8;">
+                        Cult Classic Quotes from Spaceballs, Monty Python, Ace Ventura, Airplane!, Kung Pow, and more!
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.9rem;" @onclick="Close">✕</button>
+        </div>
+
+        <!-- Featured Quote Card -->
+        @if (currentQuote != null)
+        {
+            <div class="glass-card" style="border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.9) 100%); padding: 20px; text-align: center; margin-bottom: 20px; position: relative;">
+                <span style="font-size: 2.2rem; display: block; margin-bottom: 10px;">📣</span>
+                <blockquote style="font-size: 1.2rem; font-weight: 700; color: #f8fafc; line-height: 1.4; margin-bottom: 12px; font-style: italic;">
+                    "@currentQuote.Quote"
+                </blockquote>
+
+                <div style="display: flex; justify-content: center; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 0.85rem;">
+                    <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b;">
+                        🎬 @currentQuote.Movie
+                    </span>
+                    <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">
+                        👤 @currentQuote.Character
+                    </span>
+                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981;">
+                        🏷️ @currentQuote.Category
+                    </span>
+                </div>
+            </div>
+        }
+
+        <!-- Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <button class="btn btn-primary" @onclick="RollNewQuote" style="display: flex; align-items: center; gap: 6px;">
+                <span>🎲</span>
+                <span>Fire Comedy Cannon (New Quote)</span>
+            </button>
+
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select class="form-control" style="font-size: 0.8rem; padding: 4px 8px;" @bind="selectedMovieFilter" @bind:after="ApplyFilter">
+                    <option value="">All Movies (@allQuotes.Count)</option>
+                    @foreach (var movie in distinctMovies)
+                    {
+                        <option value="@movie">@movie</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <!-- Filtered Quotes List -->
+        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+            @foreach (var q in filteredQuotes)
+            {
+                <div class="glass-card" style="padding: 10px 14px; cursor: pointer; transition: border-color 0.2s;" @onclick="() => currentQuote = q">
+                    <div style="font-size: 0.9rem; color: #f8fafc; font-weight: 600; margin-bottom: 4px;">"@q.Quote"</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                        <span>🎬 @q.Movie (@q.Character)</span>
+                        <span style="color: #38bdf8;">@q.Category</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+            <button class="btn btn-secondary" @onclick="Close">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private ComedyQuote? currentQuote;
+    private IReadOnlyList<ComedyQuote> allQuotes = [];
+    private IReadOnlyList<ComedyQuote> filteredQuotes = [];
+    private List<string> distinctMovies = [];
+    private string selectedMovieFilter = "";
+
+    protected override void OnInitialized()
+    {
+        allQuotes = QuoteService.GetAllQuotes();
+        distinctMovies = allQuotes.Select(q => q.Movie).Distinct().OrderBy(m => m).ToList();
+        filteredQuotes = allQuotes;
+        currentQuote = QuoteService.GetRandomQuote();
+    }
+
+    private void RollNewQuote()
+    {
+        currentQuote = QuoteService.GetRandomQuote();
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(selectedMovieFilter))
+        {
+            filteredQuotes = allQuotes;
+        }
+        else
+        {
+            filteredQuotes = QuoteService.GetQuotesByMovie(selectedMovieFilter);
+        }
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+}

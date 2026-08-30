@@ -1,0 +1,256 @@
+@page "/memory"
+@inject IPersistentMemoryStore MemoryStore
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🧠 Existential Brain Scan & Persistent Memory</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Multi-tier memory architecture (Working RAM, Past Trauma Logs, Abstract Dogma, Muscle Memory) with cosine similarity retrieval.</p>
+    </div>
+
+    <div class="page-header-actions">
+        <button class="btn btn-danger" @onclick="PruneMemories" style="white-space: nowrap;">
+            🧹 Selective Amnesia (Prune Decayed Braincells)
+        </button>
+        <button class="btn btn-success" @onclick="() => showAddModal = true" style="white-space: nowrap;">
+            ➕ Inject Memory
+        </button>
+    </div>
+</div>
+
+<!-- Search Bar & Filters -->
+<div class="glass-card" style="margin-bottom: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+        <div>
+            <label class="form-label">Semantic Cosine Vibe Check</label>
+            <input class="form-control" placeholder="Search patterns, past regrets, or lessons learned..." @bind="searchQuery" @bind:event="oninput" @bind:after="PerformSearch" />
+        </div>
+        <div>
+            <label class="form-label">Filter by Memory Type</label>
+            <select class="form-control" @bind="selectedType" @bind:after="PerformSearch">
+                <option value="">All Types</option>
+                @foreach (var type in Enum.GetValues<MemoryType>())
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label class="form-label">Filter by Role</label>
+            <select class="form-control" @bind="selectedRole" @bind:after="PerformSearch">
+                <option value="">All Roles</option>
+                @foreach (var role in Enum.GetValues<AgentRole>())
+                {
+                    <option value="@role">@role.ToDisplayName()</option>
+                }
+            </select>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMsg))
+{
+    <div style="padding: 10px; border-radius: 8px; margin-bottom: 16px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.85rem;">
+        @statusMsg
+    </div>
+}
+
+<!-- Memory Entries Grid -->
+<div style="display: flex; flex-direction: column; gap: 12px;">
+    @foreach (var item in searchResults)
+    {
+        var mem = item.Entry;
+        <div class="glass-card" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+            <div style="flex-grow: 1;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span class="badge" style="background: @mem.Role.ToColorHex(); color: #000; font-weight: 700;">@mem.Type</span>
+                    <span style="font-weight: 600; color: @mem.Role.ToColorHex();">@mem.Role.ToDisplayName()</span>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@mem.Id</span>
+                    @if (item.SimilarityScore > 0)
+                    {
+                        <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e;">
+                            Relevance: @item.SimilarityScore.ToString("P0")
+                        </span>
+                    }
+                </div>
+
+                <div style="font-size: 0.9rem; line-height: 1.4; color: #f8fafc; white-space: pre-wrap; margin-bottom: 10px;">
+                    @mem.Content
+                </div>
+
+                <div style="display: flex; gap: 12px; font-size: 0.75rem; color: var(--text-muted);">
+                    <span>Created: @mem.Timestamp.ToString("yyyy-MM-dd HH:mm")</span>
+                    <span>Last Accessed: @mem.LastAccessedAt.ToString("HH:mm:ss")</span>
+                    <span>Importance: @mem.Importance.ToString("F2")</span>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                <input type="range" min="0" max="1" step="0.05" value="@mem.Importance" style="width: 100px;" @onchange="(e) => UpdateImportance(mem, e)" />
+                <span style="font-size: 0.7rem; color: var(--text-muted);">Importance: @mem.Importance.ToString("P0")</span>
+            </div>
+        </div>
+    }
+
+    @if (searchResults.Count == 0)
+    {
+        <div class="glass-card" style="text-align: center; color: var(--text-muted); padding: 40px;">
+            No memories found matching your search query.
+        </div>
+    }
+</div>
+
+@if (showAddModal)
+{
+    <div class="modal-backdrop" @onclick="() => showAddModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Add Knowledge / Memory Entry</h3>
+                <button class="btn btn-secondary" @onclick="() => showAddModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Memory Type</label>
+                    <select class="form-control" @bind="newMemType">
+                        @foreach (var type in Enum.GetValues<MemoryType>())
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Agent Role Association</label>
+                    <select class="form-control" @bind="newMemRole">
+                        @foreach (var role in Enum.GetValues<AgentRole>())
+                        {
+                            <option value="@role">@role.ToDisplayName()</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Memory Content / Decision / Lesson</label>
+                    <textarea class="form-control" rows="4" @bind="newMemContent" placeholder="Enter architectural rule, domain pattern, or past decision..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Initial Importance (0.0 to 1.0)</label>
+                    <input class="form-control" type="number" min="0" max="1" step="0.1" @bind="newMemImportance" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showAddModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="SaveMemory">Save to Memory Store</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string searchQuery = "";
+    private string selectedType = "";
+    private string selectedRole = "";
+    private string? statusMsg;
+    private List<MemorySearchResult> searchResults = new();
+    private bool showAddModal;
+
+    private MemoryType newMemType = MemoryType.Semantic;
+    private AgentRole newMemRole = AgentRole.LeadArchitect;
+    private string newMemContent = "";
+    private float newMemImportance = 0.8f;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SeedInitialMemoriesIfEmptyAsync();
+        await PerformSearch();
+    }
+
+    private async Task SeedInitialMemoriesIfEmptyAsync()
+    {
+        var existing = await MemoryStore.GetAllAsync();
+        if (existing.Count == 0)
+        {
+            await MemoryStore.StoreAsync(new MemoryEntry(
+                Id: "MEM-SEM-001",
+                Type: MemoryType.Semantic,
+                Role: AgentRole.LeadArchitect,
+                Content: "In .NET 10, ValueTask combined with ReadOnlyMemory<byte> ensures zero heap allocations on high-frequency streaming channels.",
+                Embedding: Array.Empty<float>(),
+                Importance: 0.95f,
+                Tags: new Dictionary<string, string> { ["Topic"] = "Performance" },
+                Timestamp: DateTimeOffset.UtcNow,
+                LastAccessedAt: DateTimeOffset.UtcNow
+            ));
+
+            await MemoryStore.StoreAsync(new MemoryEntry(
+                Id: "MEM-EP-001",
+                Type: MemoryType.Episodic,
+                Role: AgentRole.SoftwareDeveloper,
+                Content: "Resolved issue where unclosed braces caused syntax parser failure by introducing character scanner with escape checks.",
+                Embedding: Array.Empty<float>(),
+                Importance: 0.75f,
+                Tags: new Dictionary<string, string> { ["Topic"] = "BugFix" },
+                Timestamp: DateTimeOffset.UtcNow.AddHours(-1),
+                LastAccessedAt: DateTimeOffset.UtcNow
+            ));
+        }
+    }
+
+    private async Task PerformSearch()
+    {
+        MemoryType? typeFilter = Enum.TryParse<MemoryType>(selectedType, true, out var parsedType) ? parsedType : null;
+        AgentRole? roleFilter = Enum.TryParse<AgentRole>(selectedRole, true, out var parsedRole) ? parsedRole : null;
+
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            var all = await MemoryStore.GetAllAsync();
+            var filtered = all.AsEnumerable();
+            if (typeFilter.HasValue) filtered = filtered.Where(e => e.Type == typeFilter.Value);
+            if (roleFilter.HasValue) filtered = filtered.Where(e => e.Role == roleFilter.Value);
+
+            searchResults = filtered.Select(e => new MemorySearchResult(e, 0f)).ToList();
+        }
+        else
+        {
+            var res = await MemoryStore.SearchAsync(searchQuery, topK: 10, typeFilter: typeFilter, roleFilter: roleFilter);
+            searchResults = res.ToList();
+        }
+    }
+
+    private async Task PruneMemories()
+    {
+        var pruned = await MemoryStore.PruneAsync(0.3f, TimeSpan.FromMinutes(30));
+        statusMsg = $"Pruned {pruned} low-importance decayed working/episodic memories.";
+        await PerformSearch();
+    }
+
+    private async Task UpdateImportance(MemoryEntry entry, ChangeEventArgs e)
+    {
+        if (float.TryParse(e.Value?.ToString(), out var imp))
+        {
+            var updated = entry with { Importance = imp };
+            await MemoryStore.StoreAsync(updated);
+            await PerformSearch();
+        }
+    }
+
+    private async Task SaveMemory()
+    {
+        if (string.IsNullOrWhiteSpace(newMemContent)) return;
+
+        var entry = new MemoryEntry(
+            Id: $"MEM-{newMemType.ToString()[..3].ToUpper()}-{Guid.NewGuid().ToString("N")[..6]}",
+            Type: newMemType,
+            Role: newMemRole,
+            Content: newMemContent,
+            Embedding: Array.Empty<float>(),
+            Importance: newMemImportance,
+            Tags: new Dictionary<string, string>(),
+            Timestamp: DateTimeOffset.UtcNow,
+            LastAccessedAt: DateTimeOffset.UtcNow
+        );
+
+        await MemoryStore.StoreAsync(entry);
+        showAddModal = false;
+        newMemContent = "";
+        statusMsg = "Memory entry saved to persistent vector store.";
+        await PerformSearch();
+    }
+}

@@ -25,7 +25,6 @@ public interface IGraphWorkflowExecutor
     Task<bool> ExecuteWorkflowAsync(
         string epicTitle,
         string epicDescription,
-        bool triggerFailureSimulation = false,
         CancellationToken cancellationToken = default);
 
     Task<bool> ExecuteTicketAsync(string ticketId, CancellationToken cancellationToken = default);
@@ -42,7 +41,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     private readonly ITicketStore _ticketStore;
     private readonly IWorkDecompositionEngine _decompositionEngine;
     private readonly IHandoffRouter _handoffRouter;
-    private readonly ISimulatedScenarioEngine _scenarioEngine;
+    private readonly IAgentExecutionEngine _executionEngine;
     private readonly IAgentEventStream _eventStream;
     private readonly IMemoryConsolidationEngine _memoryConsolidation;
     private readonly Learning.ISelfImprovementEngine? _selfImprovement;
@@ -58,7 +57,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         ITicketStore ticketStore,
         IWorkDecompositionEngine decompositionEngine,
         IHandoffRouter handoffRouter,
-        ISimulatedScenarioEngine scenarioEngine,
+        IAgentExecutionEngine executionEngine,
         IAgentEventStream eventStream,
         IMemoryConsolidationEngine memoryConsolidation,
         Learning.ISelfImprovementEngine? selfImprovement = null)
@@ -67,7 +66,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _ticketStore = ticketStore;
         _decompositionEngine = decompositionEngine;
         _handoffRouter = handoffRouter;
-        _scenarioEngine = scenarioEngine;
+        _executionEngine = executionEngine;
         _eventStream = eventStream;
         _memoryConsolidation = memoryConsolidation;
         _selfImprovement = selfImprovement;
@@ -233,23 +232,23 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
         await Task.Delay(100, cancellationToken);
 
-        var artifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(ticket.AssigneeRole, ticket, cancellationToken);
+        var artifacts = await _executionEngine.ExecuteRoleTaskAsync(ticket.AssigneeRole, ticket, cancellationToken);
         foreach (var a in artifacts)
         {
             ticket = ticket.WithDeliverable(a);
         }
         _ticketStore.UpdateTicket(ticket);
 
-        // Record handoff to downstream role
-        var nextRole = GetDownstreamRoleFor(ticket.AssigneeRole);
-        if (nextRole.HasValue)
+        // Record handoff to all downstream roles
+        var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
+        foreach (var nextRole in downstreamRoles)
         {
             _handoffRouter.RouteSuccessHandoff(
                 ticket.Id,
                 ticket.AssigneeRole,
-                nextRole.Value,
+                nextRole,
                 $"Delivered [{ticket.Id}] {ticket.Title}. Attached {artifacts.Count} artifacts.",
-                $"Proceed with downstream verification or implementation for {ticket.Title}.",
+                $"Proceed with downstream task for {ticket.Title}.",
                 artifacts
             );
         }
@@ -328,7 +327,6 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     public async Task<bool> ExecuteWorkflowAsync(
         string epicTitle,
         string epicDescription,
-        bool triggerFailureSimulation = false,
         CancellationToken cancellationToken = default)
     {
         _isRunning = true;
@@ -339,7 +337,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             _eventStream.Publish(AgentMessage.Create(
                 role: null,
                 senderName: "🎪 Circus Ringmaster",
-                content: $"🎪 Ladies & Gentlemen! The Carnot Circus is officially running for Epic: '{epicTitle}'! (Panic/Failure Sim: {(triggerFailureSimulation ? "🚨 ARMED ('I've got a bad feeling about this')" : "😌 Disarmed ('Ludicrous speed, GO!')")})",
+                content: $"🎪 Ladies & Gentlemen! The Carnot Circus is officially running for Epic: '{epicTitle}' at Ludicrous Speed!",
                 type: MessageType.Alert
             ));
 
@@ -353,9 +351,17 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             }
             else
             {
-                // 1. Requirements Research Phase (Discovery & Feasibility Scouting)
+                // 1. Collaborative Discovery Stage: Requirements Researcher & Technical Product Manager
                 var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
                 ArtifactItem? researchBrief = null;
+                string? researchTicketId = null;
+
+                _eventStream.Publish(AgentMessage.Create(
+                    role: AgentRole.TechnicalProductManager,
+                    senderName: "Barnum B. Buzzword (TPM)",
+                    content: $"🤝 Collaborative Discovery Initiated: TPM & Research Analyst partnering to frame and investigate specifications for new project '{epicTitle}'.",
+                    type: MessageType.Chat
+                ));
 
                 if (resNode != null)
                 {
@@ -365,12 +371,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     var tempResearchTicket = new TicketItem(
                         Id: $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
                         ParentEpicId: null,
-                        Title: $"Requirements Research: {epicTitle}",
+                        Title: $"Requirements Research & Feasibility: {epicTitle}",
                         Description: epicDescription,
                         Type: TicketType.ResearchSpike,
                         Status: TicketStatus.InProgress,
                         AssigneeRole: AgentRole.RequirementsResearcher,
-                        CreatedByRole: AgentRole.RequirementsResearcher,
+                        CreatedByRole: AgentRole.TechnicalProductManager,
                         Priority: TicketPriority.High,
                         DependsOnTicketIds: Array.Empty<string>(),
                         AcceptanceCriteria: [
@@ -383,14 +389,31 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                         Metadata: new Dictionary<string, string> { ["Stage"] = "Research" },
                         CreatedAt: DateTimeOffset.UtcNow
                     );
+                    _ticketStore.CreateTicket(tempResearchTicket);
+                    researchTicketId = tempResearchTicket.Id;
 
-                    var researchArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
+                    var researchArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
                     researchBrief = researchArtifacts.FirstOrDefault();
+
+                    foreach (var a in researchArtifacts)
+                    {
+                        tempResearchTicket = tempResearchTicket.WithDeliverable(a);
+                    }
+                    _ticketStore.UpdateTicket(tempResearchTicket.WithStatus(TicketStatus.Done));
+
+                    _handoffRouter.RouteSuccessHandoff(
+                        tempResearchTicket.Id,
+                        AgentRole.RequirementsResearcher,
+                        AgentRole.TechnicalProductManager,
+                        "Requirements researched & Feasibility Brief produced for collaborative synthesis.",
+                        "Synthesize research findings into PRD and deconstruct Epic into User Stories.",
+                        researchArtifacts
+                    );
 
                     _eventStream.Publish(AgentMessage.Create(
                         role: AgentRole.RequirementsResearcher,
                         senderName: "Rachel 'DeepDive' Reference (Requirements Researcher)",
-                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief.",
+                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief for TPM.",
                         type: MessageType.Chat,
                         ticketId: tempResearchTicket.Id
                     ));
@@ -398,7 +421,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief produced.", tempResearchTicket.Id);
                 }
 
-                // 2. TPM Phase - Work Decomposition
+                // 2. TPM Phase - Collaborative PRD Synthesis & User Story Deconstruction
                 var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
                 if (tpmNode != null)
                 {
@@ -406,39 +429,76 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     await Task.Delay(150, cancellationToken);
                 }
 
-                var createdTickets = _decompositionEngine.DeconstructEpic(epicTitle, epicDescription);
-                var epicTicket = createdTickets.First(t => t.Type == TicketType.Epic);
-                if (researchBrief != null)
+                var createdStoryTickets = _decompositionEngine.DeconstructEpicIntoUserStories(epicTitle, epicDescription, researchBrief);
+                var epicTicket = createdStoryTickets.First(t => t.Type == TicketType.Epic);
+                if (researchBrief != null && !epicTicket.Deliverables.Any(d => d.Name == researchBrief.Name))
                 {
                     epicTicket = epicTicket.WithDeliverable(researchBrief);
                 }
                 epicId = epicTicket.Id;
 
-                var prdArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.TechnicalProductManager, epicTicket, cancellationToken);
+                var prdArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.TechnicalProductManager, epicTicket, cancellationToken);
                 foreach (var a in prdArtifacts)
                 {
                     epicTicket = epicTicket.WithDeliverable(a);
                 }
                 _ticketStore.UpdateTicket(epicTicket);
 
+                var storiesCount = createdStoryTickets.Count(t => t.Type == TicketType.Feature);
+                _handoffRouter.RouteSuccessHandoff(
+                    epicTicket.Id,
+                    AgentRole.TechnicalProductManager,
+                    AgentRole.LeadArchitect,
+                    $"Synthesized Research Brief and authored PRD for '{epicTitle}' with {storiesCount} foundational User Stories.",
+                    "Refine User Stories into technical subtasks, then scaffold Clean Architecture and produce Architectural Decision Record (ADR).",
+                    prdArtifacts
+                );
+
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.TechnicalProductManager,
                     senderName: "Barnum B. Buzzword (TPM)",
-                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Ingested Research Brief, deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks and produced Product Requirements Document (PRD).",
+                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Ingested Research Brief, authored PRD, and established {storiesCount} foundational User Stories for Lead Architect refinement.",
                     type: MessageType.Chat,
                     ticketId: epicTicket.Id
                 ));
 
                 if (tpmNode != null)
                 {
-                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"Decomposed into {createdTickets.Count} work items with PRD.", epicTicket.Id);
+                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"PRD authored & {storiesCount} stories established for refinement.", epicTicket.Id);
                 }
             }
 
-            // 2. Lead Architect Phase
+            // 3. Lead Architect Phase: Backlog Refinement followed by Architecture & ADR Scaffolding
             var archNode = GetNodeByRole(AgentRole.LeadArchitect);
+            
+            // 3A. Architect Backlog Refinement Pass: Deconstruct Feature Stories into Technical Subtasks
+            var unrefinedStories = _ticketStore.GetTicketsByEpic(epicId)
+                .Where(t => t.Type == TicketType.Feature)
+                .ToList();
+
+            var existingSubtasks = _ticketStore.GetTicketsByEpic(epicId)
+                .Where(t => t.Type == TicketType.Subtask)
+                .ToList();
+
+            if (existingSubtasks.Count == 0 && unrefinedStories.Count > 0)
+            {
+                foreach (var story in unrefinedStories)
+                {
+                    var refinedSubtasks = _decompositionEngine.RefineStoryIntoTechnicalSubtasks(story);
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: AgentRole.LeadArchitect,
+                        senderName: "Archduke Archibald Abstraction-o (Lead Architect)",
+                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict DAG dependencies.",
+                        type: MessageType.StateChange,
+                        ticketId: story.Id
+                    ));
+                }
+            }
+
+            // 3B. Architect ADR & Clean Architecture Scaffolding
             var readyTickets = _ticketStore.GetReadyTickets();
-            var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.ParentEpicId == epicId)
+            var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask && t.ParentEpicId == epicId)
+                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask)
                 ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect);
 
             if (archNode != null && archTicket != null)
@@ -446,7 +506,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(archNode.Id, NodeExecutionState.Running, ticketId: archTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                var artifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.LeadArchitect, archTicket, cancellationToken);
+                var artifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket, cancellationToken);
                 foreach (var a in artifacts) archTicket = archTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(archTicket);
 
@@ -454,17 +514,17 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     archTicket.Id,
                     AgentRole.LeadArchitect,
                     AgentRole.SoftwareDeveloper,
-                    "ADR Architecture & Topology finalized. 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
-                    "Implement feature with zero heap allocations.",
+                    "ADR Architecture & Topology finalized after backlog refinement. 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
+                    "Implement feature with zero heap allocations matching refined subtasks and ADR contracts.",
                     artifacts
                 );
 
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(archTicket.Id);
                 await _memoryConsolidation.ConsolidateTaskCompletionAsync(archTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Topology designed.", archTicket.Id);
+                UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "Backlog refined & ADR/Topology designed.", archTicket.Id);
             }
 
-            // 3. Software Developer Phase
+            // 4. Software Developer Phase
             var devNode = GetNodeByRole(AgentRole.SoftwareDeveloper);
             readyTickets = _ticketStore.GetReadyTickets();
             var devTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper && t.ParentEpicId == epicId)
@@ -475,16 +535,26 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(devNode.Id, NodeExecutionState.Running, ticketId: devTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                var devArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.SoftwareDeveloper, devTicket, cancellationToken);
+                var devArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket, cancellationToken);
                 foreach (var a in devArtifacts) devTicket = devTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(devTicket);
 
+                // Handoff to both downstream review roles: Security and Optimization
                 _handoffRouter.RouteSuccessHandoff(
                     devTicket.Id,
                     AgentRole.SoftwareDeveloper,
                     AgentRole.SecurityEngineer,
-                    "Feature implemented! 'Now that's what I call high quality H2O / Span<T>!' Zero heap allocations.",
-                    "Audit this before my cold brew gets warm.",
+                    "Feature implemented! Zero heap allocations.",
+                    "Perform STRIDE threat audit on implementation.",
+                    devArtifacts
+                );
+
+                _handoffRouter.RouteSuccessHandoff(
+                    devTicket.Id,
+                    AgentRole.SoftwareDeveloper,
+                    AgentRole.OptimizationEngineer,
+                    "Feature implemented! Zero heap allocations.",
+                    "Perform allocation and latency benchmark profiling.",
                     devArtifacts
                 );
 
@@ -493,7 +563,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Implementation delivered.", devTicket.Id);
             }
 
-            // 4. Parallel Security & Optimization Phase
+            // 5. Parallel Security & Optimization Phase
             var secNode = GetNodeByRole(AgentRole.SecurityEngineer);
             var optNode = GetNodeByRole(AgentRole.OptimizationEngineer);
             readyTickets = _ticketStore.GetReadyTickets();
@@ -507,32 +577,19 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(secNode.Id, NodeExecutionState.Running, ticketId: secTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                if (triggerFailureSimulation && secNode.RetryCount == 0)
-                {
-                    UpdateNodeState(secNode.Id, NodeExecutionState.Failed, "Rejected: 'It's a trap!' Unsanitized input detected.", secTicket.Id);
-                    
-                    _handoffRouter.RouteFailureRemediation(
-                        secTicket.Id,
-                        AgentRole.SecurityEngineer,
-                        AgentRole.SoftwareDeveloper,
-                        "'Nobody expects the Spanish Inquisition!' Unsanitized input vector in service layer.",
-                        "Wrap input in ReadOnlySpan<char> and sanitize with allow-list regex immediately."
-                    );
-
-                    if (devNode != null)
-                    {
-                        UpdateNodeState(devNode.Id, NodeExecutionState.Remediating, "Fixing security vulnerability... ('Tis but a scratch!')");
-                        await Task.Delay(150, cancellationToken);
-                        UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Vulnerability remediated ('Like a glove!').");
-                    }
-
-                    UpdateNodeState(secNode.Id, NodeExecutionState.Running, ticketId: secTicket.Id);
-                    await Task.Delay(100, cancellationToken);
-                }
-
-                var secArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.SecurityEngineer, secTicket, cancellationToken);
+                var secArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SecurityEngineer, secTicket, cancellationToken);
                 foreach (var a in secArtifacts) secTicket = secTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(secTicket);
+
+                _handoffRouter.RouteSuccessHandoff(
+                    secTicket.Id,
+                    AgentRole.SecurityEngineer,
+                    AgentRole.PrincipalQAAnalyst,
+                    "STRIDE Threat Model audit approved.",
+                    "Verify security findings and trace against QA test plan.",
+                    secArtifacts
+                );
+
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(secTicket.Id);
                 UpdateNodeState(secNode.Id, NodeExecutionState.Completed, "STRIDE Threat Model Approved.", secTicket.Id);
             }
@@ -542,14 +599,24 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(optNode.Id, NodeExecutionState.Running, ticketId: optTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                var optArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.OptimizationEngineer, optTicket, cancellationToken);
+                var optArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.OptimizationEngineer, optTicket, cancellationToken);
                 foreach (var a in optArtifacts) optTicket = optTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(optTicket);
+
+                _handoffRouter.RouteSuccessHandoff(
+                    optTicket.Id,
+                    AgentRole.OptimizationEngineer,
+                    AgentRole.PrincipalQAAnalyst,
+                    "Zero-Allocations & latency benchmarks verified.",
+                    "Verify performance SLA conformance in QA scorecard.",
+                    optArtifacts
+                );
+
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(optTicket.Id);
                 UpdateNodeState(optNode.Id, NodeExecutionState.Completed, "Zero-Allocations Verified.", optTicket.Id);
             }
 
-            // 5. Principal QA Phase
+            // 6. Principal QA Phase
             var qaNode = GetNodeByRole(AgentRole.PrincipalQAAnalyst);
             readyTickets = _ticketStore.GetReadyTickets();
             var qaTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst && t.ParentEpicId == epicId)
@@ -560,38 +627,18 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(qaNode.Id, NodeExecutionState.Running, ticketId: qaTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                // QA checks for ADR presence across upstream deliverables in this epic
-                var epicTicketsForQa = _ticketStore.GetTicketsByEpic(epicId);
-                var hasAdr = epicTicketsForQa
-                    .SelectMany(t => t.Deliverables)
-                    .Any(d => d.Name.Contains("ADR", StringComparison.OrdinalIgnoreCase) || d.Content.Contains("Architectural Decision Record", StringComparison.OrdinalIgnoreCase));
-
-                if (!hasAdr && qaNode.RetryCount == 0)
-                {
-                    UpdateNodeState(qaNode.Id, NodeExecutionState.Failed, "Rejected: Missing Architectural Decision Record (ADR).", qaTicket.Id);
-
-                    _handoffRouter.RouteFailureRemediation(
-                        qaTicket.Id,
-                        AgentRole.PrincipalQAAnalyst,
-                        AgentRole.LeadArchitect,
-                        "Missing Architectural Decision Record (ADR) and Clean Architecture domain contracts.",
-                        "Lead Architect must scaffold ADR and Clean Architecture domain contracts before QA certification."
-                    );
-
-                    if (archNode != null)
-                    {
-                        UpdateNodeState(archNode.Id, NodeExecutionState.Remediating, "Scaffolding missing ADR and Clean Architecture contracts...");
-                        await Task.Delay(150, cancellationToken);
-                        UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Clean Architecture contracts remediated.");
-                    }
-
-                    UpdateNodeState(qaNode.Id, NodeExecutionState.Running, ticketId: qaTicket.Id);
-                    await Task.Delay(100, cancellationToken);
-                }
-
-                var qaArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.PrincipalQAAnalyst, qaTicket, cancellationToken);
+                var qaArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.PrincipalQAAnalyst, qaTicket, cancellationToken);
                 foreach (var a in qaArtifacts) qaTicket = qaTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(qaTicket);
+
+                _handoffRouter.RouteSuccessHandoff(
+                    qaTicket.Id,
+                    AgentRole.PrincipalQAAnalyst,
+                    AgentRole.IntegrationEngineer,
+                    "QA Acceptance criteria 100% verified and certified.",
+                    "Package Clean Architecture solution and publish Release Manifest.",
+                    qaArtifacts
+                );
 
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(qaTicket.Id);
                 await _memoryConsolidation.ConsolidateTaskCompletionAsync(qaTicket, _eventStream.GetHistory(), cancellationToken);
@@ -600,13 +647,13 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.PrincipalQAAnalyst,
                     senderName: "Quinn the Build-Executioner (Principal QA)",
-                    content: "🧪 Quinn the Build-Executioner (QA): 'That's a lot of nuts!' Tortured the build with 50,000 edge cases. Production release certified: 'Alllllrighty then!'",
+                    content: "🧪 Quinn the Build-Executioner (QA): 'That's a lot of nuts!' Tortured the build with edge cases. Production release certified: 'Alllllrighty then!'",
                     type: MessageType.StateChange,
                     ticketId: qaTicket.Id
                 ));
             }
 
-            // 6. Integration & Solution Packaging Phase
+            // 7. Integration & Solution Packaging Phase
             var intNode = GetNodeByRole(AgentRole.IntegrationEngineer);
             readyTickets = _ticketStore.GetReadyTickets();
             var intTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.IntegrationEngineer && t.ParentEpicId == epicId)
@@ -617,7 +664,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 UpdateNodeState(intNode.Id, NodeExecutionState.Running, ticketId: intTicket.Id);
                 await Task.Delay(150, cancellationToken);
 
-                var intArtifacts = await _scenarioEngine.ExecuteRoleTaskSimulationAsync(AgentRole.IntegrationEngineer, intTicket, cancellationToken);
+                var intArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.IntegrationEngineer, intTicket, cancellationToken);
                 foreach (var a in intArtifacts) intTicket = intTicket.WithDeliverable(a);
                 _ticketStore.UpdateTicket(intTicket);
 
@@ -698,32 +745,41 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         return await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
     }
 
-    private AgentRole? GetDownstreamRoleFor(AgentRole currentRole)
+    private IReadOnlyList<AgentRole> GetDownstreamRolesFor(AgentRole currentRole)
     {
         var node = GetNodeByRole(currentRole);
         if (node != null)
         {
-            var outboundConn = _graph.Connections.FirstOrDefault(c => c.SourceNodeId == node.Id && c.SourcePort == PortType.Output);
-            if (outboundConn != null)
+            var outboundConns = _graph.Connections
+                .Where(c => c.SourceNodeId == node.Id && c.SourcePort == PortType.Output)
+                .ToList();
+
+            if (outboundConns.Count > 0)
             {
-                var targetNode = _graph.Nodes.FirstOrDefault(n => n.Id == outboundConn.TargetNodeId);
-                if (targetNode != null)
+                var targetRoles = outboundConns
+                    .Select(c => _graph.Nodes.FirstOrDefault(n => n.Id == c.TargetNodeId)?.Role)
+                    .Where(r => r.HasValue)
+                    .Select(r => r!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (targetRoles.Count > 0)
                 {
-                    return targetNode.Role;
+                    return targetRoles;
                 }
             }
         }
 
         return currentRole switch
         {
-            AgentRole.RequirementsResearcher => AgentRole.TechnicalProductManager,
-            AgentRole.TechnicalProductManager => AgentRole.LeadArchitect,
-            AgentRole.LeadArchitect => AgentRole.SoftwareDeveloper,
-            AgentRole.SoftwareDeveloper => AgentRole.SecurityEngineer,
-            AgentRole.SecurityEngineer => AgentRole.PrincipalQAAnalyst,
-            AgentRole.OptimizationEngineer => AgentRole.PrincipalQAAnalyst,
-            AgentRole.PrincipalQAAnalyst => AgentRole.IntegrationEngineer,
-            _ => null
+            AgentRole.RequirementsResearcher => [AgentRole.TechnicalProductManager],
+            AgentRole.TechnicalProductManager => [AgentRole.LeadArchitect],
+            AgentRole.LeadArchitect => [AgentRole.SoftwareDeveloper],
+            AgentRole.SoftwareDeveloper => [AgentRole.SecurityEngineer, AgentRole.OptimizationEngineer],
+            AgentRole.SecurityEngineer => [AgentRole.PrincipalQAAnalyst],
+            AgentRole.OptimizationEngineer => [AgentRole.PrincipalQAAnalyst],
+            AgentRole.PrincipalQAAnalyst => [AgentRole.IntegrationEngineer],
+            _ => Array.Empty<AgentRole>()
         };
     }
 
