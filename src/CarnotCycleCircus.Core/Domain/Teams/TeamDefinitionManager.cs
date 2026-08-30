@@ -16,7 +16,7 @@ public record TeamDefinition(
 )
 {
     public EngineeringTeam ToEngineeringTeam() =>
-        new(Id, Name, Description, Members, DefaultFallbackModel);
+        new(Id, Name, Description, Members, DefaultFallbackModel, ArchetypeName: ArchetypeName);
 
     public TeamDefinition AddMember(AgentMember member) =>
         this with { Members = [.. Members, member] };
@@ -25,7 +25,7 @@ public record TeamDefinition(
         this with { Members = Members.Where(m => m.Id != memberId && m.Persona.Name != memberId).ToList() };
 
     public TeamDefinition UpdateMember(AgentMember member) =>
-        this with { Members = Members.Select(m => m.Id == member.Id ? member : m).ToList() };
+        this with { Members = Members.Select(m => (m.Id == member.Id || (m.Persona.Role == member.Persona.Role && m.Persona.Name == member.Persona.Name)) ? member : m).ToList() };
 }
 
 public static class TeamArchetypes
@@ -35,7 +35,23 @@ public static class TeamArchetypes
         Name: "🎪 The Full 6-Ring Circus (Balanced)",
         Description: "The complete engineering squad: TPM invents fantasy deadlines, Architect builds cathedral abstractions, Dev drinks coffee, Security panics, Optimizer counts nanoseconds, and QA destroys everything.",
         ArchetypeName: "Balanced",
-        Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(AgentPersona.CreateDefault(r))).ToList(),
+        Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
+            AgentPersona.CreateDefault(r) with
+            {
+                DefaultModel = r switch
+                {
+                    AgentRole.RequirementsResearcher => "anthropic/claude-3.7-sonnet",
+                    AgentRole.TechnicalProductManager => "openai/gpt-4o",
+                    AgentRole.LeadArchitect => "anthropic/claude-3.7-sonnet",
+                    AgentRole.SoftwareDeveloper => "qwen/qwen-2.5-coder-32b-instruct",
+                    AgentRole.SecurityEngineer => "openai/o3-mini",
+                    AgentRole.OptimizationEngineer => "anthropic/claude-3.7-sonnet",
+                    AgentRole.PrincipalQAAnalyst => "deepseek/deepseek-r1",
+                    AgentRole.IntegrationEngineer => "anthropic/claude-3.7-sonnet",
+                    _ => "anthropic/claude-3.7-sonnet"
+                }
+            }
+        )).ToList(),
         DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
         CreatedAt: DateTimeOffset.UtcNow
     );
@@ -97,7 +113,7 @@ public static class TeamArchetypes
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
             AgentPersona.CreateDefault(r) with
             {
-                DefaultModel = r is AgentRole.OptimizationEngineer or AgentRole.SoftwareDeveloper ? "anthropic/claude-3.7-sonnet" : AgentRoleExtensions.ToDefaultModel(r),
+                DefaultModel = r is AgentRole.OptimizationEngineer or AgentRole.SoftwareDeveloper ? "anthropic/claude-3.7-sonnet" : (r == AgentRole.SecurityEngineer ? "openai/o3-mini" : "anthropic/claude-3.7-sonnet"),
                 Temperature = 0.0
             }
         )).ToList(),
@@ -113,7 +129,7 @@ public static class TeamArchetypes
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
             AgentPersona.CreateDefault(r) with
             {
-                DefaultModel = r == AgentRole.PrincipalQAAnalyst ? "deepseek/deepseek-r1" : AgentRoleExtensions.ToDefaultModel(r),
+                DefaultModel = r == AgentRole.PrincipalQAAnalyst ? "deepseek/deepseek-r1" : (r == AgentRole.SoftwareDeveloper ? "qwen/qwen-2.5-coder-32b-instruct" : "anthropic/claude-3.7-sonnet"),
                 Temperature = r == AgentRole.PrincipalQAAnalyst ? 0.3 : 0.1
             }
         )).ToList(),
@@ -172,7 +188,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             {
                 _teams[archetype.Id] = archetype;
             }
-            _currentTeam = TeamArchetypes.BalancedCircus.ToEngineeringTeam();
+            _currentTeam = _teams[TeamArchetypes.BalancedCircus.Id].ToEngineeringTeam();
             SaveToStorage();
         }
         else
@@ -291,7 +307,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: "Custom",
+            ArchetypeName: _currentTeam.ArchetypeName,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow
@@ -308,7 +324,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: "Custom",
+            ArchetypeName: _currentTeam.ArchetypeName,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow
@@ -328,7 +344,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: "Custom",
+            ArchetypeName: _currentTeam.ArchetypeName,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow

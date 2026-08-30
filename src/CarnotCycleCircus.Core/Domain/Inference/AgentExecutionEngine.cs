@@ -59,7 +59,22 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         var member = team.GetMember(role) ?? new AgentMember(AgentPersona.CreateDefault(role));
         var (model, apiKey) = _inferenceResolver.ResolveInferenceParameters(member, team);
 
-        // 2. Validate API key availability
+        // 2. Validate model availability
+        if (string.IsNullOrWhiteSpace(model))
+        {
+            var errMsg = $"No inference model selected for {role.ToDisplayName()} ({member.Persona.Name}). Please select an inference model in Team Circus Ring & Agent Studio.";
+            _eventStream?.Publish(AgentMessage.Create(
+                role: role,
+                senderName: member.Persona.Name,
+                content: $"🛑 {errMsg}",
+                type: MessageType.Alert,
+                ticketId: ticket.Id
+            ));
+
+            throw new InvalidOperationException(errMsg);
+        }
+
+        // 3. Validate API key availability
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             var errMsg = $"No active OpenRouter API key configured for {role.ToDisplayName()} ({member.Persona.Name}) on model [{model}]. Please add an API key in the Key Vault.";

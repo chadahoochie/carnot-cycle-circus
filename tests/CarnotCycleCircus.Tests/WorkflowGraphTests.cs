@@ -192,4 +192,181 @@ public class WorkflowGraphTests
 
         _executor.CurrentGraph.Name.Should().Be("Rapid Prototype Fast-Track Graph");
     }
+
+    [Fact]
+    public async Task ExecuteWorkflowAsync_WhenNoApiKey_ShouldReturnFalseGracefullyWithoutLockup()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var keyVault = new ApiKeyVaultService(); // Empty vault
+        var resolver = new AgentInferenceResolver(keyVault);
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore, eventStream: eventStream);
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var consol = new MemoryConsolidationEngine(new EmbeddedVectorMemoryStore());
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            executionEngine,
+            eventStream,
+            consol
+        );
+
+        var result = await executor.ExecuteWorkflowAsync("Greenfield Initiative", "Build without key");
+
+        result.Should().BeFalse();
+        executor.IsRunning.Should().BeFalse();
+        executor.CurrentGraph.Nodes.Should().NotContain(n => n.State == NodeExecutionState.Running);
+        eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
+    }
+
+    [Fact]
+    public async Task ExecuteTicketAsync_WhenNoApiKey_ShouldReturnFalseAndResetTicketStatus()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var keyVault = new ApiKeyVaultService(); // Empty vault
+        var resolver = new AgentInferenceResolver(keyVault);
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore, eventStream: eventStream);
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var consol = new MemoryConsolidationEngine(new EmbeddedVectorMemoryStore());
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            executionEngine,
+            eventStream,
+            consol
+        );
+
+        var ticket = new TicketItem(
+            Id: "TCK-FAIL-01",
+            ParentEpicId: null,
+            Title: "Task Without Key",
+            Description: "Cannot execute without key",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.SoftwareDeveloper,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Criteria"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        ticketStore.CreateTicket(ticket);
+
+        var result = await executor.ExecuteTicketAsync(ticket.Id);
+
+        result.Should().BeFalse();
+        var updated = ticketStore.GetTicketById(ticket.Id);
+        updated!.Status.Should().Be(TicketStatus.Ready);
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.SoftwareDeveloper).State.Should().Be(NodeExecutionState.Failed);
+    }
+
+    [Fact]
+    public async Task ExecuteReadyTicketsAsync_WhenNoApiKey_ShouldHaltLoopAndReturnFalse()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var keyVault = new ApiKeyVaultService(); // Empty vault
+        var resolver = new AgentInferenceResolver(keyVault);
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore, eventStream: eventStream);
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var consol = new MemoryConsolidationEngine(new EmbeddedVectorMemoryStore());
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            executionEngine,
+            eventStream,
+            consol
+        );
+
+        var ticket = new TicketItem(
+            Id: "TCK-READY-NOKEY",
+            ParentEpicId: null,
+            Title: "Ready Task",
+            Description: "Desc",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.SoftwareDeveloper,
+            CreatedByRole: AgentRole.LeadArchitect,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Criteria"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        ticketStore.CreateTicket(ticket);
+
+        var result = await executor.ExecuteReadyTicketsAsync();
+
+        result.Should().BeFalse();
+        executor.IsRunning.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteWorkflowAsync_WithExistingEpicWithoutResearchBrief_ShouldExecuteDiscoveryAndProduceBriefAndPrd()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var mockOpenRouter = new MockOpenRouterClient();
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore, eventStream: eventStream);
+        var decomp = new WorkDecompositionEngine(ticketStore);
+        var router = new HandoffRouter(ticketStore, eventStream);
+        var consol = new MemoryConsolidationEngine(new EmbeddedVectorMemoryStore());
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decomp,
+            router,
+            executionEngine,
+            eventStream,
+            consol
+        );
+
+        // Pre-create an Epic without research brief or PRD (e.g. from Project Ignition)
+        var preEpic = new TicketItem(
+            Id: "EPIC-IGNITE-01",
+            ParentEpicId: null,
+            Title: "Real-time Telemetry Pipeline",
+            Description: "Zero-allocation reactive pipeline with bounded channels",
+            Type: TicketType.Epic,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["All user stories verified"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        ticketStore.CreateTicket(preEpic);
+
+        var success = await executor.ExecuteWorkflowAsync(preEpic.Title, preEpic.Description);
+
+        success.Should().BeTrue();
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.RequirementsResearcher).State.Should().Be(NodeExecutionState.Completed);
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.TechnicalProductManager).State.Should().Be(NodeExecutionState.Completed);
+
+        var allTickets = ticketStore.GetAllTickets();
+        var allDeliverables = allTickets.SelectMany(t => t.Deliverables).ToList();
+        allDeliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
+        allDeliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
+        allDeliverables.Should().Contain(d => d.Name.EndsWith("_ADR.md"));
+    }
 }

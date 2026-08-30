@@ -232,36 +232,48 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
         await Task.Delay(100, cancellationToken);
 
-        var artifacts = await _executionEngine.ExecuteRoleTaskAsync(ticket.AssigneeRole, ticket, cancellationToken);
-        foreach (var a in artifacts)
+        try
         {
-            ticket = ticket.WithDeliverable(a);
-        }
-        _ticketStore.UpdateTicket(ticket);
+            var artifacts = await _executionEngine.ExecuteRoleTaskAsync(ticket.AssigneeRole, ticket, cancellationToken);
+            foreach (var a in artifacts)
+            {
+                ticket = ticket.WithDeliverable(a);
+            }
+            _ticketStore.UpdateTicket(ticket);
 
-        // Record handoff to all downstream roles
-        var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
-        foreach (var nextRole in downstreamRoles)
+            // Record handoff to all downstream roles
+            var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
+            foreach (var nextRole in downstreamRoles)
+            {
+                _handoffRouter.RouteSuccessHandoff(
+                    ticket.Id,
+                    ticket.AssigneeRole,
+                    nextRole,
+                    $"Delivered [{ticket.Id}] {ticket.Title}. Attached {artifacts.Count} artifacts.",
+                    $"Proceed with downstream task for {ticket.Title}.",
+                    artifacts
+                );
+            }
+
+            _handoffRouter.AdvanceWorkflowOnTicketCompletion(ticket.Id);
+            await _memoryConsolidation.ConsolidateTaskCompletionAsync(ticket, _eventStream.GetHistory(), cancellationToken);
+
+            if (node != null)
+            {
+                UpdateNodeState(node.Id, NodeExecutionState.Completed, $"Delivered {ticket.Title}", ticket.Id);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
         {
-            _handoffRouter.RouteSuccessHandoff(
-                ticket.Id,
-                ticket.AssigneeRole,
-                nextRole,
-                $"Delivered [{ticket.Id}] {ticket.Title}. Attached {artifacts.Count} artifacts.",
-                $"Proceed with downstream task for {ticket.Title}.",
-                artifacts
-            );
+            if (node != null)
+            {
+                UpdateNodeState(node.Id, NodeExecutionState.Failed, ex.Message, ticket.Id);
+            }
+            _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Ready));
+            return false;
         }
-
-        _handoffRouter.AdvanceWorkflowOnTicketCompletion(ticket.Id);
-        await _memoryConsolidation.ConsolidateTaskCompletionAsync(ticket, _eventStream.GetHistory(), cancellationToken);
-
-        if (node != null)
-        {
-            UpdateNodeState(node.Id, NodeExecutionState.Completed, $"Delivered {ticket.Title}", ticket.Id);
-        }
-
-        return true;
     }
 
     public async Task<bool> ExecuteReadyTicketsAsync(CancellationToken cancellationToken = default)
@@ -284,7 +296,11 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
 
                 var nextTicket = readyTickets.First();
-                await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
+                var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
+                if (!executed)
+                {
+                    break;
+                }
                 count++;
                 await Task.Delay(150, cancellationToken);
             }
@@ -345,17 +361,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             var existingEpic = _ticketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && string.Equals(t.Title, epicTitle, StringComparison.OrdinalIgnoreCase));
             string epicId;
 
-            if (existingEpic != null)
-            {
-                epicId = existingEpic.Id;
-            }
-            else
-            {
-                // 1. Collaborative Discovery Stage: Requirements Researcher & Technical Product Manager
-                var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
-                ArtifactItem? researchBrief = null;
-                string? researchTicketId = null;
+            // 1. Collaborative Discovery Stage: Requirements Researcher & Technical Product Manager
+            var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
+            ArtifactItem? researchBrief = existingEpic?.Deliverables.FirstOrDefault(d => d.Name.EndsWith("_RESEARCH_BRIEF.md", StringComparison.OrdinalIgnoreCase));
 
+            if (researchBrief == null)
+            {
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.TechnicalProductManager,
                     senderName: "Barnum B. Buzzword (TPM)",
@@ -367,62 +378,78 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 {
                     UpdateNodeState(resNode.Id, NodeExecutionState.Running);
                     await Task.Delay(150, cancellationToken);
-
-                    var tempResearchTicket = new TicketItem(
-                        Id: $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
-                        ParentEpicId: null,
-                        Title: $"Requirements Research & Feasibility: {epicTitle}",
-                        Description: epicDescription,
-                        Type: TicketType.ResearchSpike,
-                        Status: TicketStatus.InProgress,
-                        AssigneeRole: AgentRole.RequirementsResearcher,
-                        CreatedByRole: AgentRole.TechnicalProductManager,
-                        Priority: TicketPriority.High,
-                        DependsOnTicketIds: Array.Empty<string>(),
-                        AcceptanceCriteria: [
-                            "Identify domain concepts, specifications, and RFC standards.",
-                            "Map codebase dependencies and target architecture boundaries.",
-                            "Identify edge cases, security hazards, and non-functional constraints.",
-                            "Provide structured feasibility recommendations for TPM."
-                        ],
-                        Deliverables: Array.Empty<ArtifactItem>(),
-                        Metadata: new Dictionary<string, string> { ["Stage"] = "Research" },
-                        CreatedAt: DateTimeOffset.UtcNow
-                    );
-                    _ticketStore.CreateTicket(tempResearchTicket);
-                    researchTicketId = tempResearchTicket.Id;
-
-                    var researchArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
-                    researchBrief = researchArtifacts.FirstOrDefault();
-
-                    foreach (var a in researchArtifacts)
-                    {
-                        tempResearchTicket = tempResearchTicket.WithDeliverable(a);
-                    }
-                    _ticketStore.UpdateTicket(tempResearchTicket.WithStatus(TicketStatus.Done));
-
-                    _handoffRouter.RouteSuccessHandoff(
-                        tempResearchTicket.Id,
-                        AgentRole.RequirementsResearcher,
-                        AgentRole.TechnicalProductManager,
-                        "Requirements researched & Feasibility Brief produced for collaborative synthesis.",
-                        "Synthesize research findings into PRD and deconstruct Epic into User Stories.",
-                        researchArtifacts
-                    );
-
-                    _eventStream.Publish(AgentMessage.Create(
-                        role: AgentRole.RequirementsResearcher,
-                        senderName: "Rachel 'DeepDive' Reference (Requirements Researcher)",
-                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief for TPM.",
-                        type: MessageType.Chat,
-                        ticketId: tempResearchTicket.Id
-                    ));
-
-                    UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief produced.", tempResearchTicket.Id);
                 }
 
-                // 2. TPM Phase - Collaborative PRD Synthesis & User Story Deconstruction
-                var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
+                var existingResearchTicket = _ticketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.ResearchSpike && t.Title.Contains(epicTitle, StringComparison.OrdinalIgnoreCase));
+                var tempResearchTicket = existingResearchTicket ?? new TicketItem(
+                    Id: $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+                    ParentEpicId: existingEpic?.Id,
+                    Title: $"Requirements Research & Feasibility: {epicTitle}",
+                    Description: epicDescription,
+                    Type: TicketType.ResearchSpike,
+                    Status: TicketStatus.InProgress,
+                    AssigneeRole: AgentRole.RequirementsResearcher,
+                    CreatedByRole: AgentRole.TechnicalProductManager,
+                    Priority: TicketPriority.High,
+                    DependsOnTicketIds: Array.Empty<string>(),
+                    AcceptanceCriteria: [
+                        "Identify domain concepts, specifications, and RFC standards.",
+                        "Map codebase dependencies and target architecture boundaries.",
+                        "Identify edge cases, security hazards, and non-functional constraints.",
+                        "Provide structured feasibility recommendations for TPM."
+                    ],
+                    Deliverables: Array.Empty<ArtifactItem>(),
+                    Metadata: new Dictionary<string, string> { ["Stage"] = "Research" },
+                    CreatedAt: DateTimeOffset.UtcNow
+                );
+
+                if (existingResearchTicket == null)
+                {
+                    _ticketStore.CreateTicket(tempResearchTicket);
+                }
+
+                var researchArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
+                researchBrief = researchArtifacts.FirstOrDefault();
+
+                foreach (var a in researchArtifacts)
+                {
+                    tempResearchTicket = tempResearchTicket.WithDeliverable(a);
+                }
+                _ticketStore.UpdateTicket(tempResearchTicket.WithStatus(TicketStatus.Done));
+
+                _handoffRouter.RouteSuccessHandoff(
+                    tempResearchTicket.Id,
+                    AgentRole.RequirementsResearcher,
+                    AgentRole.TechnicalProductManager,
+                    "Requirements researched & Feasibility Brief produced for collaborative synthesis.",
+                    "Synthesize research findings into PRD and deconstruct Epic into User Stories.",
+                    researchArtifacts
+                );
+
+                _eventStream.Publish(AgentMessage.Create(
+                    role: AgentRole.RequirementsResearcher,
+                    senderName: "Rachel 'DeepDive' Reference (Requirements Researcher)",
+                    content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief for TPM.",
+                    type: MessageType.Chat,
+                    ticketId: tempResearchTicket.Id
+                ));
+
+                if (resNode != null)
+                {
+                    UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief produced.", tempResearchTicket.Id);
+                }
+            }
+            else if (resNode != null)
+            {
+                UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief available.");
+            }
+
+            // 2. TPM Phase - Collaborative PRD Synthesis & User Story Deconstruction
+            var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
+            var hasPrd = existingEpic != null && existingEpic.Deliverables.Any(d => d.Name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase));
+
+            if (!hasPrd)
+            {
                 if (tpmNode != null)
                 {
                     UpdateNodeState(tpmNode.Id, NodeExecutionState.Running);
@@ -465,6 +492,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 if (tpmNode != null)
                 {
                     UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"PRD authored & {storiesCount} stories established for refinement.", epicTicket.Id);
+                }
+            }
+            else
+            {
+                epicId = existingEpic!.Id;
+                if (tpmNode != null)
+                {
+                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, "PRD authored & stories established.", epicId);
                 }
             }
 
@@ -726,6 +761,23 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
             return true;
         }
+        catch (Exception ex)
+        {
+            _eventStream.Publish(AgentMessage.Create(
+                role: null,
+                senderName: "Workflow Orchestrator",
+                content: $"🛑 Workflow stopped: {ex.Message}",
+                type: MessageType.Alert
+            ));
+
+            var runningNodes = _graph.Nodes.Where(n => n.State == NodeExecutionState.Running).ToList();
+            foreach (var n in runningNodes)
+            {
+                UpdateNodeState(n.Id, NodeExecutionState.Failed, ex.Message, n.CurrentTicketId);
+            }
+
+            return false;
+        }
         finally
         {
             _isRunning = false;
@@ -735,14 +787,21 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
     public async Task<bool> StepNextNodeAsync(CancellationToken cancellationToken = default)
     {
-        var readyTickets = _ticketStore.GetReadyTickets()
-            .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
-            .ToList();
+        try
+        {
+            var readyTickets = _ticketStore.GetReadyTickets()
+                .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
+                .ToList();
 
-        if (readyTickets.Count == 0) return false;
+            if (readyTickets.Count == 0) return false;
 
-        var nextTicket = readyTickets.First();
-        return await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
+            var nextTicket = readyTickets.First();
+            return await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private IReadOnlyList<AgentRole> GetDownstreamRolesFor(AgentRole currentRole)

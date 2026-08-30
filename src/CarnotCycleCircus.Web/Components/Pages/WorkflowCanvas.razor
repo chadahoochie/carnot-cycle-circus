@@ -700,37 +700,69 @@
     private async Task RunWorkflow()
     {
         _errorMessage = null;
-        var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
-        if (readyTickets.Count > 0)
+        try
         {
-            _successMessage = "Executing ready DAG tickets...";
-            await GraphExecutor.ExecuteReadyTicketsAsync();
-            _successMessage = "Workflow execution completed!";
-            return;
-        }
+            var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
+            if (readyTickets.Count > 0)
+            {
+                _successMessage = "Executing ready DAG tickets...";
+                var success = await GraphExecutor.ExecuteReadyTicketsAsync();
+                if (!success)
+                {
+                    _errorMessage = "Workflow stopped. Check API key in Key Vault or inspect event stream.";
+                    _successMessage = null;
+                }
+                else
+                {
+                    _successMessage = "Workflow execution completed!";
+                }
+                return;
+            }
 
-        var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
-        if (activeEpic != null)
+            var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
+            if (activeEpic != null)
+            {
+                _successMessage = $"Executing full lifecycle for Epic '{activeEpic.Title}'...";
+                var success = await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
+                if (!success)
+                {
+                    _errorMessage = "Workflow stopped. Check API key in Key Vault or inspect event stream.";
+                    _successMessage = null;
+                }
+                else
+                {
+                    _successMessage = $"Completed full lifecycle for Epic '{activeEpic.Title}'!";
+                }
+                return;
+            }
+
+            _errorMessage = "No active epics or ready tickets in the queue! Click '🚀 New Project' in top bar or add tickets in '📋 The Jira Graveyard'.";
+        }
+        catch (Exception ex)
         {
-            _successMessage = $"Executing full lifecycle for Epic '{activeEpic.Title}'...";
-            await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
-            _successMessage = $"Completed full lifecycle for Epic '{activeEpic.Title}'!";
-            return;
+            _errorMessage = $"Execution halted: {ex.Message}";
+            _successMessage = null;
         }
-
-        _errorMessage = "No active epics or ready tickets in the queue! Click '🚀 New Project' in top bar or add tickets in '📋 The Jira Graveyard'.";
     }
 
     private async Task StepNext()
     {
-        var stepped = await GraphExecutor.StepNextNodeAsync();
-        if (stepped)
+        try
         {
-            _successMessage = "Stepped next agent node in DAG queue.";
+            var stepped = await GraphExecutor.StepNextNodeAsync();
+            if (stepped)
+            {
+                _successMessage = "Stepped next agent node in DAG queue.";
+                _errorMessage = null;
+            }
+            else
+            {
+                _errorMessage = "No ready tickets could be executed (check dependencies and API keys).";
+            }
         }
-        else
+        catch (Exception ex)
         {
-            _errorMessage = "No ready tickets or pending agent tasks found in queue.";
+            _errorMessage = $"Step halted: {ex.Message}";
         }
     }
 

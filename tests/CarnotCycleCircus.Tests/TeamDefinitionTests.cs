@@ -1,5 +1,10 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Events;
+using CarnotCycleCircus.Core.Domain.Inference;
+using CarnotCycleCircus.Core.Domain.Security;
+using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
+using CarnotCycleCircus.Core.Domain.Tickets;
 using FluentAssertions;
 using Xunit;
 
@@ -218,5 +223,180 @@ public class TeamDefinitionTests
         imported.Members.Should().HaveCount(1);
         imported.Members[0].Persona.AssignedSkillIds.Should().Contain("skill-edge-case-torture");
         imported.Members[0].Persona.Name.Should().Be(persona.Name);
+    }
+
+    [Fact]
+    public void TeamDefinitionManager_Constructor_ShouldHaveMatchingMemberIdsBetweenCurrentTeamAndStoredArchetypes()
+    {
+        var manager = new TeamDefinitionManager();
+        var currentTeam = manager.GetCurrentTeam();
+        var storedTeam = manager.GetTeam(currentTeam.Id);
+
+        storedTeam.Should().NotBeNull();
+        currentTeam.Members.Should().HaveCount(storedTeam!.Members.Count);
+
+        for (int i = 0; i < currentTeam.Members.Count; i++)
+        {
+            currentTeam.Members[i].Id.Should().Be(storedTeam.Members[i].Id);
+            currentTeam.Members[i].Persona.Name.Should().Be(storedTeam.Members[i].Persona.Name);
+        }
+    }
+
+    [Theory]
+    [InlineData(AgentRole.RequirementsResearcher)]
+    [InlineData(AgentRole.TechnicalProductManager)]
+    [InlineData(AgentRole.LeadArchitect)]
+    [InlineData(AgentRole.SoftwareDeveloper)]
+    [InlineData(AgentRole.SecurityEngineer)]
+    [InlineData(AgentRole.OptimizationEngineer)]
+    [InlineData(AgentRole.PrincipalQAAnalyst)]
+    [InlineData(AgentRole.IntegrationEngineer)]
+    public void AgentPersona_CreateDefault_ShouldNotSelectDefaultModel(AgentRole role)
+    {
+        var persona = AgentPersona.CreateDefault(role);
+        persona.DefaultModel.Should().BeEmpty();
+        persona.FallbackModel.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AgentMember_WithNoModel_ShouldReportEmptyEffectiveModelAndHasModelFalse()
+    {
+        var persona = AgentPersona.CreateDefault(AgentRole.SoftwareDeveloper);
+        var member = new AgentMember(persona);
+
+        member.EffectiveModel.Should().BeEmpty();
+        member.HasModel.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UpdateMember_UnderArchetype_ShouldPersistSelectedModelAndArchetypeName()
+    {
+        var manager = new TeamDefinitionManager();
+        var loaded = manager.LoadArchetype("SecurityHardened");
+        loaded.ArchetypeName.Should().Be("SecurityHardened");
+
+        var current = manager.GetCurrentTeam();
+        current.ArchetypeName.Should().Be("SecurityHardened");
+
+        var secMember = current.GetMember(AgentRole.SecurityEngineer);
+        secMember.Should().NotBeNull();
+        secMember!.EffectiveModel.Should().Be("openai/o3-mini");
+
+        // Custom override for Security Engineer
+        var updated = secMember with
+        {
+            OverrideModel = "anthropic/claude-3.7-sonnet",
+            Persona = secMember.Persona with { DefaultModel = "anthropic/claude-3.7-sonnet" }
+        };
+
+        manager.UpdateMemberInCurrentTeam(updated);
+
+        var refreshed = manager.GetCurrentTeam();
+        var refreshedSec = refreshed.GetMember(AgentRole.SecurityEngineer);
+        refreshedSec.Should().NotBeNull();
+        refreshedSec!.EffectiveModel.Should().Be("anthropic/claude-3.7-sonnet");
+        refreshed.ArchetypeName.Should().Be("SecurityHardened");
+    }
+
+    [Fact]
+    public async Task ArchetypeSwitching_ShouldApplyArchetypeModels_AndPersistAcrossStorageReload()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"carnot_team_test_{Guid.NewGuid():N}");
+        try
+        {
+            var options = new CarnotStorageOptions { DataDirectory = tempDir, EnableAtomicWrites = true };
+            var storage = new FilePersistentStorageService(options);
+            var manager = new TeamDefinitionManager(storage);
+
+            // Switch to HighPerformance
+            var hpTeam = manager.LoadArchetype("HighPerformance");
+            await manager.FlushAsync();
+
+            var current = manager.GetCurrentTeam();
+            current.ArchetypeName.Should().Be("HighPerformance");
+            var dev = current.GetMember(AgentRole.SoftwareDeveloper);
+            dev!.EffectiveModel.Should().Be("anthropic/claude-3.7-sonnet");
+
+            // Custom change to Developer on HighPerformance
+            var customizedDev = dev with
+            {
+                OverrideModel = "deepseek/deepseek-r1",
+                Persona = dev.Persona with { DefaultModel = "deepseek/deepseek-r1" }
+            };
+            manager.UpdateMemberInCurrentTeam(customizedDev);
+            await manager.FlushAsync();
+
+            // Simulate app restart / new manager instance loading from storage
+            var restartedManager = new TeamDefinitionManager(storage);
+            var restartedTeam = restartedManager.GetCurrentTeam();
+
+            restartedTeam.Id.Should().Be(hpTeam.Id);
+            restartedTeam.ArchetypeName.Should().Be("HighPerformance");
+            var restartedDev = restartedTeam.GetMember(AgentRole.SoftwareDeveloper);
+            restartedDev.Should().NotBeNull();
+            restartedDev!.EffectiveModel.Should().Be("deepseek/deepseek-r1");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
+    [Fact]
+    public async Task AgentExecutionEngine_WhenAgentHasNoModelSelected_ShouldThrowAndPublishAlert()
+    {
+        var mockClient = new MockOpenRouterClient();
+        var keyVault = new ApiKeyVaultService();
+        keyVault.AddOrUpdateKey("Test Key", "sk-or-v1-validkey123456789012345678901234567890", isActive: true);
+        var eventStream = new AgentEventStream();
+
+        // Team with an agent who has no model selected
+        var unconfiguredPersona = AgentPersona.CreateDefault(AgentRole.SoftwareDeveloper);
+        var unconfiguredMember = new AgentMember(unconfiguredPersona);
+        var customTeam = new TeamDefinition(
+            Id: "team-unconfigured",
+            Name: "Unconfigured Squad",
+            Description: "Team without models",
+            ArchetypeName: "Custom",
+            Members: [unconfiguredMember],
+            DefaultFallbackModel: "",
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var teamManager = new TeamDefinitionManager();
+        teamManager.SaveTeam(customTeam);
+        teamManager.SetCurrentTeam(customTeam);
+
+        var engine = new AgentExecutionEngine(
+            openRouterClient: mockClient,
+            inferenceResolver: new AgentInferenceResolver(keyVault),
+            teamManager: teamManager,
+            eventStream: eventStream
+        );
+
+        var ticket = new TicketItem(
+            Id: "TCK-DEV-001",
+            ParentEpicId: null,
+            Title: "Write Zero-Alloc Service",
+            Description: "Implementation without model",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.SoftwareDeveloper,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Compilable code"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        Func<Task> act = async () => await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*No inference model selected for Software Developer*");
+
+        eventStream.GetHistory().Should().Contain(m =>
+            m.Type == MessageType.Alert &&
+            m.Content.Contains("No inference model selected for Software Developer"));
     }
 }

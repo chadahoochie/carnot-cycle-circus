@@ -49,11 +49,12 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         ArtifactItem? researchBrief = null,
         TicketPriority priority = TicketPriority.High)
     {
-        var epicId = $"EPIC-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var existingEpic = _ticketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && string.Equals(t.Title, epicTitle, StringComparison.OrdinalIgnoreCase));
+        var epicId = existingEpic?.Id ?? $"EPIC-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var createdTickets = new List<TicketItem>();
 
-        // 1. Create the Epic ticket
-        var epicTicket = new TicketItem(
+        // 1. Create or update the Epic ticket
+        var epicTicket = existingEpic ?? new TicketItem(
             Id: epicId,
             ParentEpicId: null,
             Title: epicTitle,
@@ -74,8 +75,25 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Metadata: new Dictionary<string, string> { ["EpicType"] = "EngineeringDecomposition" },
             CreatedAt: DateTimeOffset.UtcNow
         );
-        _ticketStore.CreateTicket(epicTicket);
+
+        if (existingEpic == null)
+        {
+            _ticketStore.CreateTicket(epicTicket);
+        }
+        else if (researchBrief != null && !epicTicket.Deliverables.Any(d => d.Name == researchBrief.Name))
+        {
+            epicTicket = epicTicket.WithDeliverable(researchBrief);
+            _ticketStore.UpdateTicket(epicTicket);
+        }
         createdTickets.Add(epicTicket);
+
+        // Check if feature stories already exist for this epic
+        var existingStories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
+        if (existingStories.Count > 0)
+        {
+            createdTickets.AddRange(existingStories);
+            return createdTickets;
+        }
 
         // 2. TPM generates primary User Stories / Feature Tickets under this Epic
         var story1Id = $"STORY-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
