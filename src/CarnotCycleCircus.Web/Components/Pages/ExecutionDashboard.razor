@@ -208,31 +208,55 @@
 
     private async Task RunFullWorkflow()
     {
-        var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
-        if (readyTickets.Count > 0)
+        try
         {
-            await GraphExecutor.ExecuteReadyTicketsAsync();
-            return;
-        }
+            var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
+            if (readyTickets.Count > 0)
+            {
+                await GraphExecutor.ExecuteReadyTicketsAsync();
+                return;
+            }
 
-        var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
-        if (activeEpic != null)
+            var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
+            if (activeEpic != null)
+            {
+                await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
+                return;
+            }
+
+            EventStream.Publish(AgentMessage.Create(
+                role: null,
+                senderName: "🎪 Circus Ringmaster",
+                content: "⚠️ No active epics or ready tickets in the queue! Click '🚀 New Project' in the top bar or deconstruct an Epic in '📋 The Jira Graveyard' first.",
+                type: MessageType.Alert
+            ));
+        }
+        catch (Exception ex)
         {
-            await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
-            return;
+            EventStream.Publish(AgentMessage.Create(
+                role: null,
+                senderName: "🎪 Circus Ringmaster",
+                content: $"🛑 Execution halted: {ex.Message}",
+                type: MessageType.Alert
+            ));
         }
-
-        EventStream.Publish(AgentMessage.Create(
-            role: null,
-            senderName: "🎪 Circus Ringmaster",
-            content: "⚠️ No active epics or ready tickets in the queue! Click '🚀 New Project' in the top bar or deconstruct an Epic in '📋 The Jira Graveyard' first.",
-            type: MessageType.Alert
-        ));
     }
 
     private async Task StepNext()
     {
-        await GraphExecutor.StepNextNodeAsync();
+        try
+        {
+            await GraphExecutor.StepNextNodeAsync();
+        }
+        catch (Exception ex)
+        {
+            EventStream.Publish(AgentMessage.Create(
+                role: null,
+                senderName: "🎪 Circus Ringmaster",
+                content: $"🛑 Step execution halted: {ex.Message}",
+                type: MessageType.Alert
+            ));
+        }
     }
 
     private void Reset()

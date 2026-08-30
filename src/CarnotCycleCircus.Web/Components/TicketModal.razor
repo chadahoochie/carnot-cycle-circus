@@ -182,6 +182,10 @@
             }
             await OnUpdated.InvokeAsync();
         }
+        catch (Exception)
+        {
+            // Error already recorded in event stream and ticket status
+        }
         finally
         {
             isExecuting = false;

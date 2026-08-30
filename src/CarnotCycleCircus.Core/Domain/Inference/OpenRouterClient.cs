@@ -108,24 +108,24 @@ public class OpenRouterClient : IOpenRouterClient
         string? apiKey = null,
         CancellationToken cancellationToken = default)
     {
-        if (!string.IsNullOrWhiteSpace(apiKey) &&
-            (apiKey.Contains("sandbox", StringComparison.OrdinalIgnoreCase) ||
-             apiKey.Contains("mock", StringComparison.OrdinalIgnoreCase)))
+        if (string.IsNullOrWhiteSpace(apiKey) ||
+            apiKey.Contains("sandbox", StringComparison.OrdinalIgnoreCase) ||
+            apiKey.Contains("mock", StringComparison.OrdinalIgnoreCase))
         {
-            // Offline sandbox mode fallback
+            // Offline sandbox mode or unconfigured key fallback
             await Task.Delay(50, cancellationToken);
             return Array.Empty<OpenRouterRawModelDto>();
         }
 
         using var httpRequest = new HttpRequestMessage(HttpMethod.Get, ModelsUrl);
-        if (!string.IsNullOrWhiteSpace(apiKey))
-        {
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
-        }
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
         httpRequest.Headers.Add("HTTP-Referer", "https://github.com/chadahoochie/carnot-cycle-circus");
         httpRequest.Headers.Add("X-Title", "Carnot Cycle Circus");
 
-        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(5));
+
+        var response = await _httpClient.SendAsync(httpRequest, cts.Token);
         if (!response.IsSuccessStatusCode)
         {
             var errBody = await response.Content.ReadAsStringAsync(cancellationToken);

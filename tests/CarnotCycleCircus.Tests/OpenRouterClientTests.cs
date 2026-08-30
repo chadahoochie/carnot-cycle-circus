@@ -35,4 +35,15 @@ public class OpenRouterClientTests
         model.Should().NotBeNullOrWhiteSpace();
         apiKey.Should().BeEmpty();
     }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("sk-or-v1-sandbox-mock-123")]
+    public async Task FetchModelsAsync_WithNullEmptyOrMockKey_ShouldReturnEmptyListWithoutRemoteCall(string? apiKey)
+    {
+        var models = await _client.FetchModelsAsync(apiKey);
+        models.Should().BeEmpty();
+    }
 }

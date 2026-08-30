@@ -66,7 +66,11 @@
         {
             _ = Task.Run(async () =>
             {
-                await ShowcaseService.RunShowcaseAsync(selectedScenarioId);
+                try
+                {
+                    await ShowcaseService.RunShowcaseAsync(selectedScenarioId);
+                }
+                catch { }
             });
 
             // Redirect immediately to dashboard so user can watch live pulses & stream
