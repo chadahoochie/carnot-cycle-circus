@@ -53,16 +53,5 @@ public static class AgentRoleExtensions
         _ => "#94a3b8"
     };
 
-    public static string ToDefaultModel(this AgentRole role) => role switch
-    {
-        AgentRole.RequirementsResearcher => "anthropic/claude-3.7-sonnet",
-        AgentRole.TechnicalProductManager => "openai/gpt-4o",
-        AgentRole.LeadArchitect => "anthropic/claude-3.7-sonnet",
-        AgentRole.SoftwareDeveloper => "qwen/qwen-2.5-coder-32b-instruct",
-        AgentRole.SecurityEngineer => "openai/o3-mini",
-        AgentRole.OptimizationEngineer => "anthropic/claude-3.7-sonnet",
-        AgentRole.PrincipalQAAnalyst => "deepseek/deepseek-r1",
-        AgentRole.IntegrationEngineer => "anthropic/claude-3.7-sonnet",
-        _ => "anthropic/claude-3.7-sonnet"
-    };
+    public static string ToDefaultModel(this AgentRole role) => string.Empty;
 }

@@ -1,3 +1,5 @@
+using CarnotCycleCircus.Core.Domain.Teams;
+
 namespace CarnotCycleCircus.Core.Domain.Agents;
 
 public record AgentMember(
@@ -9,7 +11,8 @@ public record AgentMember(
 )
 {
     public string Id { get; init; } = !string.IsNullOrWhiteSpace(Id) ? Id : $"agent-{Guid.NewGuid():N}"[..18];
-    public string EffectiveModel => OverrideModel ?? Persona.DefaultModel;
+    public string EffectiveModel => !string.IsNullOrWhiteSpace(OverrideModel) ? OverrideModel : (Persona.DefaultModel ?? string.Empty);
+    public bool HasModel => !string.IsNullOrWhiteSpace(EffectiveModel);
 }
 
 public record EngineeringTeam(
@@ -18,22 +21,12 @@ public record EngineeringTeam(
     string Description,
     IReadOnlyList<AgentMember> Members,
     string DefaultFallbackModel = "anthropic/claude-3.7-sonnet",
-    string? ActiveGlobalApiKeyId = null
+    string? ActiveGlobalApiKeyId = null,
+    string ArchetypeName = "Balanced"
 )
 {
-    public static EngineeringTeam CreateDefault()
-    {
-        var members = Enum.GetValues<AgentRole>()
-            .Select(role => new AgentMember(AgentPersona.CreateDefault(role)))
-            .ToList();
-
-        return new EngineeringTeam(
-            Id: "team-default-circus",
-            Name: "Carnot High-Efficiency Engineering Crew",
-            Description: "Full-spectrum autonomous engineering team covering Product, Architecture, Dev, Security, Optimization, and QA.",
-            Members: members
-        );
-    }
+    public static EngineeringTeam CreateDefault() =>
+        TeamArchetypes.BalancedCircus.ToEngineeringTeam();
 
     public AgentMember? GetMember(AgentRole role) =>
         Members.FirstOrDefault(m => m.Persona.Role == role && m.IsEnabled) ??
@@ -52,5 +45,5 @@ public record EngineeringTeam(
         this with { Members = Members.Where(m => m.Id != memberId && m.Persona.Name != memberId).ToList() };
 
     public EngineeringTeam UpdateMember(AgentMember member) =>
-        this with { Members = Members.Select(m => m.Id == member.Id ? member : m).ToList() };
+        this with { Members = Members.Select(m => (m.Id == member.Id || (m.Persona.Role == member.Persona.Role && m.Persona.Name == member.Persona.Name)) ? member : m).ToList() };
 }

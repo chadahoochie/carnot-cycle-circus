@@ -91,7 +91,8 @@
                         <label class="form-label" style="margin-bottom: 0;">Inference Model (OpenRouter)</label>
                         <a href="models" style="font-size: 0.72rem; color: #38bdf8; text-decoration: none;" title="Manage Models and Favorites">🎭 Catalog &amp; Favorites</a>
                     </div>
-                    <select class="form-control" value="@member.EffectiveModel" @onchange="(e) => UpdateModel(member, e)">
+                    <select class="form-control" value="@(member.EffectiveModel ?? "")" @onchange="(e) => UpdateModel(member, e)">
+                        <option value="">-- No Model Selected --</option>
                         @{
                             var memberRole = member.Persona.Role;
                             var favorites = availableCatalogModels.Where(m => m.IsFavorite).ToList();
@@ -123,6 +124,12 @@
                                 {
                                     <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
                                 }
+                            </optgroup>
+                        }
+                        @if (!string.IsNullOrEmpty(member.EffectiveModel) && !availableCatalogModels.Any(m => m.Id == member.EffectiveModel))
+                        {
+                            <optgroup label="📌 Custom / Archetype Model">
+                                <option value="@member.EffectiveModel">@member.EffectiveModel</option>
                             </optgroup>
                         }
                     </select>
@@ -261,6 +268,7 @@
                     <div class="form-group">
                         <label class="form-label">Primary OpenRouter Model</label>
                         <select class="form-control" @bind="newAgentModel">
+                            <option value="">-- Select Inference Model --</option>
                             @{
                                 var favs = availableCatalogModels.Where(m => m.IsFavorite).ToList();
                                 var recs = availableCatalogModels.Where(m => !m.IsFavorite && IsRecommendedForRole(m, newAgentRole)).ToList();
@@ -298,6 +306,7 @@
                     <div class="form-group">
                         <label class="form-label">Fallback Model</label>
                         <select class="form-control" @bind="newAgentFallbackModel">
+                            <option value="">-- Select Fallback Model (Optional) --</option>
                             @{
                                 var fallbackFavs = availableCatalogModels.Where(m => m.IsFavorite).ToList();
                                 var fallbackFast = availableCatalogModels.Where(m => !m.IsFavorite && (m.StrengthAreas.Contains(ModelStrengthArea.LowLatencyFallback) || m.CostTier == ModelCostTier.Budget)).ToList();
@@ -391,8 +400,8 @@
     private HashSet<string> selectedSkillIds = new();
     private string newAgentName = "";
     private List<string> nameSuggestions = new();
-    private string newAgentModel = "qwen/qwen-2.5-coder-32b-instruct";
-    private string newAgentFallbackModel = "anthropic/claude-3.7-sonnet";
+    private string newAgentModel = "";
+    private string newAgentFallbackModel = "";
     private double newAgentTemperature = 0.1;
     private string newAgentTools = "csharp_syntax_check, test_runner, memory_lookup";
     private string newAgentSystemPrompt = "";
@@ -401,6 +410,7 @@
     protected override async Task OnInitializedAsync()
     {
         currentTeam = TeamManager.GetCurrentTeam();
+        selectedArchetype = currentTeam.ArchetypeName ?? "";
         TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
         availableCatalogModels = await CatalogService.GetModelsAsync();
     }
@@ -421,6 +431,7 @@
     private void HandleTeamChanged(EngineeringTeam team)
     {
         currentTeam = team;
+        selectedArchetype = team.ArchetypeName ?? "";
         InvokeAsync(StateHasChanged);
     }
 
@@ -458,7 +469,11 @@
     private void UpdateModel(AgentMember member, ChangeEventArgs e)
     {
         var model = e.Value?.ToString();
-        UpdateMember(member with { OverrideModel = model });
+        var overrideModel = string.IsNullOrWhiteSpace(model) ? null : model;
+        UpdateMember(member with { 
+            OverrideModel = overrideModel,
+            Persona = member.Persona with { DefaultModel = overrideModel ?? string.Empty }
+        });
     }
 
     private void UpdateKey(AgentMember member, ChangeEventArgs e)
@@ -504,6 +519,8 @@
             selectedSkillIds.Add(s.Id);
         }
 
+        newAgentModel = "";
+        newAgentFallbackModel = "";
         UpdateRoleDefaults();
         showAddModal = true;
     }
@@ -541,8 +558,7 @@
     private void UpdateRoleDefaults()
     {
         var defaultPersona = AgentPersona.CreateDefault(newAgentRole);
-        newAgentModel = defaultPersona.DefaultModel;
-        newAgentFallbackModel = defaultPersona.FallbackModel;
+        // Keep explicit selection or empty - do not select a default model for agents
         newAgentTemperature = defaultPersona.Temperature;
 
         var skills = GetSelectedSkills();

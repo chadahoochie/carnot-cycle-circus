@@ -50,7 +50,7 @@
             </button>
 
             <div style="display: flex; gap: 8px; align-items: center;">
-                <select class="form-control" style="font-size: 0.8rem; padding: 4px 8px;" @bind="selectedMovieFilter" @bind:after="ApplyFilter">
+                <select class="form-control" style="font-size: 0.8rem; padding: 4px 28px 4px 8px; width: auto;" @bind="selectedMovieFilter" @bind:after="ApplyFilter">
                     <option value="">All Movies (@allQuotes.Count)</option>
                     @foreach (var movie in distinctMovies)
                     {
