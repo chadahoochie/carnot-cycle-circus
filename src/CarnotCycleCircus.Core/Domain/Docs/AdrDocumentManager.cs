@@ -374,6 +374,53 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr14.Id] = adr14;
 
+        var adr15 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0015",
+            Title: "Collaborative Discovery and Two-Phase Architectural Ticket Refinement",
+            Status: AdrStatus.Accepted,
+            Context: "Project ignition lacked collaborative synergy between PM and Research Analyst, while work decomposition prematurely generated static subtasks before the Lead Architect had an opportunity to refine technical requirements and dependencies.",
+            Decision: "Formalize collaborative discovery between PM and Research Analyst at project ignition, and institute a two-phase Lead Architect lifecycle where technical backlog refinement precedes ADR authoring and Clean Architecture scaffolding.",
+            AlternativesConsidered: [
+                "TPM-only story and subtask decomposition (rejected: bypasses architect evaluation of technical boundaries and dependency graphs)",
+                "Immediate ADR generation without story grooming (rejected: architectural blueprints drift from concrete engineering subtasks)"
+            ],
+            ConsequencesPositive: [
+                "Clear separation between product user stories and granular technical subtasks",
+                "Lead Architect refines backlog and locks dependency graphs before authoring ADRs",
+                "Downstream engineering roles receive dependency-ordered, contract-grounded subtasks"
+            ],
+            ConsequencesNegative: [
+                "Adds explicit refinement stage to workflow before architectural scaffolding"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr15.Id] = adr15;
+
+        var adr16 = new ArchitecturalDecisionRecord(
+            Id: "ADR-016",
+            Title: "Photino.Blazor Desktop Client, Headless Docker Server & Local ~/.carnot Multi-Mount Storage",
+            Status: AdrStatus.Accepted,
+            Context: ".NET MAUI lacks official Linux desktop support, while containerized deployment required running only the headless agent engine with isolated volume mounts. Local desktop execution required home directory state resolution and direct interaction with target codebases.",
+            Decision: "Decouple into shared Razor UI (CarnotCycleCircus.UI), native cross-platform desktop using Photino.Blazor (CarnotCycleCircus.Desktop) on Linux/macOS/Windows, headless Docker server (CarnotCycleCircus.Server) with SignalR streaming, and multi-mount storage defaulting to ~/.carnot/data and ~/.carnot/artifacts.",
+            AlternativesConsidered: [
+                ".NET MAUI desktop on Linux (rejected: lacks official Microsoft support and stable Linux BlazorWebView)",
+                "Monolithic Blazor Server only (rejected: requires full web browser overhead and lacks headless container operation)",
+                "Electron.NET desktop wrapper (rejected: excessive memory footprint compared to Photino's lightweight ~40MB WebKitGTK shell)"
+            ],
+            ConsequencesPositive: [
+                "Native Linux desktop window with native OS folder picker dialogs",
+                "Dedicated headless Docker container with explicit data and artifacts volume mounts",
+                "Local persistence homed in ~/.carnot with direct workspace directory interaction"
+            ],
+            ConsequencesNegative: [
+                "Requires WebKitGTK installed on Linux distributions"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr16.Id] = adr16;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

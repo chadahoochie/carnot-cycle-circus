@@ -30,6 +30,7 @@ public class FilePersistentStorageService : IPersistentStorageService
             Directory.CreateDirectory(_options.ArtifactsDirectory);
             Directory.CreateDirectory(_options.SkillsDirectory);
             Directory.CreateDirectory(_options.AdrsDirectory);
+            Directory.CreateDirectory(_options.VaultDirectory);
             Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "tickets"));
             Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "code"));
             Directory.CreateDirectory(Path.Combine(_options.ArtifactsDirectory, "security"));

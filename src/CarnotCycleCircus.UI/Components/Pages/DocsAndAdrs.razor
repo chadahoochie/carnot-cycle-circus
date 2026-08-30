@@ -1,0 +1,244 @@
+@page "/docs"
+@inject IAdrDocumentManager AdrManager
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🏛️ Ivory Tower ADRs & Bureaucracy Hub</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Automated MADR/Nygard decision records, C4 system cathedrals, paranoid threat models, and CYA markdown bundles.</p>
+    </div>
+
+    <div class="page-header-actions">
+        <button class="btn btn-secondary" @onclick="ExportBundle" style="white-space: nowrap;">
+            📦 Export CYA Markdown Bundle
+        </button>
+        <button class="btn btn-success" @onclick="() => showCreateAdrModal = true" style="white-space: nowrap;">
+            ➕ Propose New ADR
+        </button>
+    </div>
+</div>
+
+<div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; flex-wrap: wrap;">
+    <button class="btn @(activeTab == "adrs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "adrs"' style="white-space: nowrap;">
+        🏛️ Architectural Decision Records (@AdrManager.GetAllAdrs().Count)
+    </button>
+    <button class="btn @(activeTab == "c4" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "c4"' style="white-space: nowrap;">
+        📐 C4 Architecture Cathedrals
+    </button>
+    <button class="btn @(activeTab == "stride" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "stride"' style="white-space: nowrap;">
+        🛡️ Paranoid STRIDE Models
+    </button>
+</div>
+
+@if (activeTab == "adrs")
+{
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+        <!-- ADR List -->
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            @foreach (var adr in AdrManager.GetAllAdrs())
+            {
+                var isSelected = selectedAdr?.Id == adr.Id;
+                <div class="glass-card" style="cursor: pointer; border-left: 4px solid @(isSelected ? "#38bdf8" : "#334155");" @onclick="() => selectedAdr = adr">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-weight: 700; color: #38bdf8; font-size: 0.85rem;">@adr.Id</span>
+                        <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; font-size: 0.68rem;">@adr.Status</span>
+                    </div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: #f8fafc;">@adr.Title</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">Updated: @adr.UpdatedAt.ToString("yyyy-MM-dd")</div>
+                </div>
+            }
+        </div>
+
+        <!-- ADR Detail View -->
+        <div class="glass-card">
+            @if (selectedAdr != null)
+            {
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <span class="badge" style="background: #38bdf8; color: #000; font-weight: 700;">@selectedAdr.Id</span>
+                            <h3 style="font-size: 1.2rem; font-weight: 700; color: #f8fafc;">@selectedAdr.Title</h3>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Status: <strong>@selectedAdr.Status</strong> | Date: @selectedAdr.UpdatedAt.ToString("yyyy-MM-dd")</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Context & Problem</h4>
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; font-size: 0.88rem; line-height: 1.4;">@selectedAdr.Context</div>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; text-transform: uppercase; margin-bottom: 4px;">Decision</h4>
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; font-size: 0.88rem; line-height: 1.4; border-left: 3px solid #38bdf8;">@selectedAdr.Decision</div>
+                    </div>
+
+                    <div>
+                        <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Alternatives Considered</h4>
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            @foreach (var alt in selectedAdr.AlternativesConsidered)
+                            {
+                                <div style="font-size: 0.82rem; background: var(--bg-primary); padding: 6px 10px; border-radius: 6px;">• @alt</div>
+                            }
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div>
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: #22c55e; text-transform: uppercase; margin-bottom: 4px;">Positive Consequences</h4>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                @foreach (var p in selectedAdr.ConsequencesPositive)
+                                {
+                                    <div style="font-size: 0.8rem; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); padding: 6px 10px; border-radius: 6px; color: #22c55e;">
+                                        ✅ @p
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: #f59e0b; text-transform: uppercase; margin-bottom: 4px;">Trade-offs / Consequences</h4>
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                @foreach (var n in selectedAdr.ConsequencesNegative)
+                                {
+                                    <div style="font-size: 0.8rem; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.2); padding: 6px 10px; border-radius: 6px; color: #f59e0b;">
+                                        ⚠️ @n
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div style="text-align: center; color: var(--text-muted); padding: 40px;">
+                    Select an ADR from the list to view specifications.
+                </div>
+            }
+        </div>
+    </div>
+}
+else if (activeTab == "c4")
+{
+    var c4Doc = AdrManager.GetDoc("DOC-C4");
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;">C4 System Architecture & Topology Model</h3>
+        <pre style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; line-height: 1.4; overflow-x: auto;">@(c4Doc?.ContentMarkdown ?? "No C4 model found.")</pre>
+    </div>
+}
+else if (activeTab == "stride")
+{
+    var strideDoc = AdrManager.GetDoc("DOC-STRIDE");
+    <div class="glass-card">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;">System-Wide STRIDE Threat Model Assessment</h3>
+        <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap;">@(strideDoc?.ContentMarkdown ?? "No STRIDE threat model found.")</div>
+    </div>
+}
+
+@if (showCreateAdrModal)
+{
+    <div class="modal-backdrop" @onclick="() => showCreateAdrModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Author New ADR</h3>
+                <button class="btn btn-secondary" @onclick="() => showCreateAdrModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input class="form-control" @bind="newAdrTitle" placeholder="e.g. Adopt Hybrid In-Memory & External Vector Memory" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Context & Problem Statement</label>
+                    <textarea class="form-control" rows="3" @bind="newAdrContext"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Decision</label>
+                    <textarea class="form-control" rows="3" @bind="newAdrDecision"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Positive Consequences</label>
+                    <input class="form-control" @bind="newAdrPositive" placeholder="Comma separated benefits" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Trade-offs</label>
+                    <input class="form-control" @bind="newAdrNegative" placeholder="Comma separated trade-offs" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showCreateAdrModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="SaveNewAdr">Save ADR</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showBundleModal)
+{
+    <div class="modal-backdrop" @onclick="() => showBundleModal = false">
+        <div class="modal-dialog" style="max-width: 800px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Complete Markdown Documentation Bundle</h3>
+                <button class="btn btn-secondary" @onclick="() => showBundleModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <pre style="background: var(--bg-primary); padding: 14px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; max-height: 450px; font-family: monospace;">@bundleMarkdown</pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showBundleModal = false">Close</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string activeTab = "adrs";
+    private ArchitecturalDecisionRecord? selectedAdr;
+    private bool showCreateAdrModal;
+    private bool showBundleModal;
+    private string bundleMarkdown = "";
+
+    private string newAdrTitle = "";
+    private string newAdrContext = "";
+    private string newAdrDecision = "";
+    private string newAdrPositive = "";
+    private string newAdrNegative = "";
+
+    protected override void OnInitialized()
+    {
+        selectedAdr = AdrManager.GetAllAdrs().FirstOrDefault();
+    }
+
+    private void ExportBundle()
+    {
+        bundleMarkdown = AdrManager.ExportCompleteMarkdownBundle();
+        showBundleModal = true;
+    }
+
+    private void SaveNewAdr()
+    {
+        if (string.IsNullOrWhiteSpace(newAdrTitle)) return;
+
+        var count = AdrManager.GetAllAdrs().Count + 1;
+        var adr = new ArchitecturalDecisionRecord(
+            Id: $"ADR-{count:D3}",
+            Title: newAdrTitle,
+            Status: AdrStatus.Accepted,
+            Context: newAdrContext,
+            Decision: newAdrDecision,
+            AlternativesConsidered: ["Custom legacy implementation"],
+            ConsequencesPositive: newAdrPositive.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
+            ConsequencesNegative: newAdrNegative.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+
+        AdrManager.SaveAdr(adr);
+        selectedAdr = adr;
+        showCreateAdrModal = false;
+        newAdrTitle = "";
+        newAdrContext = "";
+        newAdrDecision = "";
+    }
+}

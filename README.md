@@ -81,11 +81,11 @@ A comprehensive documentation suite is maintained under [`docs/`](docs/README.md
 
 ---
 
-## 🏗️ Solution Architecture
+## 🏗️ Solution Architecture & Multi-Host Decoupled Model
 
 ```mermaid
 flowchart TB
-    subgraph Frontend ["Blazor UI (CarnotCycleCircus.Web)"]
+    subgraph SharedUI ["Shared Razor UI Library (CarnotCycleCircus.UI)"]
         TF["Team Definition Studio"]
         TicketUI["Ticket Management Studio<br/>(Backlog, Kanban, Dependency DAG, Handoff Logs)"]
         KeyVaultUI["Key Vault & Quick-Swap Bar"]
@@ -96,65 +96,41 @@ flowchart TB
         SI["Skill Importer & Matrix"]
         Canvas["Visual Drag-and-Drop Canvas<br/>(Input / Output / Failure Ports)"]
         LiveDash["Execution Dashboard & Session Replay"]
+        HarvesterUI["Codebase Harvester & Directory Explorer"]
     end
 
-    subgraph CoreEngine ["Orchestration Engine (CarnotCycleCircus.Core)"]
+    subgraph DesktopApp ["Native Desktop Client (CarnotCycleCircus.Desktop)"]
+        Photino["Photino.Blazor Native Desktop Window<br/>(Linux WebKitGTK / macOS / Windows)"]
+        NativePicker["Native Linux GTK / OS Folder Picker"]
+    end
+
+    subgraph HeadlessServer ["Headless Docker Server (CarnotCycleCircus.Server)"]
+        ServerAPI["ASP.NET Core Minimal APIs"]
+        SignalRHub["SignalR Event Stream Hub (/hubs/agent-stream)"]
+    end
+
+    subgraph CoreEngine ["Core Engine (CarnotCycleCircus.Core)"]
         TeamDefManager["Team Definition Manager"]
         KeyVaultService["API Key Vault & Credential Manager"]
-        
-        subgraph TicketEngine ["Embedded Ticket & Work Routing Engine"]
-            TicketStore["Ticket Store & State Machine"]
-            WorkSplitter["TPM/Architect Work Decomposition Engine"]
-            HandoffRouter["Inter-Agent Handoff & DAG Scheduler"]
-        end
-
+        TicketStore["Ticket Store & State Machine"]
+        WorkSplitter["TPM/Architect Work Decomposition Engine"]
+        HandoffRouter["Inter-Agent Handoff & DAG Scheduler"]
         AdrManager["ADR & Documentation Engine"]
         StandardsEngine["Standards & Quality Gates Engine"]
         KMapEngine["AI Knowledge Map Engine"]
-        SkillReg["Dynamic Skill Registry & skills/ Repository"]
-        ToolSandbox["Agent Tool Sandbox"]
-        
-        subgraph MemorySystem ["Hierarchical Persistent Memory (OpenViking-Style)"]
-            WorkingMem["Working Memory"]
-            EpisodicMem["Episodic Memory"]
-            SemanticMem["Semantic Memory"]
-            ProceduralMem["Procedural Memory"]
-            VectorStore["Embedded Vector Store"]
-        end
-
-        subgraph GraphOrchestrator ["Connectable Graph Orchestrator"]
-            Graph["Workflow Graph Model"]
-            Router["Input/Output & Failure Router"]
-            CircuitBreaker["Circuit Breaker & Fallback Engine"]
-        end
-
-        subgraph OpenRouterLayer ["OpenRouter Inference Hub"]
-            OR_Router["Dynamic Multi-Key Client Router"]
-            SimFallback["Offline Scenario & Simulation Engine"]
-        end
-
-        StreamBus["Real-Time Channel Event Stream"]
+        SkillReg["Dynamic Skill Registry"]
+        ToolSandbox["Agent Tool Sandbox (.NET 10 SDK)"]
+        MemorySystem["Hierarchical Persistent Memory Store"]
+        GraphOrchestrator["Connectable Graph Orchestrator"]
+        OpenRouterLayer["OpenRouter Inference Hub"]
+        SelfImprovement["Autonomous Self-Improvement Worker"]
+        StorageEngine["Multi-Mount Storage Engine (~/.carnot)"]
     end
 
-    TicketUI --> TicketEngine
-    TF --> TeamDefManager
-    KeyVaultUI --> KeyVaultService
-    KeyVaultService --> OpenRouterLayer
-    MemoryUI --> MemorySystem
-    DocsUI --> AdrManager
-    StandardsUI --> StandardsEngine
-    KMapUI --> KMapEngine
-    SI --> SkillReg
-    Canvas --> Graph --> Router
-    Router --> CircuitBreaker
-    GraphOrchestrator --> TicketEngine
-    GraphOrchestrator --> ToolSandbox
-    GraphOrchestrator --> OpenRouterLayer
-    GraphOrchestrator --> MemorySystem
-    GraphOrchestrator --> AdrManager
-    GraphOrchestrator --> StandardsEngine
-    LiveDash <--> StreamBus
-    LiveDash --> TicketUI
+    DesktopApp --> SharedUI
+    SharedUI --> CoreEngine
+    HeadlessServer --> CoreEngine
+    DesktopApp -. "SignalR Telemetry Stream" .-> SignalRHub
 ```
 
 ---
@@ -163,41 +139,41 @@ flowchart TB
 
 ### Prerequisites
 - [.NET 10 SDK](https://dotnet.microsoft.com/) (`10.0.300+`)
+- On Linux Desktop: `libwebkit2gtk-4.1` (or `4.0`) for Photino native window rendering.
 
-### Building & Running Locally
+### Running Options
 
+#### 1. 🖥️ Native Desktop Application (Recommended for Linux / macOS / Windows)
+Runs as a native, lightweight (~40MB RAM) desktop application with native OS folder browsing dialogs:
 ```bash
-# Clone repository
-git clone https://github.com/chadahoochie/carnot-cycle-circus.git
-cd carnot-cycle-circus
+# Run from source:
+dotnet run --project src/CarnotCycleCircus.Desktop
 
-# Build solution
-dotnet build CarnotCycleCircus.slnx
-
-# Run automated tests
-dotnet test CarnotCycleCircus.slnx
-
-# Launch Blazor Web Application
-dotnet run --project src/CarnotCycleCircus.Web
+# Or install locally into ~/.carnot/bin:
+./scripts/install-local.sh
+~/.carnot/bin/carnot-desktop
 ```
 
-Open `http://localhost:5000` in your browser.
-
----
-
-### 🐳 Running with Docker Persistent Stack & Self-Improvement
-
-The application includes a self-healing persistent Docker stack with named volumes for memories, tickets, ADRs, and skills:
-
+#### 2. 🐳 Headless Agent Server in Docker (Multi-Mount Storage)
+Run only the headless agent engine inside a container with persistent storage and host workspace mounts:
 ```bash
-# Start Docker stack with persistent volumes
-docker compose up --build -d
+# Launch Docker container with volume mounts:
+docker compose up -d
 
-# Or use the convenience script
-./scripts/docker-run.sh up
+# Check health endpoint:
+curl http://localhost:5000/health
+```
 
-# View stack health and volume metrics
-./scripts/docker-run.sh health
+**Docker Volume Mounts**:
+- `~/.carnot/data` $\to$ `/carnot/data`: Persistent server state (encrypted vault, vector memories, tickets, custom skills).
+- `~/.carnot/artifacts` $\to$ `/carnot/artifacts`: Generated deliverables (ADRs, code snippets, STRIDE threat models, QA scorecards).
+- `./workspace` $\to$ `/workspace`: Target host repository for codebase scanning, syntax checks, and testing.
+
+#### 3. 🌐 Interactive Web Application
+```bash
+dotnet run --project src/CarnotCycleCircus.Web
+```
+Open `http://localhost:5000` in your browser.
 
 # Follow live logs
 ./scripts/docker-run.sh logs

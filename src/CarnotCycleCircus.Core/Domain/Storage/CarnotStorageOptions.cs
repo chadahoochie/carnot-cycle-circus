@@ -4,6 +4,7 @@ public record CarnotStorageOptions
 {
     private readonly string? _dataDirectory;
     private readonly string? _artifactsDirectory;
+    private readonly string? _workspaceDirectory;
 
     public string DataDirectory
     {
@@ -22,12 +23,30 @@ public record CarnotStorageOptions
         init => _artifactsDirectory = value;
     }
 
+    public string WorkspaceDirectory
+    {
+        get => _workspaceDirectory ?? ResolveDefaultWorkspaceDirectory();
+        init => _workspaceDirectory = value;
+    }
+
     public bool EnableAtomicWrites { get; init; } = true;
     public int SelfImprovementIntervalSeconds { get; init; } = int.TryParse(Environment.GetEnvironmentVariable("CARNOT_SELF_IMPROVEMENT_INTERVAL_SECONDS"), out var sec) ? Math.Max(10, sec) : 300;
     public bool AutoRunSelfImprovementOnStartup { get; init; } = true;
 
     public string SkillsDirectory => Path.Combine(DataDirectory, "skills");
     public string AdrsDirectory => Path.Combine(ArtifactsDirectory, "adrs");
+    public string VaultDirectory => Path.Combine(DataDirectory, "vault");
+
+    public static string ResolveUserCarnotRoot()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Path.Combine(userProfile, ".carnot");
+        }
+
+        return Path.Combine(AppContext.BaseDirectory, ".carnot");
+    }
 
     public static string ResolveDefaultDataDirectory()
     {
@@ -35,6 +54,12 @@ public record CarnotStorageOptions
         if (!string.IsNullOrWhiteSpace(envDir))
         {
             return envDir;
+        }
+
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Path.Combine(userProfile, ".carnot", "data");
         }
 
         var repoRoot = FindRepoRoot();
@@ -60,6 +85,12 @@ public record CarnotStorageOptions
             return Path.Combine(envDir, "artifacts");
         }
 
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Path.Combine(userProfile, ".carnot", "artifacts");
+        }
+
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
@@ -67,6 +98,28 @@ public record CarnotStorageOptions
         }
 
         return Path.Combine(AppContext.BaseDirectory, "data", "artifacts");
+    }
+
+    public static string ResolveDefaultWorkspaceDirectory()
+    {
+        var envWorkspace = Environment.GetEnvironmentVariable("CARNOT_WORKSPACE_DIR");
+        if (!string.IsNullOrWhiteSpace(envWorkspace))
+        {
+            return envWorkspace;
+        }
+
+        if (Directory.Exists("/workspace"))
+        {
+            return "/workspace";
+        }
+
+        var repoRoot = FindRepoRoot();
+        if (repoRoot != null)
+        {
+            return repoRoot;
+        }
+
+        return Directory.GetCurrentDirectory();
     }
 
     public static string? FindRepoRoot()

@@ -51,8 +51,9 @@
 - `ITicketStore`: In-memory thread-safe ticket and handoff repository.
   - `CreateTicket(TicketItem)`, `UpdateTicket(TicketItem)`, `GetReadyTickets()`, `AreDependenciesSatisfied(string ticketId)`, `RecordHandoff(HandoffPacket)`.
 - `IWorkDecompositionEngine`:
-  - `DeconstructEpic(title, desc, priority)`: TPM creates Epic + Story 1; Architect creates 6 technical subtasks (Arch, Dev, Security, Opt, QA, Integration) with strict DAG dependency edges.
-  - `DeconstructStoryIntoTechnicalSubtasks(story)`: Generates DAG subtasks.
+  - `DeconstructEpicIntoUserStories(title, desc, researchBrief, priority)`: TPM & Researcher co-discovery generates Epic + Feature Stories.
+  - `RefineStoryIntoTechnicalSubtasks(story, upstreamContext)`: Lead Architect grooms Story into 6 technical subtasks (Arch, Dev, Security, Opt, QA, Integration) with strict DAG dependency edges prior to ADR authoring (ADR-0015).
+  - `DeconstructEpic(title, desc, priority)`: Orchestrates user story generation and technical refinement.
 - `IHandoffRouter`:
   - `RouteSuccessHandoff(...)`: Dispatches structured `HandoffPacket` to next agent and advances DAG.
   - `RouteFailureRemediation(...)`: Emits remediation packet and transitions ticket to `TicketStatus.Remediating` assigned to fixing role (e.g. Developer).
@@ -119,43 +120,30 @@
 - `ICodebaseHarvesterService`: Scans local solutions/directories, discovers project boundaries, extracts dependencies, detects architecture patterns, audits tech debt, and generates prioritized improvement tickets.
 - `IShowcaseDemoService`: Zero-setup 1-click interactive demo runner for live swarm execution, failure remediation loopbacks, and nanosecond optimization benchmarking without API keys.
 
+### 4.7 Multi-Host Decoupled Architecture & Storage (ADR-0016)
+- **`CarnotCycleCircus.UI`**: Reusable Razor Class Library containing all views, modals, and `INativeFolderPicker` abstraction.
+- **`CarnotCycleCircus.Desktop`**: Native cross-platform desktop application using **Photino.Blazor** (WebKitGTK on Linux, WKWebView on macOS, WebView2 on Windows) consuming ~40MB RAM.
+- **`CarnotCycleCircus.Server`**: Headless ASP.NET Core server exposing Minimal APIs and SignalR Hub (`/hubs/agent-stream`) for containerized Docker hosting.
+- **Persistent Multi-Mount Storage**:
+  - `DataDirectory`: Defaults to `~/.carnot/data` (or `CARNOT_DATA_DIR`).
+  - `ArtifactsDirectory`: Defaults to `~/.carnot/artifacts` (or `CARNOT_ARTIFACTS_DIR`).
+  - `WorkspaceDirectory`: Defaults to target host repository (or `/workspace`).
+
 ---
 
 ## 5. File & Directory Reference
 ```
 src/
-├── CarnotCycleCircus.Core/
-│   ├── Domain/
-│   │   ├── Agents/      # AgentRole.cs, AgentPersona.cs, EngineeringTeam.cs
-│   │   ├── Artifacts/   # ArtifactDescriptor.cs, ArtifactManager.cs, IArtifactManager.cs
-│   │   ├── Blueprints/  # ProjectBlueprintService.cs
-│   │   ├── Docs/        # AdrDocumentManager.cs
-│   │   ├── Events/      # AgentEventStream.cs, ArtifactItem.cs
-│   │   ├── Graph/       # WorkflowGraph.cs, GraphWorkflowExecutor.cs
-│   │   ├── Harvester/   # CodebaseHarvesterService.cs
-│   │   ├── Inference/   # ApiKeyVaultService.cs, OpenRouterClient.cs, AgentExecutionEngine.cs, ModelCatalogService.cs
-│   │   ├── Knowledge/   # KnowledgeMapService.cs
-│   │   ├── Learning/    # SelfImprovementEngine.cs, AutonomousSelfImprovementWorker.cs
-│   │   ├── Memory/      # MemoryEntry.cs, PersistentMemoryStore.cs, MemoryServices.cs
-│   │   ├── Security/    # EncryptedPayload.cs, IMasterKeyProvider.cs, ISecureKeyEncryptor.cs
-│   │   ├── Showcase/    # ShowcaseDemoService.cs
-│   │   ├── Skills/      # SkillRegistry.cs
-│   │   ├── Standards/   # StandardsValidator.cs
-│   │   ├── Storage/     # FilePersistentStorageService.cs
-│   │   ├── Teams/       # TeamDefinitionManager.cs
-│   │   ├── Tickets/     # TicketEnums.cs, TicketItem.cs, TicketStore.cs, WorkDecompositionEngine.cs, HandoffRouter.cs
-│   │   └── Tools/       # IToolDefinition.cs, StandardTools.cs
-│   └── Extensions/      # ServiceCollectionExtensions.cs
-│
-├── CarnotCycleCircus.Web/
-│   ├── Components/
-│   │   ├── App.razor, Routes.razor, _Imports.razor
-│   │   ├── KeyVaultModal.razor, ProjectIgnitionModal.razor, CodebaseHarvesterModal.razor, ShowcaseModal.razor
-│   │   ├── QuickstartRingmasterBanner.razor, TicketCard.razor, TicketModal.razor, ChaosQuoteModal.razor
-│   │   ├── Layout/      # MainLayout.razor, NavMenu.razor
-│   │   └── Pages/       # ArtifactsHub, DocsAndAdrs, ExecutionDashboard, KnowledgeMapExplorer, MemoryInspector, ModelCatalog, SelfImprovementStudio, SkillManager, SkillMatrix, StandardsManager, TeamDefinition, TicketManager, WorkflowCanvas
-│   └── Program.cs
-│
+├── CarnotCycleCircus.Core/      # Domain logic, agents, memory, tools, storage, and events
+├── CarnotCycleCircus.UI/        # Shared Razor Class Library (Pages, Modals, Layout, Themes)
+├── CarnotCycleCircus.Desktop/   # Photino.Blazor native cross-platform desktop app
+├── CarnotCycleCircus.Server/    # Headless Docker Agent Host Server (Minimal API + SignalR)
+└── CarnotCycleCircus.Web/       # Blazor Interactive Server Web Host
+
 tests/
-└── CarnotCycleCircus.Tests/ # 17 xUnit test suites for all Core domain services
+└── CarnotCycleCircus.Tests/     # 30+ xUnit test suites for Core & Storage services
+
+scripts/
+├── install-local.sh             # Compiles & installs desktop and server binaries to ~/.carnot/bin
+└── docker-run.sh                # Container orchestration and volume health checking
 ```

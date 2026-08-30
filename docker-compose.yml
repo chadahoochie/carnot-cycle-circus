@@ -1,76 +1,27 @@
 services:
-  circus-web:
+  carnot-server:
     build:
       context: .
       dockerfile: Dockerfile
-    image: carnot-cycle-circus:latest
-    container_name: carnot-cycle-circus
-    restart: unless-stopped
+    image: carnot-agent-server:latest
+    container_name: carnot-agent-server
     ports:
       - "5000:5000"
     environment:
+      - CARNOT_DATA_DIR=/carnot/data
+      - CARNOT_ARTIFACTS_DIR=/carnot/artifacts
+      - CARNOT_WORKSPACE_DIR=/workspace
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_HTTP_PORTS=5000
-      - CARNOT_DATA_DIR=/app/data
-      - CARNOT_SELF_IMPROVEMENT_INTERVAL_SECONDS=300
     volumes:
-      - carnot_data:/app/data
-      - carnot_artifacts:/app/data/artifacts
-      - carnot_skills:/app/data/skills
-      # Host user's home directory mount for Codebase Harvester interactive directory browsing (ro,z for SELinux compatibility)
-      - ${HOST_WORKSPACE_PATH:-${HOME:-${USERPROFILE:-~}}}/source:/workspace:ro,z
+      # Mount 1: Persistent Server State (Keys, Memory, Tickets, Settings)
+      - ${HOME}/.carnot/data:/carnot/data:rw
+      # Mount 2: Persistent Artifacts (Generated Code, ADRs, Threat Models, QA reports)
+      - ${HOME}/.carnot/artifacts:/carnot/artifacts:rw
+      # Mount 3 (Optional): Target Workspace Repo on Host
+      - ./workspace:/workspace:rw
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 5s
-    depends_on:
-      circus-redis:
-        condition: service_healthy
-    networks:
-      - carnot-network
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1024M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-
-  circus-redis:
-    image: redis:7.4-alpine
-    container_name: carnot-redis
-    restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning
-    ports:
-      - "6379:6379"
-    volumes:
-      - carnot_redis:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-    networks:
-      - carnot-network
-
-volumes:
-  carnot_data:
-    name: carnot_data
-    driver: local
-  carnot_artifacts:
-    name: carnot_artifacts
-    driver: local
-  carnot_skills:
-    name: carnot_skills
-    driver: local
-  carnot_redis:
-    name: carnot_redis
-    driver: local
-
-networks:
-  carnot-network:
-    name: carnot-network
-    driver: bridge

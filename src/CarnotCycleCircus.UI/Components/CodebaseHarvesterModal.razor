@@ -1,0 +1,417 @@
+@using CarnotCycleCircus.UI.Services
+@inject ICodebaseHarvesterService HarvesterService
+@inject NavigationManager Navigation
+@inject INativeFolderPicker FolderPicker
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-content" style="max-width: 880px; max-height: 90vh; overflow-y: auto;" @onclick:stopPropagation="true">
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.8rem;">🔍</span>
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">
+                        Codebase Harvester &amp; Directory Explorer
+                    </h3>
+                    <div style="font-size: 0.8rem; color: #38bdf8;">
+                        Browse mounted directories or pick auto-discovered solutions to extract architecture, audit debt, and generate action items.
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.9rem;" @onclick="Close">✕</button>
+        </div>
+
+        <!-- Quick Mount Jump Shortcuts -->
+        <div style="margin-bottom: 14px;">
+            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <span>🚀 Quick Mount Points &amp; Shortcuts</span>
+                <span style="font-size: 0.7rem; color: #94a3b8;">Click to jump directly to directory</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                @foreach (var shortcut in inspectionResult.QuickMountShortcuts)
+                {
+                    var isSelected = string.Equals(currentDirectory, shortcut.FullPath, StringComparison.OrdinalIgnoreCase);
+                    <button class="btn @(isSelected ? "btn-primary" : "btn-secondary")" 
+                            style="font-size: 0.8rem; padding: 6px 12px; display: flex; align-items: center; gap: 6px; border-radius: 6px; @(shortcut.Exists && shortcut.FullPath == "/workspace" && !isSelected ? "border-color: #10b981; color: #10b981;" : "")"
+                            title="@shortcut.Description"
+                            @onclick="() => NavigateToDirectory(shortcut.FullPath)">
+                        <span>@shortcut.Label</span>
+                        @if (shortcut.Exists)
+                        {
+                            <span style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 1px 5px; border-radius: 4px;">
+                                @(shortcut.FullPath == "/workspace" ? "Mounted 🟢" : "Ready")
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="font-size: 0.65rem; background: rgba(148, 163, 184, 0.15); color: #94a3b8; padding: 1px 4px; border-radius: 4px;">
+                                Not Mounted
+                            </span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Directory Explorer & Breadcrumb Box -->
+        <div class="glass-card" style="margin-bottom: 20px; padding: 16px; border: 1px solid rgba(56, 189, 248, 0.25);">
+            <!-- Breadcrumbs Bar -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <div style="display: flex; align-items: center; gap: 6px; overflow-x: auto; font-family: monospace; font-size: 0.85rem; color: #f8fafc; max-width: 75%;">
+                    <span style="color: #38bdf8; font-weight: 700;">📁 Path:</span>
+                    <button class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" @onclick='() => NavigateToDirectory("/")'>/</button>
+                    @foreach (var segment in pathSegments)
+                    {
+                        <span style="color: #64748b;">/</span>
+                        <button class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" @onclick="() => NavigateToDirectory(segment.FullPath)">
+                            @segment.Name
+                        </button>
+                    }
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    @if (!string.IsNullOrEmpty(inspectionResult.ParentPath))
+                    {
+                        <button class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 3px 8px;" @onclick="NavigateToParent" title="Go to parent directory">
+                            ⬆️ Up
+                        </button>
+                    }
+                    <button class="btn btn-secondary btn-sm" style="font-size: 0.8rem; padding: 3px 8px;" @onclick="RefreshDirectory" title="Refresh folder contents">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Error Banner if Unreadable -->
+            @if (!inspectionResult.IsAccessible)
+            {
+                <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.85rem; color: #fca5a5;">
+                    ⚠️ <strong>Directory Access Warning:</strong> @inspectionResult.ErrorMessage
+                    <div style="font-size: 0.75rem; margin-top: 4px; color: #f8fafc;">
+                        Try selecting one of the quick shortcuts above (e.g. <code>📍 Circus App</code> or <code>💻 Root</code>).
+                    </div>
+                </div>
+            }
+
+            <!-- 🎯 Discovered Solutions & Project Roots (Auto-Detection) -->
+            @if (inspectionResult.DiscoveredSolutions.Count > 0)
+            {
+                <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+                    <div style="font-size: 0.78rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                        <span>🎯 Auto-Discovered Solutions in this Directory</span>
+                        <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 0.7rem;">
+                            @inspectionResult.DiscoveredSolutions.Count found
+                        </span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach (var sol in inspectionResult.DiscoveredSolutions)
+                        {
+                            <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 1.2rem;">📦</span>
+                                    <div>
+                                        <div style="font-weight: 700; color: #f8fafc; font-size: 0.88rem;">@sol.Name</div>
+                                        <div style="font-size: 0.72rem; color: #94a3b8; font-family: monospace;">@sol.Type &bull; @sol.ProjectCount project module(s)</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary btn-sm" style="font-size: 0.8rem; padding: 4px 10px; background: linear-gradient(135deg, #0284c7, #0369a1);"
+                                        @onclick="() => HarvestSpecificPath(sol.FullPath)" disabled="@isScanning">
+                                    ⚡ Harvest Solution
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Subdirectories Folder Browser Grid -->
+            <div style="margin-bottom: 14px;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; display: flex; justify-content: space-between;">
+                    <span>📁 Subfolders in Current Directory (@inspectionResult.Subdirectories.Count)</span>
+                    <span style="font-size: 0.7rem; color: #64748b;">Click a folder to navigate into it</span>
+                </div>
+                
+                @if (inspectionResult.Subdirectories.Count > 0)
+                {
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px;">
+                        @foreach (var sub in inspectionResult.Subdirectories)
+                        {
+                            <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid @(sub.HasProjects ? "#10b981" : "var(--border-color)"); border-radius: 6px; padding: 8px 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.15s ease;"
+                                 @onclick="() => NavigateToDirectory(sub.FullPath)"
+                                 title="Open folder: @sub.Name">
+                                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    <span>📁</span>
+                                    <span style="font-size: 0.82rem; font-weight: 600; color: #f8fafc; overflow: hidden; text-overflow: ellipsis;">@sub.Name</span>
+                                </div>
+                                @if (sub.HasProjects)
+                                {
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 0.65rem; padding: 1px 4px;">
+                                        ⚡ Code
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="background: rgba(15, 23, 42, 0.4); border: 1px dashed var(--border-color); border-radius: 6px; padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">
+                        No subdirectories found in this folder.
+                    </div>
+                }
+            </div>
+
+            <!-- Path Input & Scan Action Form -->
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <label style="font-size: 0.78rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">
+                    Selected Target Directory Path
+                </label>
+                <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <input class="form-control" style="font-family: monospace; font-size: 0.85rem;" placeholder="/path/to/my-solution" @bind="currentDirectory" @bind:after="OnPathInputChanged" />
+                    <button class="btn btn-secondary" style="white-space: nowrap; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;" @onclick="BrowseNativeFolder" title="Browse local filesystem using native OS file dialog">
+                        📂 Browse Folder...
+                    </button>
+                    <button class="btn btn-secondary" style="white-space: nowrap; font-size: 0.85rem;" @onclick="() => NavigateToDirectory(currentDirectory)">
+                        🔍 Inspect Path
+                    </button>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-muted); cursor: pointer;">
+                        <input type="checkbox" @bind="autoGenerateBacklog" />
+                        <span>Auto-generate STRIDE security, performance, and test backlog tickets</span>
+                    </label>
+
+                    <button class="btn btn-primary" @onclick="() => HarvestSpecificPath(currentDirectory)" disabled="@isScanning" style="font-weight: 700; padding: 8px 16px;">
+                        @(isScanning ? "⏳ Harvesting Architecture..." : "🚀 Scan &amp; Ingest Directory")
+                    </button>
+                </div>
+            </div>
+
+            <!-- Docker Mount Instruction Helper -->
+            <div style="margin-top: 12px; background: rgba(15, 23, 42, 0.5); border-left: 3px solid #38bdf8; padding: 8px 12px; border-radius: 0 6px 6px 0; font-size: 0.75rem; color: #94a3b8;">
+                💡 <strong>Docker Host Mount Tip:</strong> To scan your host computer's code in Docker, add <code>-v /your/host/repo:/workspace:ro</code> to <code>docker-compose.yml</code> or <code>docker run</code>, then click the <strong>🐳 /workspace</strong> button above!
+            </div>
+        </div>
+
+        @if (harvestReport != null)
+        {
+            <!-- Harvest Report Results -->
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Summary KPI Cards -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Solution</div>
+                        <div style="font-size: 1.05rem; font-weight: 700; color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            @harvestReport.SolutionName
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">C# Files</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #10b981;">
+                            @harvestReport.CSharpFilesCount
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Test Suites</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">
+                            @harvestReport.TestFilesCount files
+                        </div>
+                    </div>
+                    <div class="glass-card" style="padding: 12px; text-align: center;">
+                        <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Generated Tickets</div>
+                        <div style="font-size: 1.1rem; font-weight: 700; color: #a855f7;">
+                            @harvestReport.GeneratedTicketIds.Count items
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detected Patterns -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #38bdf8; margin-bottom: 10px;">
+                        🏛️ Detected Architectural Patterns &amp; Frameworks
+                    </h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        @foreach (var pattern in harvestReport.DetectedPatterns)
+                        {
+                            <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.8rem; padding: 4px 8px;">
+                                @pattern
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Quality & Tech Debt Insights -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #f59e0b; margin-bottom: 10px;">
+                        📊 Tech Debt Radar &amp; Quality Insights
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 6px;">
+                        @foreach (var insight in harvestReport.QualityInsights)
+                        {
+                            <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                                <span>@insight</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Discovered Projects List -->
+                <div class="glass-card">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; color: #f8fafc; margin-bottom: 10px;">
+                        📦 Discovered Project Modules (@harvestReport.Projects.Count)
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach (var proj in harvestReport.Projects)
+                        {
+                            <div style="background: var(--bg-primary); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-weight: 700; color: #f8fafc; font-size: 0.9rem;">@proj.Name</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@proj.RelativePath</div>
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid #10b981; font-size: 0.72rem;">
+                                        @proj.TargetFramework
+                                    </span>
+                                    <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem;">
+                                        @proj.ProjectType
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Action Navigation Buttons -->
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+                    <button class="btn btn-secondary" @onclick='() => NavigateTo("/knowledge")'>
+                        🗺️ View Knowledge Map
+                    </button>
+                    <button class="btn btn-primary" @onclick='() => NavigateTo("/tickets")'>
+                        📋 View Backlog on Kanban
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string currentDirectory = "";
+    private bool autoGenerateBacklog = true;
+    private bool isScanning = false;
+    private CodebaseHarvestReport? harvestReport;
+    private DirectoryInspectionResult inspectionResult = new(
+        CurrentPath: "",
+        ParentPath: null,
+        Subdirectories: [],
+        DiscoveredSolutions: [],
+        QuickMountShortcuts: [],
+        IsAccessible: true,
+        ErrorMessage: null
+    );
+
+    private record PathSegment(string Name, string FullPath);
+    private List<PathSegment> pathSegments = new();
+
+    protected override void OnInitialized()
+    {
+        harvestReport = HarvesterService.GetLatestReport();
+        
+        // Initial directory selection
+        if (Directory.Exists("/workspace"))
+        {
+            currentDirectory = "/workspace";
+        }
+        else
+        {
+            currentDirectory = Directory.GetCurrentDirectory();
+        }
+
+        NavigateToDirectory(currentDirectory);
+    }
+
+    private void NavigateToDirectory(string targetPath)
+    {
+        if (string.IsNullOrWhiteSpace(targetPath)) return;
+        currentDirectory = targetPath;
+        inspectionResult = HarvesterService.InspectDirectory(currentDirectory);
+        currentDirectory = inspectionResult.CurrentPath;
+        BuildBreadcrumbs();
+    }
+
+    private void NavigateToParent()
+    {
+        if (!string.IsNullOrEmpty(inspectionResult.ParentPath))
+        {
+            NavigateToDirectory(inspectionResult.ParentPath);
+        }
+    }
+
+    private void RefreshDirectory()
+    {
+        NavigateToDirectory(currentDirectory);
+    }
+
+    private void OnPathInputChanged()
+    {
+        NavigateToDirectory(currentDirectory);
+    }
+
+    private void BuildBreadcrumbs()
+    {
+        pathSegments.Clear();
+        var normalized = currentDirectory.Replace('\\', '/').Trim('/');
+        if (string.IsNullOrEmpty(normalized)) return;
+
+        var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var running = "";
+        foreach (var part in parts)
+        {
+            running += "/" + part;
+            pathSegments.Add(new PathSegment(part, running));
+        }
+    }
+
+    private async Task BrowseNativeFolder()
+    {
+        try
+        {
+            var picked = await FolderPicker.PickDirectoryAsync(currentDirectory);
+            if (!string.IsNullOrWhiteSpace(picked))
+            {
+                NavigateToDirectory(picked);
+            }
+        }
+        catch
+        {
+            // Fallback gracefully if picker was canceled or unavailable
+        }
+    }
+
+    private async Task HarvestSpecificPath(string path)
+    {
+        isScanning = true;
+        try
+        {
+            harvestReport = await HarvesterService.HarvestDirectoryAsync(path, autoGenerateBacklog);
+        }
+        finally
+        {
+            isScanning = false;
+        }
+    }
+
+    private async Task NavigateTo(string path)
+    {
+        Navigation.NavigateTo(path);
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync();
+    }
+}
+

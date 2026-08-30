@@ -81,6 +81,48 @@ public class WorkflowGraphTests
     }
 
     [Fact]
+    public async Task ExecuteWorkflowAsync_ShouldCollaborateDiscoveryAndRefineTicketsBeforeAdr()
+    {
+        var success = await _executor.ExecuteWorkflowAsync(
+            "High-Throughput Vector Index",
+            "Build high-throughput HNSW vector index with zero GC allocations."
+        );
+
+        success.Should().BeTrue();
+
+        var tickets = _ticketStore.GetAllTickets();
+        var epic = tickets.FirstOrDefault(t => t.Type == TicketType.Epic);
+        epic.Should().NotBeNull();
+        epic!.Status.Should().Be(TicketStatus.Done);
+
+        // Verify that Feature stories were refined into 6 subtasks
+        var stories = tickets.Where(t => t.Type == TicketType.Feature).ToList();
+        stories.Should().NotBeEmpty();
+        stories.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+
+        var subtasks = tickets.Where(t => t.Type == TicketType.Subtask).ToList();
+        subtasks.Should().HaveCount(6);
+        subtasks.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+
+        // Verify Handoffs trace the collaborative discovery & refinement lifecycle
+        var handoffs = _ticketStore.GetAllHandoffs();
+        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.RequirementsResearcher && h.ToAgentRole == AgentRole.TechnicalProductManager);
+        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.TechnicalProductManager && h.ToAgentRole == AgentRole.LeadArchitect);
+        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.LeadArchitect && h.ToAgentRole == AgentRole.SoftwareDeveloper);
+
+        // Verify deliverables attached: Research Brief, PRD, ADR, Code, STRIDE, Benchmark, QA Scorecard, Release Manifest
+        var deliverables = tickets.SelectMany(t => t.Deliverables).ToList();
+        deliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
+        deliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
+        deliverables.Should().Contain(d => d.Name.EndsWith("_ADR.md"));
+        deliverables.Should().Contain(d => d.ContentType == "csharp");
+        deliverables.Should().Contain(d => d.Name.EndsWith("_STRIDE_Model.md"));
+        deliverables.Should().Contain(d => d.Name.EndsWith("_Perf_Profile.md"));
+        deliverables.Should().Contain(d => d.Name.EndsWith("_QA_Scorecard.md"));
+        deliverables.Should().Contain(d => d.Name.EndsWith("_Release_Manifest.md"));
+    }
+
+    [Fact]
     public void UpdateNodePosition_ShouldUpdateCoordinates()
     {
         _executor.UpdateNodePosition("node-dev", 520, 280);

@@ -1,0 +1,67 @@
+@page "/skills/matrix"
+@inject ISkillRegistry SkillRegistry
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">📊 The Dunning-Kruger Capability Matrix</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Interactive role-to-skill assignment matrix governing capabilities injected into agent cognitive contexts.</p>
+    </div>
+
+    <div class="page-header-actions">
+        <a href="skills" class="btn btn-secondary" style="white-space: nowrap;">🧩 Back to Skill Importer</a>
+    </div>
+</div>
+
+<div class="glass-card" style="overflow-x: auto;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+        <thead>
+            <tr style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                <th style="padding: 12px; color: var(--text-muted);">Skill Name / ID</th>
+                <th style="padding: 12px; color: var(--text-muted);">Category</th>
+                @foreach (var role in Enum.GetValues<AgentRole>())
+                {
+                    <th style="padding: 12px; text-align: center; color: @role.ToColorHex();">
+                        <div>@role.ToEmoji()</div>
+                        <div style="font-size: 0.75rem;">@role.ToDisplayName().Split(' ')[0]</div>
+                    </th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var skill in SkillRegistry.GetAllSkills())
+            {
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <td style="padding: 12px;">
+                        <div style="font-weight: 700; color: #f8fafc;">@skill.Name</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">@skill.Id</div>
+                    </td>
+                    <td style="padding: 12px;">
+                        <span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">@skill.Category</span>
+                    </td>
+                    @foreach (var role in Enum.GetValues<AgentRole>())
+                    {
+                        var isAssigned = SkillRegistry.GetSkillsForRole(role).Any(s => s.Id == skill.Id);
+                        <td style="padding: 12px; text-align: center;">
+                            <input @key="@($"{skill.Id}-{role}")" type="checkbox" checked="@isAssigned" @onchange="(e) => ToggleSkill(skill.Id, role, e)" style="cursor: pointer; transform: scale(1.2);" />
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    private void ToggleSkill(string skillId, AgentRole role, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? true);
+        if (isChecked)
+        {
+            SkillRegistry.AssignSkillToRole(skillId, role);
+        }
+        else
+        {
+            SkillRegistry.UnassignSkillFromRole(skillId, role);
+        }
+    }
+}

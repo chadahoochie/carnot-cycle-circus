@@ -10,6 +10,9 @@
   <ItemGroup Label="App Dependencies">
     <PackageVersion Include="Microsoft.Extensions.Http" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Photino.Blazor" Version="3.2.0" />
   </ItemGroup>
 
   <ItemGroup Label="Test Dependencies">

@@ -105,19 +105,32 @@ carnot-cycle-circus/
 │   │   │   └── Tools/                  # IToolDefinition, WebSearch, CSharpSyntaxCheck, TestRunner
 │   │   └── Extensions/
 │   │       └── ServiceCollectionExtensions.cs # Centralized DI registration
+│   ├── CarnotCycleCircus.UI/           # Shared Razor Class Library (.NET 10.0)
+│   │   ├── Components/
+│   │   │   ├── Layout/                 # MainLayout, NavMenu
+│   │   │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
+│   │   │   └── Modals/                 # KeyVaultModal, ProjectIgnitionModal, CodebaseHarvesterModal, ShowcaseModal, TicketModal
+│   │   ├── Services/                   # INativeFolderPicker & UI contracts
+│   │   └── wwwroot/                    # Cyberpunk theme stylesheets (app.css)
 │   │
-│   └── CarnotCycleCircus.Web/          # Blazor Web Frontend (.NET 10.0)
-│       ├── Components/
-│       │   ├── Layout/                 # MainLayout, NavMenu
-│       │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
-│       │   └── Modals/                 # KeyVaultModal, ProjectIgnitionModal, CodebaseHarvesterModal, ShowcaseModal, TicketModal
-│       ├── Program.cs                  # Host configuration & pipeline setup
-│       └── wwwroot/                    # Modern dark-theme stylesheets & UI assets
+│   ├── CarnotCycleCircus.Desktop/      # Cross-Platform Desktop Client (Photino.Blazor)
+│   │   ├── Services/                   # DesktopNativeFolderPicker (Linux GTK/Zenity, macOS, Windows)
+│   │   ├── Program.cs                  # Photino native window runner (WebKitGTK on Linux)
+│   │   └── wwwroot/                    # WebKit webview host
+│   │
+│   ├── CarnotCycleCircus.Server/       # Headless Docker Agent Host Server (.NET 10.0)
+│   │   ├── Hubs/                       # AgentStreamHub (SignalR live event streaming)
+│   │   ├── Services/                   # SignalREventBridge background worker
+│   │   └── Program.cs                  # Minimal REST API endpoints & SignalR host
+│   │
+│   └── CarnotCycleCircus.Web/          # Blazor Interactive Web Host (.NET 10.0)
+│       └── Program.cs                  # Interactive Server web pipeline
 │
 ├── tests/
 │   └── CarnotCycleCircus.Tests/        # Comprehensive Unit & Integration Tests (xUnit + FluentAssertions)
-│       └── [17 Test Suites]           # Complete coverage across all domain services
+│       └── [30+ Test Suites]           # Complete coverage across all domain services
 │
+├── scripts/                            # Local install and Docker orchestration scripts
 ├── skills/                             # Preserved engineering skills & .NET standards
 └── docs/                               # Comprehensive Human & LLM Documentation Suite
 ```

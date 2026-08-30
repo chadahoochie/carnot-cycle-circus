@@ -43,17 +43,17 @@ public class ProjectBlueprintServiceTests
         blueprints.Should().NotBeEmpty();
         blueprints.Count.Should().BeGreaterThanOrEqualTo(5);
 
-        var iotBp = _blueprintService.GetBlueprint("iot-ingestion-pipeline");
-        iotBp.Should().NotBeNull();
-        iotBp!.RecommendedArchetype.Should().Be("HighPerformance");
-        iotBp.KeyPatterns.Should().NotBeEmpty();
-        iotBp.SecurityRules.Should().NotBeEmpty();
+        var pipelineBp = _blueprintService.GetBlueprint("realtime-telemetry-pipeline");
+        pipelineBp.Should().NotBeNull();
+        pipelineBp!.RecommendedArchetype.Should().Be("HighPerformance");
+        pipelineBp.KeyPatterns.Should().NotBeEmpty();
+        pipelineBp.SecurityRules.Should().NotBeEmpty();
     }
 
     [Fact]
     public async Task LaunchBlueprintAsync_ShouldCreateTicketsAdrKnowledgeAndSwitchTeam()
     {
-        var result = await _blueprintService.LaunchBlueprintAsync("ecommerce-checkout-saga");
+        var result = await _blueprintService.LaunchBlueprintAsync("distributed-order-saga");
 
         result.Should().NotBeNull();
         result.EpicId.Should().StartWith("EPIC-");
@@ -68,15 +68,45 @@ public class ProjectBlueprintServiceTests
         // Verify ADR exists in manager
         var adr = _adrManager.GetAdr(result.AdrId);
         adr.Should().NotBeNull();
-        adr!.Title.Should().Contain("Resilient E-Commerce");
+        adr!.Title.Should().Contain("Order & Payment Saga");
 
         // Verify Knowledge Map has new nodes
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Project") && n.Attributes["Project"].Contains("E-Commerce"));
+        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Project") && n.Attributes["Project"].Contains("Order & Payment Saga"));
 
         // Verify Active Team Archetype switched
         var currentTeam = _teamManager.GetCurrentTeam();
         currentTeam.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task LaunchProjectAsync_WithDynamicRequest_ShouldGenerateCustomTicketsAndAdrs()
+    {
+        var result = await _blueprintService.LaunchProjectAsync(new ProjectIgnitionRequest(
+            Title: "Real-time Auction Microservice",
+            Description: "Bidding engine with sub-millisecond locks and SignalR feeds",
+            TargetStack: ".NET 10 / C# 13, Redis Streams, SignalR",
+            ArchetypeName: "HighPerformance",
+            KeyGoals: ["Sub-millisecond bid execution", "Zero allocation hot path"],
+            ArchitecturePatterns: ["Channels bounded queue", "Immutable state records"],
+            SecurityGuardrails: ["HMAC signature check"]
+        ));
+
+        result.Should().NotBeNull();
+        result.EpicId.Should().StartWith("EPIC-");
+        result.AdrId.Should().StartWith("ADR-");
+        result.CreatedTickets.Should().NotBeEmpty();
+
+        var epic = _ticketStore.GetTicketById(result.EpicId);
+        epic.Should().NotBeNull();
+        epic!.Title.Should().Be("Real-time Auction Microservice");
+
+        var adr = _adrManager.GetAdr(result.AdrId);
+        adr.Should().NotBeNull();
+        adr!.Title.Should().Contain("Real-time Auction Microservice");
+
+        var map = _knowledgeMap.GetFullMap();
+        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Stack") && n.Attributes["Stack"].Contains("Redis Streams"));
     }
 
     [Fact]

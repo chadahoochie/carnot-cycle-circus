@@ -9,6 +9,9 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/CarnotCycleCircus.Core/CarnotCycleCircus.Core.csproj" />
+    <Project Path="src/CarnotCycleCircus.UI/CarnotCycleCircus.UI.csproj" />
+    <Project Path="src/CarnotCycleCircus.Desktop/CarnotCycleCircus.Desktop.csproj" />
+    <Project Path="src/CarnotCycleCircus.Server/CarnotCycleCircus.Server.csproj" />
     <Project Path="src/CarnotCycleCircus.Web/CarnotCycleCircus.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">

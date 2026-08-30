@@ -351,10 +351,17 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             }
             else
             {
-                // 1. Requirements Research Phase (Discovery & Feasibility Scouting)
+                // 1. Collaborative Discovery Stage: Requirements Researcher & Technical Product Manager
                 var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
                 ArtifactItem? researchBrief = null;
                 string? researchTicketId = null;
+
+                _eventStream.Publish(AgentMessage.Create(
+                    role: AgentRole.TechnicalProductManager,
+                    senderName: "Barnum B. Buzzword (TPM)",
+                    content: $"🤝 Collaborative Discovery Initiated: TPM & Research Analyst partnering to frame and investigate specifications for new project '{epicTitle}'.",
+                    type: MessageType.Chat
+                ));
 
                 if (resNode != null)
                 {
@@ -364,12 +371,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     var tempResearchTicket = new TicketItem(
                         Id: $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
                         ParentEpicId: null,
-                        Title: $"Requirements Research: {epicTitle}",
+                        Title: $"Requirements Research & Feasibility: {epicTitle}",
                         Description: epicDescription,
                         Type: TicketType.ResearchSpike,
                         Status: TicketStatus.InProgress,
                         AssigneeRole: AgentRole.RequirementsResearcher,
-                        CreatedByRole: AgentRole.RequirementsResearcher,
+                        CreatedByRole: AgentRole.TechnicalProductManager,
                         Priority: TicketPriority.High,
                         DependsOnTicketIds: Array.Empty<string>(),
                         AcceptanceCriteria: [
@@ -398,15 +405,15 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                         tempResearchTicket.Id,
                         AgentRole.RequirementsResearcher,
                         AgentRole.TechnicalProductManager,
-                        "Requirements researched & Feasibility Brief produced.",
-                        "Deconstruct Epic into User Stories and generate PRD.",
+                        "Requirements researched & Feasibility Brief produced for collaborative synthesis.",
+                        "Synthesize research findings into PRD and deconstruct Epic into User Stories.",
                         researchArtifacts
                     );
 
                     _eventStream.Publish(AgentMessage.Create(
                         role: AgentRole.RequirementsResearcher,
                         senderName: "Rachel 'DeepDive' Reference (Requirements Researcher)",
-                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief.",
+                        content: $"🔬 Requirements Researcher Rachel Reference: 'When you have eliminated the impossible, whatever remains must be the requirements!' Researched '{epicTitle}' specifications and produced Feasibility Brief for TPM.",
                         type: MessageType.Chat,
                         ticketId: tempResearchTicket.Id
                     ));
@@ -414,7 +421,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     UpdateNodeState(resNode.Id, NodeExecutionState.Completed, "Requirements researched & Feasibility Brief produced.", tempResearchTicket.Id);
                 }
 
-                // 2. TPM Phase - Work Decomposition & PRD
+                // 2. TPM Phase - Collaborative PRD Synthesis & User Story Deconstruction
                 var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
                 if (tpmNode != null)
                 {
@@ -422,9 +429,9 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     await Task.Delay(150, cancellationToken);
                 }
 
-                var createdTickets = _decompositionEngine.DeconstructEpic(epicTitle, epicDescription);
-                var epicTicket = createdTickets.First(t => t.Type == TicketType.Epic);
-                if (researchBrief != null)
+                var createdStoryTickets = _decompositionEngine.DeconstructEpicIntoUserStories(epicTitle, epicDescription, researchBrief);
+                var epicTicket = createdStoryTickets.First(t => t.Type == TicketType.Epic);
+                if (researchBrief != null && !epicTicket.Deliverables.Any(d => d.Name == researchBrief.Name))
                 {
                     epicTicket = epicTicket.WithDeliverable(researchBrief);
                 }
@@ -437,33 +444,61 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
                 _ticketStore.UpdateTicket(epicTicket);
 
+                var storiesCount = createdStoryTickets.Count(t => t.Type == TicketType.Feature);
                 _handoffRouter.RouteSuccessHandoff(
                     epicTicket.Id,
                     AgentRole.TechnicalProductManager,
                     AgentRole.LeadArchitect,
-                    $"Deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks with PRD.",
-                    "Scaffold Clean Architecture and produce Architectural Decision Record (ADR).",
+                    $"Synthesized Research Brief and authored PRD for '{epicTitle}' with {storiesCount} foundational User Stories.",
+                    "Refine User Stories into technical subtasks, then scaffold Clean Architecture and produce Architectural Decision Record (ADR).",
                     prdArtifacts
                 );
 
                 _eventStream.Publish(AgentMessage.Create(
                     role: AgentRole.TechnicalProductManager,
                     senderName: "Barnum B. Buzzword (TPM)",
-                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Ingested Research Brief, deconstructed '{epicTitle}' into {createdTickets.Count - 1} subtasks and produced Product Requirements Document (PRD).",
+                    content: $"🎯 TPM Barnum B. Buzzword: 'The new Jira backlog is here! I'm somebody now!' Ingested Research Brief, authored PRD, and established {storiesCount} foundational User Stories for Lead Architect refinement.",
                     type: MessageType.Chat,
                     ticketId: epicTicket.Id
                 ));
 
                 if (tpmNode != null)
                 {
-                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"Decomposed into {createdTickets.Count} work items with PRD.", epicTicket.Id);
+                    UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"PRD authored & {storiesCount} stories established for refinement.", epicTicket.Id);
                 }
             }
 
-            // 3. Lead Architect Phase
+            // 3. Lead Architect Phase: Backlog Refinement followed by Architecture & ADR Scaffolding
             var archNode = GetNodeByRole(AgentRole.LeadArchitect);
+            
+            // 3A. Architect Backlog Refinement Pass: Deconstruct Feature Stories into Technical Subtasks
+            var unrefinedStories = _ticketStore.GetTicketsByEpic(epicId)
+                .Where(t => t.Type == TicketType.Feature)
+                .ToList();
+
+            var existingSubtasks = _ticketStore.GetTicketsByEpic(epicId)
+                .Where(t => t.Type == TicketType.Subtask)
+                .ToList();
+
+            if (existingSubtasks.Count == 0 && unrefinedStories.Count > 0)
+            {
+                foreach (var story in unrefinedStories)
+                {
+                    var refinedSubtasks = _decompositionEngine.RefineStoryIntoTechnicalSubtasks(story);
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: AgentRole.LeadArchitect,
+                        senderName: "Archduke Archibald Abstraction-o (Lead Architect)",
+                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict DAG dependencies.",
+                        type: MessageType.StateChange,
+                        ticketId: story.Id
+                    ));
+                }
+            }
+
+            // 3B. Architect ADR & Clean Architecture Scaffolding
             var readyTickets = _ticketStore.GetReadyTickets();
-            var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.ParentEpicId == epicId)
+            var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask && t.ParentEpicId == epicId)
+                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask)
                 ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect);
 
             if (archNode != null && archTicket != null)
@@ -479,14 +514,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     archTicket.Id,
                     AgentRole.LeadArchitect,
                     AgentRole.SoftwareDeveloper,
-                    "ADR Architecture & Topology finalized. 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
-                    "Implement feature with zero heap allocations.",
+                    "ADR Architecture & Topology finalized after backlog refinement. 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
+                    "Implement feature with zero heap allocations matching refined subtasks and ADR contracts.",
                     artifacts
                 );
 
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(archTicket.Id);
                 await _memoryConsolidation.ConsolidateTaskCompletionAsync(archTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "ADR & Topology designed.", archTicket.Id);
+                UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "Backlog refined & ADR/Topology designed.", archTicket.Id);
             }
 
             // 4. Software Developer Phase
