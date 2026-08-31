@@ -23,6 +23,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
     private readonly IOpenRouterClient _openRouterClient;
     private readonly IAgentInferenceResolver _inferenceResolver;
     private readonly ITeamDefinitionManager? _teamManager;
+    private readonly IAgentDefinitionManager? _agentDefManager;
     private readonly IAgentEventStream? _eventStream;
     private readonly IKnowledgeMapService? _knowledgeMap;
     private readonly IPersistentMemoryStore? _memoryStore;
@@ -33,6 +34,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         IOpenRouterClient openRouterClient,
         IAgentInferenceResolver inferenceResolver,
         ITeamDefinitionManager? teamManager = null,
+        IAgentDefinitionManager? agentDefManager = null,
         IAgentEventStream? eventStream = null,
         IKnowledgeMapService? knowledgeMap = null,
         IPersistentMemoryStore? memoryStore = null,
@@ -42,6 +44,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         _openRouterClient = openRouterClient ?? throw new ArgumentNullException(nameof(openRouterClient));
         _inferenceResolver = inferenceResolver ?? throw new ArgumentNullException(nameof(inferenceResolver));
         _teamManager = teamManager;
+        _agentDefManager = agentDefManager;
         _eventStream = eventStream;
         _knowledgeMap = knowledgeMap;
         _memoryStore = memoryStore;
@@ -54,10 +57,43 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         TicketItem ticket,
         CancellationToken cancellationToken = default)
     {
-        // 1. Resolve agent member and inference parameters
+        // 1. Resolve agent member and inference parameters from active squad and DAG node bindings
         var team = _teamManager?.GetCurrentTeam() ?? EngineeringTeam.CreateDefault();
-        var member = team.GetMember(role) ?? new AgentMember(AgentPersona.CreateDefault(role));
-        var (model, apiKey) = _inferenceResolver.ResolveInferenceParameters(member, team);
+        var node = team.Graph.Nodes.FirstOrDefault(n => n.Role == role);
+
+        AgentMember? member = null;
+        if (node != null && !string.IsNullOrWhiteSpace(node.AgentId))
+        {
+            member = _agentDefManager?.GetAgent(node.AgentId) ?? team.GetMemberById(node.AgentId);
+        }
+
+        if (member == null)
+        {
+            var teamMember = team.GetMember(role);
+            if (teamMember != null && teamMember.HasModel)
+            {
+                member = teamMember;
+            }
+        }
+
+        if (member == null || !member.HasModel)
+        {
+            var definedAgent = _agentDefManager?.GetAgentForRole(role);
+            if (definedAgent != null && (member == null || definedAgent.HasModel))
+            {
+                member = definedAgent;
+            }
+        }
+
+        if (member == null)
+        {
+            member = team.GetMember(role) ?? new AgentMember(AgentPersona.CreateDefault(role));
+        }
+
+        var inferenceConfig = _inferenceResolver.ResolveInferenceConfig(member, team);
+        var model = inferenceConfig.PrimaryModel;
+        var fallbackModel = inferenceConfig.FallbackModel;
+        var apiKey = inferenceConfig.ApiKey;
 
         // 2. Validate model availability
         if (string.IsNullOrWhiteSpace(model))
@@ -89,7 +125,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             throw new InvalidOperationException(errMsg);
         }
 
-        // 3. Gather upstream context from parent epic and dependent tickets
+        // 4. Gather upstream context from parent epic and dependent tickets
         var upstreamDeliverables = GatherUpstreamDeliverables(ticket);
         var harvestReport = _harvester?.GetLatestReport();
 
@@ -103,7 +139,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
         try
         {
-            var artifacts = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, model, apiKey, cancellationToken);
+            var (artifacts, finishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, model, apiKey, cancellationToken);
             if (artifacts.Count > 0)
             {
                 var names = string.Join(", ", artifacts.Select(a => $"'{a.Name}'"));
@@ -118,14 +154,87 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 return artifacts;
             }
 
-            throw new InvalidOperationException($"Model [{model}] produced empty deliverable content for [{ticket.Id}].");
+            // Primary model produced 0 artifacts (e.g. empty output or reasoning tokens exhausted)
+            var emptyReason = finishReason != null ? $"FinishReason: {finishReason}" : "Empty payload returned";
+            if (!string.IsNullOrWhiteSpace(fallbackModel) && !string.Equals(fallbackModel, model, StringComparison.OrdinalIgnoreCase))
+            {
+                _eventStream?.Publish(AgentMessage.Create(
+                    role: role,
+                    senderName: member.Persona.Name,
+                    content: $"⚠️ Primary model [{model}] produced empty deliverable content ({emptyReason}). Initiating autonomous failover to fallback model [{fallbackModel}]...",
+                    type: MessageType.Alert,
+                    ticketId: ticket.Id
+                ));
+
+                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, fallbackModel, apiKey, cancellationToken);
+                if (fallbackArtifacts.Count > 0)
+                {
+                    var fbNames = string.Join(", ", fallbackArtifacts.Select(a => $"'{a.Name}'"));
+                    _eventStream?.Publish(AgentMessage.Create(
+                        role: role,
+                        senderName: member.Persona.Name,
+                        content: $"⚡ Fallback model [{fallbackModel}] successfully generated {fallbackArtifacts.Count} deliverable(s): {fbNames}.",
+                        type: MessageType.Handoff,
+                        ticketId: ticket.Id
+                    ));
+
+                    return fallbackArtifacts;
+                }
+
+                throw new InvalidOperationException($"Both primary model [{model}] ({emptyReason}) and fallback model [{fallbackModel}] (FinishReason: {fallbackFinishReason ?? "empty"}) produced empty deliverable content for [{ticket.Id}].");
+            }
+
+            throw new InvalidOperationException($"Model [{model}] produced empty deliverable content for [{ticket.Id}] ({emptyReason}).");
         }
-        catch (Exception ex) when (ex is not InvalidOperationException)
+        catch (Exception ex) when (!string.IsNullOrWhiteSpace(fallbackModel) &&
+                                  !string.Equals(fallbackModel, model, StringComparison.OrdinalIgnoreCase) &&
+                                  !(ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
         {
             _eventStream?.Publish(AgentMessage.Create(
                 role: role,
                 senderName: member.Persona.Name,
-                content: $"⚠️ OpenRouter API error during task execution ({ex.Message}).",
+                content: $"⚠️ Primary model [{model}] failed with error ({ex.Message}). Initiating autonomous failover to fallback model [{fallbackModel}]...",
+                type: MessageType.Alert,
+                ticketId: ticket.Id
+            ));
+
+            try
+            {
+                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, fallbackModel, apiKey, cancellationToken);
+                if (fallbackArtifacts.Count > 0)
+                {
+                    var fbNames = string.Join(", ", fallbackArtifacts.Select(a => $"'{a.Name}'"));
+                    _eventStream?.Publish(AgentMessage.Create(
+                        role: role,
+                        senderName: member.Persona.Name,
+                        content: $"⚡ Fallback model [{fallbackModel}] successfully generated {fallbackArtifacts.Count} deliverable(s): {fbNames}.",
+                        type: MessageType.Handoff,
+                        ticketId: ticket.Id
+                    ));
+
+                    return fallbackArtifacts;
+                }
+
+                throw new InvalidOperationException($"Primary model [{model}] failed ({ex.Message}) and fallback model [{fallbackModel}] produced empty deliverable content for [{ticket.Id}] (FinishReason: {fallbackFinishReason ?? "empty"}).");
+            }
+            catch (Exception fallbackEx) when (!(fallbackEx is OperationCanceledException && cancellationToken.IsCancellationRequested))
+            {
+                _eventStream?.Publish(AgentMessage.Create(
+                    role: role,
+                    senderName: member.Persona.Name,
+                    content: $"🛑 Execution failed on both primary [{model}] and fallback [{fallbackModel}] for {role.ToDisplayName()} ({member.Persona.Name}): {fallbackEx.Message}",
+                    type: MessageType.Alert,
+                    ticketId: ticket.Id
+                ));
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            _eventStream?.Publish(AgentMessage.Create(
+                role: role,
+                senderName: member.Persona.Name,
+                content: $"🛑 Execution failed for {role.ToDisplayName()} ({member.Persona.Name}) on [{model}]: {ex.Message}",
                 type: MessageType.Alert,
                 ticketId: ticket.Id
             ));
@@ -142,17 +251,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             return deliverables;
         }
 
-        // 1. Parent Epic Deliverables (e.g. Research Brief, PRD)
-        if (!string.IsNullOrWhiteSpace(ticket.ParentEpicId))
-        {
-            var epic = _ticketStore.GetTicketById(ticket.ParentEpicId);
-            if (epic != null)
-            {
-                deliverables.AddRange(epic.Deliverables);
-            }
-        }
-
-        // 2. Direct Dependencies Deliverables (e.g. ADRs, Source Code)
+        // 1. Direct Dependencies Deliverables (e.g. ADRs, Source Code, Test Suites)
         foreach (var depId in ticket.DependsOnTicketIds)
         {
             var depTicket = _ticketStore.GetTicketById(depId);
@@ -162,9 +261,16 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             }
         }
 
-        // 3. If no direct dependencies found, check completed upstream tickets in same epic
-        if (deliverables.Count == 0 && !string.IsNullOrWhiteSpace(ticket.ParentEpicId))
+        // 2. Parent Epic Deliverables (e.g. Research Brief, PRD)
+        if (!string.IsNullOrWhiteSpace(ticket.ParentEpicId))
         {
+            var epic = _ticketStore.GetTicketById(ticket.ParentEpicId);
+            if (epic != null)
+            {
+                deliverables.AddRange(epic.Deliverables);
+            }
+
+            // 3. All sibling & predecessor completed tickets in the same Epic hierarchy
             var epicTickets = _ticketStore.GetTicketsByEpic(ticket.ParentEpicId);
             foreach (var t in epicTickets.Where(t => t.Id != ticket.Id && t.Status == TicketStatus.Done))
             {
@@ -172,10 +278,53 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             }
         }
 
+        // 4. Current ticket deliverables
+        deliverables.AddRange(ticket.Deliverables);
+
         return deliverables.DistinctBy(d => d.Name).ToList();
     }
 
-    private async Task<IReadOnlyList<ArtifactItem>> GenerateViaOpenRouterAsync(
+    private string GatherHandoffContext(TicketItem ticket)
+    {
+        if (_ticketStore == null) return string.Empty;
+
+        var handoffs = _ticketStore.GetHandoffsForTicket(ticket.Id);
+        if (handoffs.Count == 0 && !string.IsNullOrWhiteSpace(ticket.ParentEpicId))
+        {
+            handoffs = _ticketStore.GetHandoffsForTicket(ticket.ParentEpicId);
+        }
+
+        if (handoffs.Count == 0) return string.Empty;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("\n=== INTER-AGENT HANDOFF CONTEXT & ROUTING DIRECTIVES ===");
+        foreach (var h in handoffs.TakeLast(3))
+        {
+            sb.AppendLine($"From: {h.FromAgentRole.ToDisplayName()} ➔ To: {h.ToAgentRole.ToDisplayName()} [{h.Timestamp:yyyy-MM-dd HH:mm:ss}]");
+            sb.AppendLine($"Handoff Summary: {h.ContextSummary}");
+            if (!string.IsNullOrWhiteSpace(h.ActionRequested))
+            {
+                sb.AppendLine($"Action Requested: {h.ActionRequested}");
+            }
+            if (!string.IsNullOrWhiteSpace(h.RemediationNotes))
+            {
+                sb.AppendLine($"🚨 CRITICAL REMEDIATION DIRECTIVE: {h.RemediationNotes}");
+            }
+            if (h.ReviewChecklist.Count > 0)
+            {
+                sb.AppendLine("Review Checklist:");
+                foreach (var item in h.ReviewChecklist)
+                {
+                    sb.AppendLine($"- [ ] {item}");
+                }
+            }
+            sb.AppendLine("--------------------------------------------------------\n");
+        }
+
+        return sb.ToString();
+    }
+
+    private async Task<(IReadOnlyList<ArtifactItem> Artifacts, string? FinishReason)> GenerateViaOpenRouterAsync(
         AgentMember member,
         AgentRole role,
         TicketItem ticket,
@@ -198,15 +347,16 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             Model: model,
             Messages: messages,
             Temperature: Math.Clamp(member.Persona.Temperature, 0.0, 1.0),
-            MaxTokens: 4000
+            MaxTokens: 8192
         );
 
         var response = await _openRouterClient.CompleteAsync(request, apiKey, cancellationToken);
         var rawContent = response.FirstContent;
+        var finishReason = response.FirstFinishReason;
 
         if (string.IsNullOrWhiteSpace(rawContent))
         {
-            return Array.Empty<ArtifactItem>();
+            return (Array.Empty<ArtifactItem>(), finishReason);
         }
 
         var parsedArtifacts = ParseDeliverableArtifacts(rawContent, defaultArtifactName, contentType, description, ticket);
@@ -253,13 +403,13 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
                 try
                 {
-                    var remResponse = await _openRouterClient.CompleteAsync(new OpenRouterChatRequest(model, remediationMessages, Temperature: 0.1, MaxTokens: 4000), apiKey, cancellationToken);
+                    var remResponse = await _openRouterClient.CompleteAsync(new OpenRouterChatRequest(model, remediationMessages, Temperature: 0.1, MaxTokens: 8192), apiKey, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(remResponse.FirstContent))
                     {
                         var healed = ParseDeliverableArtifacts(remResponse.FirstContent, defaultArtifactName, contentType, description, ticket);
                         if (healed.Count > 0)
                         {
-                            return healed;
+                            return (healed, remResponse.FirstFinishReason);
                         }
                     }
                 }
@@ -270,7 +420,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             }
         }
 
-        return parsedArtifacts;
+        return (parsedArtifacts, finishReason);
     }
 
     private (string SystemPrompt, string UserPrompt, string DefaultArtifactName, string ContentType, string Description) BuildPromptsForRole(
@@ -303,10 +453,17 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             foreach (var d in upstreamDeliverables)
             {
                 upstreamSummary.AppendLine($"--- [Artifact: {d.Name} ({d.ContentType})] ---");
-                var preview = d.Content.Length > 2500 ? d.Content[..2500] + "\n...[truncated for context budget]..." : d.Content;
+                // Generous context preservation without premature truncation
+                var preview = d.Content.Length > 40000 ? d.Content[..40000] + "\n...[truncated for context budget]..." : d.Content;
                 upstreamSummary.AppendLine(preview);
                 upstreamSummary.AppendLine("------------------------------------------------\n");
             }
+        }
+
+        var handoffDirectives = GatherHandoffContext(ticket);
+        if (!string.IsNullOrWhiteSpace(handoffDirectives))
+        {
+            upstreamSummary.AppendLine(handoffDirectives);
         }
 
         var repoContext = harvestReport != null
@@ -361,10 +518,10 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
                 Structure the document with:
                 # Product Requirements Document (PRD): {ticket.Title}
-                ## 1. Executive Summary & Objective
+                ## 1. Executive Summary & Objective (Synthesized from upstream Research Brief)
                 ## 2. Target Users & System Context
-                ## 3. Domain Concepts & Entities (Specify exact entity names and value objects)
-                ## 4. Functional Acceptance Criteria (use - [ ] checkboxes)
+                ## 3. Domain Concepts & Entities (Specify exact entity names, value objects, and states)
+                ## 4. Functional Acceptance Criteria (use - [ ] checkboxes for all user stories)
                 ## 5. Non-Functional Requirements (NFRs) (Latency SLA, GC Zero-Allocations, STRIDE Security Baseline, Self-Healing Failure Ports)
                 """;
                 break;
@@ -410,56 +567,131 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 defaultArtifactName = $"{domainContext}Service.cs";
                 contentType = "csharp";
                 description = "C# 13 Multi-File Production Implementation & Test Suite";
-                userPrompt = $"""
+                userPrompt = $$"""
                 Produce a complete, compilable, production-ready C# 13 (.NET 10) multi-file implementation bundle for:
-                Ticket: {ticket.Id} - {ticket.Title}
-                Description: {ticket.Description}
+                Ticket: {{ticket.Id}} - {{ticket.Title}}
+                Description: {{ticket.Description}}
                 Acceptance Criteria:
-                {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}
-                {repoContext}
-                {upstreamSummary}
+                {{string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}}
+                {{repoContext}}
+                {{upstreamSummary}}
 
-                === CRITICAL IMPLEMENTATION CONTRACT ===
-                You MUST implement the exact types, records, and interfaces defined in the upstream Lead Architect's Clean Architecture scaffold above.
-                Do NOT invent arbitrary generic class names like 'SUB_XXXXService' or 'MyService'. Use domain names (e.g., `{domainContext}Service`, `I{domainContext}Service`, `{domainContext}Models`).
+                === CRITICAL PRODUCTION CODE MANDATE ===
+                You MUST implement the exact types, records, and interfaces defined in the upstream Lead Architect's Clean Architecture scaffold and PRD above.
+                Do NOT invent arbitrary generic class names like 'SUB_XXXXService' or 'MyService'. Use domain names (e.g., `{{domainContext}}Service`, `I{{domainContext}}Service`, `{{domainContext}}Models`).
+                Do NOT output mock simulations, empty placeholders, 'await Task.Yield()', or 'throw new NotImplementedException()'. Write COMPLETE, working, production-grade business logic.
 
                 Output each file in a distinct labeled code block using the format:
-                ```csharp:Contracts/I{domainContext}Service.cs
-                // File: Contracts/I{domainContext}Service.cs
-                namespace {targetNamespace}.{domainContext};
-                ...
+                ```csharp:Contracts/I{{domainContext}}Service.cs
+                // File: Contracts/I{{domainContext}}Service.cs
+                namespace {{targetNamespace}}.{{domainContext}};
+
+                using System;
+                using System.Threading;
+                using System.Threading.Tasks;
+
+                public interface I{{domainContext}}Service
+                {
+                    ValueTask<bool> ProcessAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default);
+                }
                 ```
 
-                ```csharp:Models/{domainContext}Models.cs
-                // File: Models/{domainContext}Models.cs
-                namespace {targetNamespace}.{domainContext};
-                ...
+                ```csharp:Models/{{domainContext}}Models.cs
+                // File: Models/{{domainContext}}Models.cs
+                namespace {{targetNamespace}}.{{domainContext}};
+
+                using System;
+
+                public readonly record struct {{domainContext}}Result(string Id, bool IsSuccess, string Message);
+                public record {{domainContext}}Entity(string Id, string Name, DateTimeOffset CreatedAt);
                 ```
 
-                ```csharp:Services/{domainContext}Service.cs
-                // File: Services/{domainContext}Service.cs
-                namespace {targetNamespace}.{domainContext};
-                ...
+                ```csharp:Services/{{domainContext}}Service.cs
+                // File: Services/{{domainContext}}Service.cs
+                namespace {{targetNamespace}}.{{domainContext}};
+
+                using System;
+                using System.Collections.Concurrent;
+                using System.Threading;
+                using System.Threading.Tasks;
+                using Microsoft.Extensions.Logging;
+
+                public sealed class {{domainContext}}Service : I{{domainContext}}Service
+                {
+                    private readonly ILogger<{{domainContext}}Service>? _logger;
+                    private readonly ConcurrentDictionary<string, {{domainContext}}Entity> _store = new();
+
+                    public {{domainContext}}Service(ILogger<{{domainContext}}Service>? logger = null)
+                    {
+                        _logger = logger;
+                    }
+
+                    public async ValueTask<bool> ProcessAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var span = payload.Span;
+                        if (span.IsEmpty) return false;
+                        _logger?.LogInformation("Processing payload of size {Size} bytes.", span.Length);
+                        return true;
+                    }
+                }
                 ```
 
-                ```csharp:Extensions/{domainContext}ServiceCollectionExtensions.cs
-                // File: Extensions/{domainContext}ServiceCollectionExtensions.cs
-                namespace {targetNamespace}.{domainContext};
-                ...
+                ```csharp:Extensions/{{domainContext}}ServiceCollectionExtensions.cs
+                // File: Extensions/{{domainContext}}ServiceCollectionExtensions.cs
+                namespace {{targetNamespace}}.{{domainContext}};
+
+                using Microsoft.Extensions.DependencyInjection;
+
+                public static class {{domainContext}}ServiceCollectionExtensions
+                {
+                    public static IServiceCollection Add{{domainContext}}(this IServiceCollection services)
+                    {
+                        services.AddSingleton<I{{domainContext}}Service, {{domainContext}}Service>();
+                        return services;
+                    }
+                }
                 ```
 
-                ```csharp:Tests/{domainContext}ServiceTests.cs
-                // File: Tests/{domainContext}ServiceTests.cs
-                namespace {targetNamespace}.{domainContext}.Tests;
-                ...
+                ```csharp:Tests/{{domainContext}}ServiceTests.cs
+                // File: Tests/{{domainContext}}ServiceTests.cs
+                namespace {{targetNamespace}}.{{domainContext}}.Tests;
+
+                using System;
+                using System.Text;
+                using System.Threading;
+                using System.Threading.Tasks;
+                using Xunit;
+
+                public class {{domainContext}}ServiceTests
+                {
+                    [Fact]
+                    public async Task ProcessAsync_WithValidPayload_ShouldReturnTrue()
+                    {
+                        var service = new {{domainContext}}Service();
+                        var data = Encoding.UTF8.GetBytes("test payload");
+                        var result = await service.ProcessAsync(data, CancellationToken.None);
+                        Assert.True(result);
+                    }
+
+                    [Fact]
+                    public async Task ProcessAsync_WhenCancelled_ShouldThrow()
+                    {
+                        var service = new {{domainContext}}Service();
+                        using var cts = new CancellationTokenSource();
+                        cts.Cancel();
+                        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+                            await service.ProcessAsync(new byte[10], cts.Token));
+                    }
+                }
                 ```
 
                 Technical Requirements:
-                - Use modern C# 13 / .NET 10 constructs (file-scoped namespaces, sealed classes or readonly record structs, primary constructors).
+                - Use modern C# 13 / .NET 10 constructs (file-scoped namespaces, sealed classes, readonly record structs, primary constructors).
                 - Zero heap allocations on hot path routines (use ValueTask, ReadOnlyMemory<byte>, ReadOnlySpan<char>, MemoryPool, bounded Channels).
-                - Accept CancellationToken cancellationToken = default on all async methods.
+                - Accept CancellationToken cancellationToken = default on all async methods and check for cancellation.
                 - Include comprehensive xUnit unit tests verifying acceptance criteria.
-                - Output complete, fully compilable code for each file.
+                - Output complete, fully compilable code for every file.
                 """;
                 break;
 
@@ -582,6 +814,116 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         return (systemPrompt, userPrompt, defaultArtifactName, contentType, description);
     }
 
+    private static string CleanAndExtractContent(string rawContent)
+    {
+        if (string.IsNullOrWhiteSpace(rawContent))
+        {
+            return string.Empty;
+        }
+
+        var content = rawContent.Trim();
+
+        // 1. If thinking tags <think>...</think> or <thought>...</thought> are present:
+        var stripped = Regex.Replace(content, @"<(?:think|thought)>[\s\S]*?<\/(?:think|thought)>", "", RegexOptions.IgnoreCase).Trim();
+        if (!string.IsNullOrWhiteSpace(stripped))
+        {
+            content = stripped;
+        }
+        else
+        {
+            // 2. If content outside thinking tags was empty, check if deliverable was drafted inside thinking tags
+            var matchInside = Regex.Match(content, @"<(?:think|thought)>([\s\S]*?)(?:<\/(?:think|thought)>|$)", RegexOptions.IgnoreCase);
+            if (matchInside.Success)
+            {
+                var inside = matchInside.Groups[1].Value.Trim();
+                if (inside.Contains('#') || inside.Contains("```"))
+                {
+                    content = inside;
+                }
+            }
+            else
+            {
+                // 3. Unclosed <think> tag at start
+                content = Regex.Replace(content, @"^<(?:think|thought)>", "", RegexOptions.IgnoreCase).Trim();
+            }
+        }
+
+        // 4. Strip conversational preamble / monologue before the primary markdown header (# ) or code fence
+        var headerIndex = content.IndexOf("\n# ", StringComparison.Ordinal);
+        if (headerIndex >= 0)
+        {
+            var preamble = content[..headerIndex].Trim();
+            if (preamble.Contains("The user wants") ||
+                preamble.Contains("We need respond") ||
+                preamble.Contains("Per my system prompt") ||
+                preamble.Contains("Need produce") ||
+                preamble.Contains("Let me structure") ||
+                !preamble.StartsWith('#'))
+            {
+                content = content[(headerIndex + 1)..].Trim();
+            }
+        }
+        else if (!content.StartsWith("# ") && !content.StartsWith("```"))
+        {
+            var anyHeader = Regex.Match(content, @"(?:^|\n)(#[^#\n\r][^\n\r]*)");
+            if (anyHeader.Success && anyHeader.Index > 0)
+            {
+                var preamble = content[..anyHeader.Index].Trim();
+                if (preamble.Contains("The user wants") ||
+                    preamble.Contains("We need") ||
+                    preamble.Contains("Per my system prompt") ||
+                    preamble.Contains("Need produce") ||
+                    preamble.Contains("Let me structure"))
+                {
+                    content = content[anyHeader.Index..].Trim();
+                }
+            }
+        }
+
+        // 5. Detect and eliminate infinite token repetition hallucination loops
+        content = TruncateRepetitiveLoops(content);
+
+        return content;
+    }
+
+    private static string TruncateRepetitiveLoops(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 200)
+        {
+            return text;
+        }
+
+        var lines = text.Split('\n');
+        if (lines.Length > 15)
+        {
+            for (int i = 0; i < lines.Length - 8; i++)
+            {
+                var line = lines[i].Trim();
+                if (line.Length > 15)
+                {
+                    int consecutive = 1;
+                    for (int j = i + 1; j < lines.Length; j++)
+                    {
+                        if (string.Equals(lines[j].Trim(), line, StringComparison.OrdinalIgnoreCase))
+                        {
+                            consecutive++;
+                            if (consecutive >= 6)
+                            {
+                                return string.Join('\n', lines.Take(i + 2)).Trim();
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return text;
+    }
+
     private static IReadOnlyList<ArtifactItem> ParseDeliverableArtifacts(
         string rawContent,
         string defaultArtifactName,
@@ -590,71 +932,101 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         TicketItem ticket)
     {
         var artifacts = new List<ArtifactItem>();
-        var trimmed = rawContent.Trim();
+        var cleaned = CleanAndExtractContent(rawContent);
 
-        // 1. Look for multi-file labeled code blocks e.g. ```csharp:FileName.cs or // File: FileName.cs
-        var multiBlockMatches = Regex.Matches(trimmed, @"```(?:csharp|cs)?(?::([^\n\r]+))?\s*\n(?:(?:\/\/|\/\*|\#)\s*File:\s*([^\n\r*]+)(?:\*\/)?\s*\n)?([\s\S]*?)\n```", RegexOptions.IgnoreCase);
-
-        if (multiBlockMatches.Count > 1 || (multiBlockMatches.Count == 1 && (!string.IsNullOrWhiteSpace(multiBlockMatches[0].Groups[1].Value) || !string.IsNullOrWhiteSpace(multiBlockMatches[0].Groups[2].Value))))
+        if (string.IsNullOrWhiteSpace(cleaned))
         {
-            int fileIndex = 1;
-            foreach (Match m in multiBlockMatches)
-            {
-                var labelTag = m.Groups[1].Value.Trim();
-                var commentTag = m.Groups[2].Value.Trim();
-                var codeBody = m.Groups[3].Value.Trim();
-
-                var fileName = !string.IsNullOrWhiteSpace(labelTag) ? Path.GetFileName(labelTag) :
-                               !string.IsNullOrWhiteSpace(commentTag) ? Path.GetFileName(commentTag) :
-                               $"{ExtractDomainContext(ticket)}_{fileIndex}.cs";
-
-                fileName = fileName.Replace('\\', '_').Replace('/', '_');
-                if (!fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) && defaultContentType == "csharp")
-                {
-                    fileName += ".cs";
-                }
-
-                artifacts.Add(new ArtifactItem(
-                    Name: fileName,
-                    Content: codeBody,
-                    ContentType: defaultContentType,
-                    Description: $"{defaultDescription} - {fileName}"
-                ));
-
-                fileIndex++;
-            }
-
-            if (artifacts.Count > 0)
-            {
-                return artifacts;
-            }
+            return artifacts;
         }
 
-        // 2. Single code block extraction
+        // 1. If this is code implementation (csharp), extract multi-file or single file code blocks
         if (defaultContentType == "csharp")
         {
-            var singleMatch = Regex.Match(trimmed, @"```(?:csharp|cs)?\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
-            var cleanCode = singleMatch.Success ? singleMatch.Groups[1].Value.Trim() : trimmed;
+            var multiBlockMatches = Regex.Matches(cleaned, @"```(?:csharp|cs)?(?::([^\n\r]+))?\s*\n(?:(?:\/\/|\/\*|\#)\s*File:\s*([^\n\r*]+)(?:\*\/)?\s*\n)?([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+
+            if (multiBlockMatches.Count > 1 || (multiBlockMatches.Count == 1 && (!string.IsNullOrWhiteSpace(multiBlockMatches[0].Groups[1].Value) || !string.IsNullOrWhiteSpace(multiBlockMatches[0].Groups[2].Value))))
+            {
+                int fileIndex = 1;
+                foreach (Match m in multiBlockMatches)
+                {
+                    var labelTag = m.Groups[1].Value.Trim();
+                    var commentTag = m.Groups[2].Value.Trim();
+                    var codeBody = m.Groups[3].Value.Trim();
+
+                    var fileName = !string.IsNullOrWhiteSpace(labelTag) ? Path.GetFileName(labelTag) :
+                                   !string.IsNullOrWhiteSpace(commentTag) ? Path.GetFileName(commentTag) :
+                                   $"{ExtractDomainContext(ticket)}_{fileIndex}.cs";
+
+                    fileName = fileName.Replace('\\', '_').Replace('/', '_');
+                    if (!fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName += ".cs";
+                    }
+
+                    artifacts.Add(new ArtifactItem(
+                        Name: fileName,
+                        Content: codeBody,
+                        ContentType: "csharp",
+                        Description: $"{defaultDescription} - {fileName}"
+                    ));
+
+                    fileIndex++;
+                }
+
+                if (artifacts.Count > 0)
+                {
+                    return artifacts;
+                }
+            }
+
+            var singleMatch = Regex.Match(cleaned, @"```(?:csharp|cs)?\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+            var cleanCode = singleMatch.Success ? singleMatch.Groups[1].Value.Trim() : cleaned;
 
             artifacts.Add(new ArtifactItem(
                 Name: defaultArtifactName,
                 Content: cleanCode,
-                ContentType: defaultContentType,
+                ContentType: "csharp",
                 Description: defaultDescription
             ));
             return artifacts;
         }
 
-        // 3. Markdown content
-        var mdMatch = Regex.Match(trimmed, @"^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$", RegexOptions.IgnoreCase);
-        var cleanMd = mdMatch.Success ? mdMatch.Groups[1].Value.Trim() : trimmed;
+        // 2. For Markdown deliverables (ADRs, PRDs, Research Briefs, STRIDE Threat Models, Benchmarks, QA Scorecards, Release Manifests):
+        // Always preserve the complete Markdown document as the primary deliverable
+        var mdMatch = Regex.Match(cleaned, @"^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$", RegexOptions.IgnoreCase);
+        var cleanMd = mdMatch.Success ? mdMatch.Groups[1].Value.Trim() : cleaned;
 
         artifacts.Add(new ArtifactItem(
             Name: defaultArtifactName,
             Content: cleanMd,
-            ContentType: defaultContentType,
+            ContentType: "markdown",
             Description: defaultDescription
         ));
+
+        // For Lead Architect, if they also scaffolded C# type contracts using labeled code blocks, extract them as companion artifacts
+        if (ticket.AssigneeRole == AgentRole.LeadArchitect)
+        {
+            var codeBlocks = Regex.Matches(cleaned, @"```(?:csharp|cs):([^\n\r]+)\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+            foreach (Match m in codeBlocks)
+            {
+                var tag = m.Groups[1].Value.Trim();
+                var code = m.Groups[2].Value.Trim();
+                var fileName = Path.GetFileName(tag).Replace('\\', '_').Replace('/', '_');
+                if (!fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                {
+                    fileName += ".cs";
+                }
+                if (!string.IsNullOrWhiteSpace(code) && !artifacts.Any(a => a.Name == fileName))
+                {
+                    artifacts.Add(new ArtifactItem(
+                        Name: fileName,
+                        Content: code,
+                        ContentType: "csharp",
+                        Description: $"Architectural Scaffold - {fileName}"
+                    ));
+                }
+            }
+        }
 
         return artifacts;
     }

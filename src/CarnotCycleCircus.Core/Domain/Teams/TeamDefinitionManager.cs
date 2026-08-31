@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Graph;
 using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Teams;
@@ -9,14 +10,15 @@ public record TeamDefinition(
     string Id,
     string Name,
     string Description,
-    string ArchetypeName,
+    WorkflowGraph Graph,
     IReadOnlyList<AgentMember> Members,
     string DefaultFallbackModel,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? ActiveGlobalApiKeyId = null
 )
 {
     public EngineeringTeam ToEngineeringTeam() =>
-        new(Id, Name, Description, Members, DefaultFallbackModel, ArchetypeName: ArchetypeName);
+        new(Id, Name, Description, Graph ?? WorkflowGraph.CreateDefaultEngineeringCircus(), Members ?? [], DefaultFallbackModel ?? string.Empty, ActiveGlobalApiKeyId);
 
     public TeamDefinition AddMember(AgentMember member) =>
         this with { Members = [.. Members, member] };
@@ -26,124 +28,112 @@ public record TeamDefinition(
 
     public TeamDefinition UpdateMember(AgentMember member) =>
         this with { Members = Members.Select(m => (m.Id == member.Id || (m.Persona.Role == member.Persona.Role && m.Persona.Name == member.Persona.Name)) ? member : m).ToList() };
-}
 
-public static class TeamArchetypes
-{
-    public static TeamDefinition BalancedCircus => new(
-        Id: "archetype-balanced",
-        Name: "🎪 The Full 6-Ring Circus (Balanced)",
-        Description: "The complete engineering squad: TPM invents fantasy deadlines, Architect builds cathedral abstractions, Dev drinks coffee, Security panics, Optimizer counts nanoseconds, and QA destroys everything.",
-        ArchetypeName: "Balanced",
+    public TeamDefinition WithGraph(WorkflowGraph graph) =>
+        this with { Graph = graph };
+
+    public static string GetDefaultModelForRole(AgentRole role) => role switch
+    {
+        AgentRole.RequirementsResearcher => "openai/gpt-4o-mini",
+        AgentRole.TechnicalProductManager => "openai/gpt-4o",
+        AgentRole.LeadArchitect => "openai/gpt-4o",
+        AgentRole.SoftwareDeveloper => "qwen/qwen-2.5-coder-32b-instruct",
+        AgentRole.SecurityEngineer => "openai/o3-mini",
+        AgentRole.OptimizationEngineer => "deepseek/deepseek-r1",
+        AgentRole.PrincipalQAAnalyst => "deepseek/deepseek-r1",
+        AgentRole.IntegrationEngineer => "openai/gpt-4o",
+        _ => "openai/gpt-4o"
+    };
+
+    public static TeamDefinition CreateDefaultCircusTeam() => new(
+        Id: "team-balanced",
+        Name: "🎪 The Balanced 6-Ring Circus",
+        Description: "The complete engineering troupe: TPM, Lead Architect, Software Developer, Security Engineer, Optimization Engineer, Principal QA Analyst, Release Integrator, and Requirements Researcher.",
+        Graph: WorkflowGraph.CreateDefaultEngineeringCircus(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = r switch
-                {
-                    AgentRole.RequirementsResearcher => "anthropic/claude-3.7-sonnet",
-                    AgentRole.TechnicalProductManager => "openai/gpt-4o",
-                    AgentRole.LeadArchitect => "anthropic/claude-3.7-sonnet",
-                    AgentRole.SoftwareDeveloper => "qwen/qwen-2.5-coder-32b-instruct",
-                    AgentRole.SecurityEngineer => "openai/o3-mini",
-                    AgentRole.OptimizationEngineer => "anthropic/claude-3.7-sonnet",
-                    AgentRole.PrincipalQAAnalyst => "deepseek/deepseek-r1",
-                    AgentRole.IntegrationEngineer => "anthropic/claude-3.7-sonnet",
-                    _ => "anthropic/claude-3.7-sonnet"
-                }
-            }
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static TeamDefinition MoveFastBreakProduction => new(
-        Id: "archetype-cowboy",
-        Name: "🤠 Move Fast & Break Production (Cowboy Mode)",
-        Description: "Who needs QA or Security when you have unyielding confidence? Maximum temperature, zero safety nets, thoughts-and-prayers architecture. Deploys straight to prod on Friday 4:59 PM.",
-        ArchetypeName: "MoveFastBreakProduction",
+    public static TeamDefinition CreateRapidPrototypeTeam() => new(
+        Id: "team-move-fast",
+        Name: "⚡ Move Fast & Break Production",
+        Description: "Streamlined fast-feedback squad: TPM -> Senior Developer -> Principal QA.",
+        Graph: WorkflowGraph.CreateRapidPrototype(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = r == AgentRole.SoftwareDeveloper ? "qwen/qwen-2.5-coder-32b-instruct" : "anthropic/claude-3.5-haiku",
-                Temperature = 0.7
-            },
-            IsEnabled: r is AgentRole.SoftwareDeveloper or AgentRole.TechnicalProductManager
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            IsEnabled: r is AgentRole.TechnicalProductManager or AgentRole.SoftwareDeveloper or AgentRole.PrincipalQAAnalyst,
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "qwen/qwen-2.5-coder-32b-instruct",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static TeamDefinition IvoryTowerCathedrals => new(
-        Id: "archetype-cathedral",
-        Name: "🏛️ Ivory Tower Cathedral Builders (Enterprise Edition)",
-        Description: "500 layers of abstraction for a Hello World application. Every boolean flag requires a factory, an interface, and an Architectural Decision Record signed in triplicate.",
-        ArchetypeName: "IvoryTowerCathedrals",
+    public static TeamDefinition CreateIvoryTowerTeam() => new(
+        Id: "team-ivory-tower",
+        Name: "🏛️ Ivory Tower Architecture Guild",
+        Description: "Heavy architecture and ADR focus: TPM -> Lead Architect -> Developer -> Integration.",
+        Graph: WorkflowGraph.CreateDefaultEngineeringCircus(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = "anthropic/claude-3.7-sonnet",
-                Temperature = 0.05
-            }
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            IsEnabled: r is AgentRole.TechnicalProductManager or AgentRole.LeadArchitect or AgentRole.SoftwareDeveloper or AgentRole.IntegrationEngineer,
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static TeamDefinition SecurityHardened => new(
-        Id: "archetype-security",
-        Name: "🛡️ Paranoid Zero-Trust Bunker",
-        Description: "No code will ever be merged, therefore no vulnerabilities can ever exist. Pure mathematical security perfection. Powered by deep reasoning models that assume your query is an advanced persistent threat.",
-        ArchetypeName: "SecurityHardened",
+    public static TeamDefinition CreateZeroTrustTeam() => new(
+        Id: "team-security-hardened",
+        Name: "🛡️ Zero-Trust Security Bunker",
+        Description: "High-assurance security-gated squad with dedicated Security Engineer threat modeling prior to QA.",
+        Graph: WorkflowGraph.CreateZeroTrustSecurityCircus(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = r is AgentRole.SecurityEngineer or AgentRole.PrincipalQAAnalyst ? "openai/o3-mini" : "deepseek/deepseek-r1",
-                Temperature = 0.0
-            }
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            IsEnabled: r is AgentRole.TechnicalProductManager or AgentRole.LeadArchitect or AgentRole.SoftwareDeveloper or AgentRole.SecurityEngineer or AgentRole.PrincipalQAAnalyst,
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "openai/o3-mini",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static TeamDefinition HighPerformance => new(
-        Id: "archetype-performance",
-        Name: "⚡ Zero-Allocation Zealots (Nano-Benchmarkers)",
-        Description: "Garbage collection is outlawed by imperial decree. If you allocate a single byte on the heap, you are exiled. P99 latency target: -2 milliseconds (executes before the user clicks).",
-        ArchetypeName: "HighPerformance",
+    public static TeamDefinition CreateHighPerformanceTeam() => new(
+        Id: "team-high-performance",
+        Name: "🏎️ Zero-Allocation Zealots",
+        Description: "Performance-focused squad featuring Optimization Engineer allocation profiling and nano-benchmarking.",
+        Graph: WorkflowGraph.CreateHighPerformanceCircus(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = r is AgentRole.OptimizationEngineer or AgentRole.SoftwareDeveloper ? "anthropic/claude-3.7-sonnet" : (r == AgentRole.SecurityEngineer ? "openai/o3-mini" : "anthropic/claude-3.7-sonnet"),
-                Temperature = 0.0
-            }
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            IsEnabled: r is AgentRole.TechnicalProductManager or AgentRole.SoftwareDeveloper or AgentRole.OptimizationEngineer or AgentRole.PrincipalQAAnalyst,
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static TeamDefinition ChaosMonkeyRodeo => new(
-        Id: "archetype-chaos",
-        Name: "🧪 Chaos Monkey Rodeo (QA Dictatorship)",
-        Description: "Where QA analysts hold absolute totalitarian power. Quinn will feed emojis, 10GB null strings, and negative infinity into every endpoint until the developer breaks down in tears.",
-        ArchetypeName: "ChaosMonkeyRodeo",
+    public static TeamDefinition CreateChaosMonkeyTeam() => new(
+        Id: "team-chaos-monkey",
+        Name: "🐒 Chaos Monkey Rodeo",
+        Description: "Adversarial stress-testing and fault injection troupe targeting edge cases.",
+        Graph: WorkflowGraph.CreateHighPerformanceCircus(),
         Members: Enum.GetValues<AgentRole>().Select(r => new AgentMember(
-            AgentPersona.CreateDefault(r) with
-            {
-                DefaultModel = r == AgentRole.PrincipalQAAnalyst ? "deepseek/deepseek-r1" : (r == AgentRole.SoftwareDeveloper ? "qwen/qwen-2.5-coder-32b-instruct" : "anthropic/claude-3.7-sonnet"),
-                Temperature = r == AgentRole.PrincipalQAAnalyst ? 0.3 : 0.1
-            }
+            AgentPersona.CreateDefault(r) with { DefaultModel = GetDefaultModelForRole(r) },
+            Id: $"agent-{r.ToString().ToLowerInvariant()}"
         )).ToList(),
-        DefaultFallbackModel: "deepseek/deepseek-r1",
+        DefaultFallbackModel: string.Empty,
         CreatedAt: DateTimeOffset.UtcNow
     );
 
-    public static IReadOnlyList<TeamDefinition> AllArchetypes => [
-        BalancedCircus,
-        MoveFastBreakProduction,
-        IvoryTowerCathedrals,
-        SecurityHardened,
-        HighPerformance,
-        ChaosMonkeyRodeo
+    public static IReadOnlyList<TeamDefinition> DefaultPresets => [
+        CreateDefaultCircusTeam(),
+        CreateRapidPrototypeTeam(),
+        CreateIvoryTowerTeam(),
+        CreateZeroTrustTeam(),
+        CreateHighPerformanceTeam(),
+        CreateChaosMonkeyTeam()
     ];
 }
 
@@ -153,15 +143,19 @@ public interface ITeamDefinitionManager
     TeamDefinition? GetTeam(string id);
     TeamDefinition SaveTeam(TeamDefinition team);
     bool DeleteTeam(string id);
-    TeamDefinition LoadArchetype(string archetypeName);
-    string ExportToJson(string teamId);
-    TeamDefinition ImportFromJson(string json);
+    TeamDefinition CreateTeam(string name, string description = "", string? baseTeamId = null);
+    TeamDefinition DuplicateTeam(string sourceTeamId, string newName);
+    bool SwitchToTeam(string teamId);
+    TeamDefinition? GetCurrentTeamDefinition();
     EngineeringTeam GetCurrentTeam();
     void SetCurrentTeam(TeamDefinition team);
     void AddMemberToCurrentTeam(AgentMember member);
     bool RemoveMemberFromCurrentTeam(string memberId);
     void UpdateMemberInCurrentTeam(AgentMember member);
-    Task FlushAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+    void UpdateCurrentTeamGraph(WorkflowGraph graph);
+    string ExportToJson(string teamId);
+    TeamDefinition ImportFromJson(string json);
+    Task FlushAsync(CancellationToken cancellationToken = default);
 
     event Action<EngineeringTeam>? OnCurrentTeamChanged;
 }
@@ -184,16 +178,17 @@ public class TeamDefinitionManager : ITeamDefinitionManager
         var loaded = LoadFromStorage();
         if (!loaded)
         {
-            foreach (var archetype in TeamArchetypes.AllArchetypes)
+            foreach (var preset in TeamDefinition.DefaultPresets)
             {
-                _teams[archetype.Id] = archetype;
+                _teams[preset.Id] = preset;
             }
-            _currentTeam = _teams[TeamArchetypes.BalancedCircus.Id].ToEngineeringTeam();
+            var defaultTeam = _teams[TeamDefinition.CreateDefaultCircusTeam().Id];
+            _currentTeam = defaultTeam.ToEngineeringTeam();
             SaveToStorage();
         }
         else
         {
-            _currentTeam ??= _teams.Values.FirstOrDefault()?.ToEngineeringTeam() ?? TeamArchetypes.BalancedCircus.ToEngineeringTeam();
+            _currentTeam ??= _teams.Values.FirstOrDefault()?.ToEngineeringTeam() ?? TeamDefinition.CreateDefaultCircusTeam().ToEngineeringTeam();
         }
     }
 
@@ -207,10 +202,22 @@ public class TeamDefinitionManager : ITeamDefinitionManager
 
             if (saved != null && saved.Count > 0)
             {
-                foreach (var t in saved) _teams[t.Id] = t;
+                foreach (var t in saved)
+                {
+                    var sanitized = t with
+                    {
+                        Graph = t.Graph ?? WorkflowGraph.CreateDefaultEngineeringCircus(),
+                        Members = t.Members ?? []
+                    };
+                    _teams[sanitized.Id] = sanitized;
+                }
                 if (!string.IsNullOrEmpty(activeId) && _teams.TryGetValue(activeId, out var activeTeam))
                 {
                     _currentTeam = activeTeam.ToEngineeringTeam();
+                }
+                else
+                {
+                    _currentTeam = _teams.Values.First().ToEngineeringTeam();
                 }
                 return true;
             }
@@ -270,27 +277,77 @@ public class TeamDefinitionManager : ITeamDefinitionManager
 
     public bool DeleteTeam(string id)
     {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+
         var removed = _teams.TryRemove(id, out _);
-        if (removed) SaveToStorage();
+        if (removed)
+        {
+            if (string.Equals(_currentTeam.Id, id, StringComparison.OrdinalIgnoreCase))
+            {
+                var nextTeam = _teams.Values.FirstOrDefault() ?? TeamDefinition.CreateDefaultCircusTeam();
+                _teams.TryAdd(nextTeam.Id, nextTeam);
+                SetCurrentTeam(nextTeam);
+            }
+            else
+            {
+                OnCurrentTeamChanged?.Invoke(_currentTeam);
+            }
+            SaveToStorage();
+        }
         return removed;
     }
 
-    public TeamDefinition LoadArchetype(string archetypeName)
+    public bool SwitchToTeam(string teamId)
     {
-        var archetype = TeamArchetypes.AllArchetypes.FirstOrDefault(a => string.Equals(a.ArchetypeName, archetypeName, StringComparison.OrdinalIgnoreCase))
-            ?? TeamArchetypes.BalancedCircus;
+        if (_teams.TryGetValue(teamId, out var team))
+        {
+            _currentTeam = team.ToEngineeringTeam();
+            OnCurrentTeamChanged?.Invoke(_currentTeam);
+            SaveToStorage();
+            return true;
+        }
+        return false;
+    }
 
-        var customTeam = archetype with
+    public TeamDefinition CreateTeam(string name, string description = "", string? baseTeamId = null)
+    {
+        var baseTeam = (!string.IsNullOrEmpty(baseTeamId) ? GetTeam(baseTeamId) : null)
+            ?? GetTeam(_currentTeam.Id)
+            ?? TeamDefinition.CreateDefaultCircusTeam();
+
+        var newTeam = baseTeam with
         {
             Id = $"team-{Guid.NewGuid().ToString("N")[..6]}",
-            Name = $"{archetype.Name} (Active Instance)",
+            Name = string.IsNullOrWhiteSpace(name) ? $"{baseTeam.Name} (Custom)" : name.Trim(),
+            Description = string.IsNullOrWhiteSpace(description) ? baseTeam.Description : description.Trim(),
+            Graph = baseTeam.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{name} Workflow DAG" },
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        SaveTeam(customTeam);
-        SetCurrentTeam(customTeam);
-        return customTeam;
+        SaveTeam(newTeam);
+        SetCurrentTeam(newTeam);
+        return newTeam;
     }
+
+    public TeamDefinition DuplicateTeam(string sourceTeamId, string newName)
+    {
+        var source = GetTeam(sourceTeamId) ?? GetTeam(_currentTeam.Id) ?? TeamDefinition.CreateDefaultCircusTeam();
+        var duplicated = source with
+        {
+            Id = $"team-{Guid.NewGuid().ToString("N")[..6]}",
+            Name = string.IsNullOrWhiteSpace(newName) ? $"{source.Name} (Copy)" : newName.Trim(),
+            Members = source.Members.Select(m => m with { Id = $"agent-{Guid.NewGuid():N}"[..18] }).ToList(),
+            Graph = source.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{newName} Workflow DAG" },
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        SaveTeam(duplicated);
+        SetCurrentTeam(duplicated);
+        return duplicated;
+    }
+
+    public TeamDefinition? GetCurrentTeamDefinition() =>
+        GetTeam(_currentTeam.Id);
 
     public EngineeringTeam GetCurrentTeam() => _currentTeam;
 
@@ -307,7 +364,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: _currentTeam.ArchetypeName,
+            Graph: _currentTeam.Graph,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow
@@ -324,7 +381,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: _currentTeam.ArchetypeName,
+            Graph: _currentTeam.Graph,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow
@@ -344,7 +401,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id: _currentTeam.Id,
             Name: _currentTeam.Name,
             Description: _currentTeam.Description,
-            ArchetypeName: _currentTeam.ArchetypeName,
+            Graph: _currentTeam.Graph,
             Members: _currentTeam.Members,
             DefaultFallbackModel: _currentTeam.DefaultFallbackModel,
             CreatedAt: DateTimeOffset.UtcNow
@@ -353,6 +410,17 @@ public class TeamDefinitionManager : ITeamDefinitionManager
         var updated = current.UpdateMember(member);
         SaveTeam(updated);
         SetCurrentTeam(updated);
+    }
+
+    public void UpdateCurrentTeamGraph(WorkflowGraph graph)
+    {
+        var current = GetTeam(_currentTeam.Id);
+        if (current != null)
+        {
+            var updated = current.WithGraph(graph);
+            SaveTeam(updated);
+            SetCurrentTeam(updated);
+        }
     }
 
     public string ExportToJson(string teamId)
@@ -366,7 +434,11 @@ public class TeamDefinitionManager : ITeamDefinitionManager
         var team = JsonSerializer.Deserialize<TeamDefinition>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
             ?? throw new InvalidOperationException("Failed to deserialize team definition JSON.");
 
-        var imported = team with { Id = $"team-import-{Guid.NewGuid().ToString("N")[..6]}" };
+        var imported = team with
+        {
+            Id = $"team-import-{Guid.NewGuid().ToString("N")[..6]}",
+            Graph = team.Graph ?? WorkflowGraph.CreateDefaultEngineeringCircus()
+        };
         SaveTeam(imported);
         SetCurrentTeam(imported);
         return imported;

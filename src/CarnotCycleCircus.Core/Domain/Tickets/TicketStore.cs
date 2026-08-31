@@ -197,8 +197,8 @@ public class TicketStore : ITicketStore
             .Where(t => t.Status is TicketStatus.Backlog or TicketStatus.Ready or TicketStatus.Remediating)
             .Where(t => AreDependenciesSatisfied(t.Id))
             .OrderByDescending(t => t.Status == TicketStatus.Remediating) // Remediations take highest precedence
-            .ThenByDescending(t => t.Priority)                           // Critical -> High -> Medium -> Low
             .ThenBy(t => (int)t.AssigneeRole)                            // 8-agent pecking order: Res -> TPM -> Arch -> Dev -> Sec -> Opt -> QA -> Int
+            .ThenByDescending(t => t.Priority)                           // Critical -> High -> Medium -> Low
             .ThenBy(t => t.CreatedAt)
             .ThenBy(t => t.Id)
             .ToList();

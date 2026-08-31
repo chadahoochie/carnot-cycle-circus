@@ -1,39 +1,75 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Teams;
 
 namespace CarnotCycleCircus.Core.Domain.Inference;
 
-public record OpenRouterMessage(string Role, string Content);
+public record OpenRouterMessage(
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("content")] string? Content = null,
+    [property: JsonPropertyName("reasoning")] string? Reasoning = null,
+    [property: JsonPropertyName("reasoning_content")] string? ReasoningContent = null
+);
 
 public record OpenRouterChatRequest(
     string Model,
     IReadOnlyList<OpenRouterMessage> Messages,
     double Temperature = 0.2,
-    int MaxTokens = 2048
+    int MaxTokens = 8192
 );
 
 public record OpenRouterChoice(
-    int Index,
-    OpenRouterMessage Message,
-    string? FinishReason
+    [property: JsonPropertyName("index")] int Index,
+    [property: JsonPropertyName("message")] OpenRouterMessage Message,
+    [property: JsonPropertyName("finish_reason")] string? FinishReason = null,
+    [property: JsonPropertyName("error")] JsonElement? Error = null
 );
 
 public record OpenRouterUsage(
-    int PromptTokens,
-    int CompletionTokens,
-    int TotalTokens
+    [property: JsonPropertyName("prompt_tokens")] int PromptTokens = 0,
+    [property: JsonPropertyName("completion_tokens")] int CompletionTokens = 0,
+    [property: JsonPropertyName("total_tokens")] int TotalTokens = 0
 );
 
 public record OpenRouterChatResponse(
-    string Id,
-    string Model,
-    IReadOnlyList<OpenRouterChoice> Choices,
-    OpenRouterUsage? Usage
+    [property: JsonPropertyName("id")] string? Id = null,
+    [property: JsonPropertyName("model")] string? Model = null,
+    [property: JsonPropertyName("choices")] IReadOnlyList<OpenRouterChoice>? Choices = null,
+    [property: JsonPropertyName("usage")] OpenRouterUsage? Usage = null,
+    [property: JsonPropertyName("error")] JsonElement? Error = null
 )
 {
-    public string FirstContent => Choices.Count > 0 ? Choices[0].Message.Content : string.Empty;
+    public string FirstContent
+    {
+        get
+        {
+            if (Choices == null || Choices.Count == 0) return string.Empty;
+            var msg = Choices[0].Message;
+            if (msg == null) return string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(msg.Content))
+            {
+                return msg.Content;
+            }
+
+            if (!string.IsNullOrWhiteSpace(msg.Reasoning))
+            {
+                return msg.Reasoning;
+            }
+
+            if (!string.IsNullOrWhiteSpace(msg.ReasoningContent))
+            {
+                return msg.ReasoningContent;
+            }
+
+            return string.Empty;
+        }
+    }
+
+    public string? FirstFinishReason => Choices != null && Choices.Count > 0 ? Choices[0].FinishReason : null;
 }
 
 public record OpenRouterRawPricingDto(
@@ -99,9 +135,11 @@ public class OpenRouterClient : IOpenRouterClient
     private const string BaseUrl = "https://openrouter.ai/api/v1/chat/completions";
     private const string ModelsUrl = "https://openrouter.ai/api/v1/models";
 
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
+
     public OpenRouterClient(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient();
+        _httpClient = httpClient ?? new HttpClient { Timeout = DefaultTimeout };
     }
 
     public async Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(
@@ -123,7 +161,7 @@ public class OpenRouterClient : IOpenRouterClient
         httpRequest.Headers.Add("X-Title", "Carnot Cycle Circus");
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        cts.CancelAfter(TimeSpan.FromSeconds(15));
 
         var response = await _httpClient.SendAsync(httpRequest, cts.Token);
         if (!response.IsSuccessStatusCode)
@@ -154,7 +192,7 @@ public class OpenRouterClient : IOpenRouterClient
         var json = JsonSerializer.Serialize(new
         {
             model = request.Model,
-            messages = request.Messages.Select(m => new { role = m.Role, content = m.Content }),
+            messages = request.Messages.Select(m => new { role = m.Role, content = m.Content ?? string.Empty }),
             temperature = request.Temperature,
             max_tokens = request.MaxTokens
         });
@@ -178,13 +216,31 @@ public class OpenRouterClient : IOpenRouterClient
             PropertyNameCaseInsensitive = true
         });
 
-        return parsed ?? throw new InvalidOperationException("Failed to deserialize OpenRouter response.");
+        if (parsed == null)
+        {
+            throw new InvalidOperationException("Failed to deserialize OpenRouter response.");
+        }
+
+        if (parsed.Error.HasValue && parsed.Error.Value.ValueKind != JsonValueKind.Undefined && parsed.Error.Value.ValueKind != JsonValueKind.Null)
+        {
+            var errMsg = parsed.Error.Value.ToString();
+            throw new HttpRequestException($"OpenRouter returned API error: {errMsg}");
+        }
+
+        return parsed;
     }
 }
+
+public record ResolvedInferenceConfig(
+    string PrimaryModel,
+    string? FallbackModel,
+    string ApiKey
+);
 
 public interface IAgentInferenceResolver
 {
     (string Model, string ApiKey) ResolveInferenceParameters(AgentMember member, EngineeringTeam team);
+    ResolvedInferenceConfig ResolveInferenceConfig(AgentMember member, EngineeringTeam team);
 }
 
 public class AgentInferenceResolver : IAgentInferenceResolver
@@ -198,8 +254,34 @@ public class AgentInferenceResolver : IAgentInferenceResolver
 
     public (string Model, string ApiKey) ResolveInferenceParameters(AgentMember member, EngineeringTeam team)
     {
-        var model = member.EffectiveModel;
-        
+        var config = ResolveInferenceConfig(member, team);
+        return (config.PrimaryModel, config.ApiKey);
+    }
+
+    public ResolvedInferenceConfig ResolveInferenceConfig(AgentMember member, EngineeringTeam team)
+    {
+        var primaryModel = !string.IsNullOrWhiteSpace(member.EffectiveModel)
+            ? member.EffectiveModel
+            : (!string.IsNullOrWhiteSpace(member.Persona.DefaultModel)
+                ? member.Persona.DefaultModel
+                : (!string.IsNullOrWhiteSpace(member.Persona.FallbackModel)
+                    ? member.Persona.FallbackModel
+                    : (!string.IsNullOrWhiteSpace(team.DefaultFallbackModel)
+                        ? team.DefaultFallbackModel
+                        : string.Empty)));
+
+        string? fallbackModel = null;
+        if (!string.IsNullOrWhiteSpace(member.Persona.FallbackModel) &&
+            !string.Equals(member.Persona.FallbackModel, primaryModel, StringComparison.OrdinalIgnoreCase))
+        {
+            fallbackModel = member.Persona.FallbackModel;
+        }
+        else if (!string.IsNullOrWhiteSpace(team.DefaultFallbackModel) &&
+                 !string.Equals(team.DefaultFallbackModel, primaryModel, StringComparison.OrdinalIgnoreCase))
+        {
+            fallbackModel = team.DefaultFallbackModel;
+        }
+
         string? apiKey = null;
         if (!string.IsNullOrEmpty(member.CustomApiKeyId))
         {
@@ -216,6 +298,6 @@ public class AgentInferenceResolver : IAgentInferenceResolver
             apiKey = _keyVault.GetActiveKey()?.RawApiKey ?? string.Empty;
         }
 
-        return (model, apiKey);
+        return new ResolvedInferenceConfig(primaryModel, fallbackModel, apiKey);
     }
 }

@@ -9,7 +9,7 @@ ARTIFACTS_DIR="${CARNOT_DIR}/artifacts"
 echo "🎪 Installing Carnot Cycle Circus locally..."
 mkdir -p "${BIN_DIR}" "${DATA_DIR}" "${ARTIFACTS_DIR}" "${DATA_DIR}/vault" "${DATA_DIR}/skills" "${ARTIFACTS_DIR}/adrs"
 
-echo "📦 Publishing Carnot Desktop Client (Photino.Blazor)..."
+echo "📦 Publishing Carnot Desktop Client (Photino.NET)..."
 dotnet publish src/CarnotCycleCircus.Desktop/CarnotCycleCircus.Desktop.csproj -c Release -o "${BIN_DIR}/desktop"
 
 echo "📦 Publishing Carnot Headless Agent Server..."
@@ -18,6 +18,8 @@ dotnet publish src/CarnotCycleCircus.Server/CarnotCycleCircus.Server.csproj -c R
 # Create launcher wrappers
 cat << 'LAUNCHER' > "${BIN_DIR}/carnot-desktop"
 #!/usr/bin/env bash
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
 exec "${HOME}/.carnot/bin/desktop/CarnotCycleCircus.Desktop" "$@"
 LAUNCHER
 chmod +x "${BIN_DIR}/carnot-desktop"

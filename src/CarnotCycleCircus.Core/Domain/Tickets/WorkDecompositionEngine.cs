@@ -66,7 +66,10 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Priority: priority,
             DependsOnTicketIds: Array.Empty<string>(),
             AcceptanceCriteria: [
-                "All user stories and subtasks are implemented and verified.",
+                "Requirements research and technical feasibility verified.",
+                "PRD authored with clear domain entities, functional acceptance criteria, and NFRs.",
+                "Architectural Decision Record (ADR) and Clean Architecture scaffold approved.",
+                "All user stories and subtasks implemented, audited, and verified.",
                 "Security STRIDE review passes with 0 critical or high findings.",
                 "Performance benchmarks satisfy latency and zero-allocation requirements.",
                 "Quality assurance test suite achieves 100% pass rate on acceptance criteria."
@@ -87,6 +90,43 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         }
         createdTickets.Add(epicTicket);
 
+        // 2. Requirements Research Spike Ticket (Starts the whole engineering process!)
+        var existingResearchTicket = _ticketStore.GetTicketsByEpic(epicId).FirstOrDefault(t => t.Type == TicketType.ResearchSpike);
+        var resTicketId = existingResearchTicket?.Id ?? $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var resTicket = existingResearchTicket ?? new TicketItem(
+            Id: resTicketId,
+            ParentEpicId: epicId,
+            Title: $"Requirements Research & Feasibility: {epicTitle}",
+            Description: $"Requirements Researcher investigates domain concepts, specifications (RFCs/standards), modern .NET 10 / C# 13 ecosystem libraries, codebase boundaries, failure modes, and technical feasibility for {epicTitle}.",
+            Type: TicketType.ResearchSpike,
+            Status: researchBrief != null ? TicketStatus.Done : TicketStatus.Ready,
+            AssigneeRole: AgentRole.RequirementsResearcher,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: priority,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: [
+                "Identify domain concepts, specifications, and RFC standards.",
+                "Map codebase dependencies and target architecture boundaries.",
+                "Identify edge cases, security hazards, and non-functional constraints.",
+                "Provide structured feasibility recommendations for TPM."
+            ],
+            Deliverables: researchBrief != null ? [researchBrief] : Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string> { ["Stage"] = "Research" },
+            CreatedAt: DateTimeOffset.UtcNow,
+            CompletedAt: researchBrief != null ? DateTimeOffset.UtcNow : null
+        );
+
+        if (existingResearchTicket == null)
+        {
+            _ticketStore.CreateTicket(resTicket);
+        }
+        else if (researchBrief != null && !resTicket.Deliverables.Any(d => d.Name == researchBrief.Name))
+        {
+            resTicket = resTicket.WithDeliverable(researchBrief).WithStatus(TicketStatus.Done);
+            _ticketStore.UpdateTicket(resTicket);
+        }
+        createdTickets.Add(resTicket);
+
         // Check if feature stories already exist for this epic
         var existingStories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
         if (existingStories.Count > 0)
@@ -95,23 +135,24 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             return createdTickets;
         }
 
-        // 2. TPM generates primary User Stories / Feature Tickets under this Epic
+        // 3. TPM synthesizes Research and generates primary User Stories / Feature Tickets under this Epic
         var story1Id = $"STORY-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var story1 = new TicketItem(
             Id: story1Id,
             ParentEpicId: epicId,
             Title: $"{epicTitle}: Core Engine & Protocols",
-            Description: $"TPM Requirement: Implement foundational capabilities, domain models, interfaces, and state lifecycle for {epicTitle}.",
+            Description: $"TPM Requirement: Synthesize Research Brief into formal PRD and establish foundational capabilities, domain models, interfaces, and state lifecycle for {epicTitle}.",
             Type: TicketType.Feature,
-            Status: TicketStatus.InProgress,
-            AssigneeRole: AgentRole.LeadArchitect,
+            Status: researchBrief != null ? TicketStatus.Ready : TicketStatus.Backlog,
+            AssigneeRole: AgentRole.TechnicalProductManager,
             CreatedByRole: AgentRole.TechnicalProductManager,
             Priority: priority,
-            DependsOnTicketIds: Array.Empty<string>(),
+            DependsOnTicketIds: [resTicketId],
             AcceptanceCriteria: [
-                "Domain models and value objects are immutable records.",
-                "Public API contracts are strongly typed and documented.",
-                "Handles asynchronous cancellation tokens and thread-safe execution."
+                "Executive summary and user stories synthesized from Research Brief.",
+                "Domain models and value objects specified as immutable C# records.",
+                "Public API contracts and service boundaries defined.",
+                "Non-functional requirements (latency SLA, zero allocations, STRIDE security baseline) documented."
             ],
             Deliverables: Array.Empty<ArtifactItem>(),
             Metadata: new Dictionary<string, string> { ["StoryNumber"] = "1" },
@@ -158,11 +199,11 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
             Title: $"[Arch] Design ADR & Scaffold Clean Architecture for {userStory.Title}",
             Description: $"Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, and scaffolds the Clean Architecture solution (Domain, Contracts, DI extensions) for {userStory.Title}.",
             Type: TicketType.Subtask,
-            Status: TicketStatus.Ready,
+            Status: userStory.Status == TicketStatus.Done ? TicketStatus.Ready : TicketStatus.Backlog,
             AssigneeRole: AgentRole.LeadArchitect,
             CreatedByRole: AgentRole.LeadArchitect,
             Priority: userStory.Priority,
-            DependsOnTicketIds: userStory.DependsOnTicketIds,
+            DependsOnTicketIds: [userStory.Id],
             AcceptanceCriteria: [
                 "ADR documents context, decision, alternatives, positive and negative trade-offs.",
                 "Scaffolds Clean Architecture solution structure: Domain immutable records, Application contracts/interfaces, and DI extensions.",

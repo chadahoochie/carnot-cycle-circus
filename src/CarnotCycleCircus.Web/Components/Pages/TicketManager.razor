@@ -1,14 +1,13 @@
 @page "/tickets"
 @implements IDisposable
 @inject ITicketStore TicketStore
-@inject IWorkDecompositionEngine DecompositionEngine
 @inject IHandoffRouter HandoffRouter
 @inject IGraphWorkflowExecutor GraphExecutor
 
 <div class="page-header">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">📋 The Jira Graveyard & Work Decomposition</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Deconstruct high-level optimism into granular executable subtasks, DAG dependencies, and blame-free handoff contracts.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">📋 The Jira Graveyard & Ticket Backlog</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Track autonomous ticket lifecycle states, inspect backlog hierarchy, and monitor inter-agent handoff contracts.</p>
     </div>
 
     <div class="page-header-actions">
@@ -28,20 +27,6 @@
             ➕ New Ticket
         </button>
     </div>
-</div>
-
-<!-- Quick Decomposition Form -->
-<div class="glass-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
-    <div style="flex: 1 1 300px; min-width: 0;">
-        <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 4px;">⚡ Autonomous Epic Decomposition Trigger</div>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <input class="form-control" style="flex: 1 1 200px; min-width: 0;" placeholder="Epic Title (e.g. Distributed Telemetry Pipeline or Payment Saga)" @bind="quickEpicTitle" />
-            <input class="form-control" style="flex: 1 1 200px; min-width: 0;" placeholder="Description & Goals (e.g. Zero-allocation pipeline with STRIDE review and QA test suite)" @bind="quickEpicDesc" />
-        </div>
-    </div>
-    <button class="btn btn-primary" style="white-space: nowrap; align-self: flex-end;" @onclick="TriggerDecomposition" disabled="@string.IsNullOrWhiteSpace(quickEpicTitle)">
-        🎯 Deconstruct with TPM & Architect
-    </button>
 </div>
 
 @if (activeTab == "kanban")
@@ -89,41 +74,45 @@
 else if (activeTab == "dag")
 {
     <div class="glass-card">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Hierarchical Decomposition DAG Tree</h3>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Hierarchical Backlog Decomposition Tree</h3>
         @{
             var epics = TicketStore.GetAllTickets().Where(t => t.Type == TicketType.Epic).ToList();
         }
         @if (epics.Count == 0)
         {
-            <p style="color: var(--text-muted);">No epics decomposed yet. Click "Deconstruct with TPM & Architect" above.</p>
+            <p style="color: var(--text-muted);">No epics decomposed yet. Click "🚀 New Project" in the top bar to ignite an initiative.</p>
         }
         @foreach (var epic in epics)
         {
-            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="badge" style="background: #38bdf8; color: #000; font-weight: 700;">EPIC: @epic.Id</span>
+            <div style="margin-bottom: 24px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                    <div>
+                        <span class="badge" style="background: #a855f7; color: #fff; margin-right: 8px;">EPIC</span>
                         <span style="font-weight: 700; font-size: 1.05rem;">@epic.Title</span>
+                        <span style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">@epic.Id</span>
                     </div>
-                    <span class="badge" style="background: @epic.Status.ToColorHex(); color: #000;">@epic.Status</span>
+                    <span class="badge" style="background: @epic.Status.ToColorHex(); color: #000; font-weight: 700;">@epic.Status</span>
                 </div>
+                <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 8px; margin-bottom: 12px;">@epic.Description</div>
 
-                <div style="margin-left: 20px; border-left: 2px solid #334155; padding-left: 16px; display: flex; flex-direction: column; gap: 8px;">
-                    @foreach (var child in TicketStore.GetTicketsByEpic(epic.Id).Where(t => t.Id != epic.Id))
+                <!-- Subtasks -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
+                    @foreach (var child in TicketStore.GetTicketsByEpic(epic.Id))
                     {
-                        <div style="background: var(--bg-tertiary); padding: 10px 14px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); cursor: pointer;" @onclick="() => SelectTicket(child)">
-                            <div>
-                                <span style="font-family: monospace; font-size: 0.8rem; color: #38bdf8; font-weight: 600;">@child.Id</span>
-                                <span style="font-weight: 600; margin-left: 8px;">@child.Title</span>
-                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 10px;">(@child.AssigneeRole.ToDisplayName())</span>
+                        <div style="background: var(--bg-secondary); border-left: 3px solid @child.AssigneeRole.ToColorHex(); border-radius: 6px; padding: 10px; cursor: pointer;" @onclick="() => SelectTicket(child)">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px;">
+                                <span style="font-weight: 700; font-size: 0.85rem; color: #f8fafc;">@child.Title</span>
+                                <span class="badge" style="background: @child.Status.ToColorHex(); font-size: 0.65rem; color: #000; font-weight: 700;">@child.Status</span>
                             </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                @if (child.DependsOnTicketIds.Count > 0)
-                                {
-                                    <span style="font-size: 0.72rem; color: #eab308;">Depends on: @string.Join(", ", child.DependsOnTicketIds)</span>
-                                }
-                                <span class="badge" style="background: @child.Status.ToColorHex(); color: #000; font-size: 0.7rem;">@child.Status</span>
+                            <div style="font-size: 0.72rem; color: var(--text-muted);">
+                                <span>@child.AssigneeRole.ToEmoji() @child.AssigneeRole.ToDisplayName()</span> • <span>@child.Type</span>
                             </div>
+                            @if (child.DependsOnTicketIds.Count > 0)
+                            {
+                                <div style="font-size: 0.68rem; color: #eab308; margin-top: 4px;">
+                                    🔗 Blocked by: @string.Join(", ", child.DependsOnTicketIds)
+                                </div>
+                            }
                         </div>
                     }
                 </div>
@@ -134,45 +123,50 @@ else if (activeTab == "dag")
 else if (activeTab == "handoffs")
 {
     <div class="glass-card">
-        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Structured Inter-Agent Handoff Log</h3>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Formal Inter-Agent Handoff Chain</h3>
         <div style="display: flex; flex-direction: column; gap: 12px;">
-            @foreach (var ho in TicketStore.GetAllHandoffs().OrderByDescending(h => h.Timestamp))
+            @foreach (var handoff in TicketStore.GetAllHandoffs())
             {
                 <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span class="badge" style="background: #a855f7; color: #fff;">@ho.HandoffId</span>
-                            <span style="font-weight: 700; color: #f8fafc;">@ho.FromAgentRole.ToDisplayName() ➔ @ho.ToAgentRole.ToDisplayName()</span>
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">for Ticket @ho.TicketId</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.9rem;">
+                            <span style="color: @handoff.FromAgentRole.ToColorHex();">@handoff.FromAgentRole.ToEmoji() @handoff.FromAgentRole.ToDisplayName()</span>
+                            <span>➔</span>
+                            <span style="color: @handoff.ToAgentRole.ToColorHex();">@handoff.ToAgentRole.ToEmoji() @handoff.ToAgentRole.ToDisplayName()</span>
                         </div>
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">@ho.Timestamp.ToString("HH:mm:ss")</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">
+                            @handoff.Timestamp.ToString("yyyy-MM-dd HH:mm:ss") • Ticket <strong style="color: #38bdf8;">@handoff.TicketId</strong>
+                        </span>
                     </div>
 
-                    <div style="font-size: 0.88rem; margin-bottom: 6px; color: #38bdf8;">
-                        @ho.ContextSummary
-                    </div>
-                    <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;">
-                        <strong>Action Requested:</strong> @ho.ActionRequested
+                    <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 8px;">
+                        @handoff.ContextSummary
                     </div>
 
-                    @if (!string.IsNullOrEmpty(ho.RemediationNotes))
+                    @if (handoff.Artifacts.Count > 0)
                     {
-                        <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444; padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; margin-top: 6px;">
-                            🚨 <strong>Remediation Instructions:</strong> @ho.RemediationNotes
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Transferred Deliverables:</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            @foreach (var item in handoff.Artifacts)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">
+                                    📄 @item.Name (@item.ContentType)
+                                </span>
+                            }
                         </div>
                     }
 
-                    @if (ho.Artifacts.Count > 0)
+                    @if (!string.IsNullOrEmpty(handoff.RemediationNotes))
                     {
-                        <div style="margin-top: 8px; font-size: 0.78rem; color: #22c55e;">
-                            📦 Deliverables attached: @string.Join(", ", ho.Artifacts.Select(a => a.Name))
+                        <div style="margin-top: 8px; padding: 8px; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; font-size: 0.8rem;">
+                            <strong>🔴 Rejection / Blame Context:</strong> @handoff.RemediationNotes
                         </div>
                     }
                 </div>
             }
             @if (TicketStore.GetAllHandoffs().Count == 0)
             {
-                <p style="color: var(--text-muted);">No handoffs recorded yet.</p>
+                <p style="color: var(--text-muted); text-align: center; padding: 30px;">No handoff transfers registered yet.</p>
             }
         </div>
     </div>
@@ -180,7 +174,7 @@ else if (activeTab == "handoffs")
 
 @if (selectedTicket != null)
 {
-    <TicketModal Ticket="@selectedTicket" OnClose="() => selectedTicket = null" OnUpdated="Refresh" />
+    <TicketModal Ticket="@selectedTicket" OnClose="() => selectedTicket = null" />
 }
 
 @if (showCreateModal)
@@ -188,35 +182,37 @@ else if (activeTab == "handoffs")
     <div class="modal-backdrop" @onclick="() => showCreateModal = false">
         <div class="modal-dialog" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700;">Create New Ticket</h3>
-                <button class="btn btn-secondary" @onclick="() => showCreateModal = false" style="padding: 4px 8px;">✕</button>
+                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Create New Ticket</h3>
+                <button class="btn btn-secondary" @onclick="() => showCreateModal = false" style="padding: 2px 8px;">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label class="form-label">Title</label>
-                    <input class="form-control" @bind="newTitle" placeholder="e.g. Implement DistributedPubSub Cluster" />
+                    <label class="form-label">Ticket Title</label>
+                    <input class="form-control" @bind="newTitle" placeholder="e.g. Implement Zero-Allocation Token Stream" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea class="form-control" rows="3" @bind="newDesc" placeholder="Requirements and scope..."></textarea>
+                    <textarea class="form-control" rows="3" @bind="newDesc" placeholder="Implementation details and acceptance criteria..."></textarea>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Type</label>
-                    <select class="form-control" @bind="newType">
-                        @foreach (var type in Enum.GetValues<TicketType>())
-                        {
-                            <option value="@type">@type</option>
-                        }
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Assignee</label>
-                    <select class="form-control" @bind="newAssignee">
-                        @foreach (var role in Enum.GetValues<AgentRole>())
-                        {
-                            <option value="@role">@role.ToDisplayName()</option>
-                        }
-                    </select>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label">Assignee Role</label>
+                        <select class="form-control" @bind="newAssignee">
+                            @foreach (AgentRole r in Enum.GetValues(typeof(AgentRole)))
+                            {
+                                <option value="@r">@r.ToEmoji() @r.ToDisplayName()</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ticket Type</label>
+                        <select class="form-control" @bind="newType">
+                            @foreach (TicketType t in Enum.GetValues(typeof(TicketType)))
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -231,42 +227,26 @@ else if (activeTab == "handoffs")
     private string activeTab = "kanban";
     private TicketItem? selectedTicket;
     private bool showCreateModal;
-    private string quickEpicTitle = "";
-    private string quickEpicDesc = "";
+    private bool isRunningCircus;
 
     private string newTitle = "";
     private string newDesc = "";
-    private TicketType newType = TicketType.Feature;
     private AgentRole newAssignee = AgentRole.SoftwareDeveloper;
-    private bool isRunningCircus = false;
-
-    private async Task UnleashReadyAgents()
-    {
-        isRunningCircus = true;
-        try
-        {
-            await GraphExecutor.ExecuteReadyTicketsAsync();
-            StateHasChanged();
-        }
-        finally
-        {
-            isRunningCircus = false;
-        }
-    }
+    private TicketType newType = TicketType.Subtask;
 
     protected override void OnInitialized()
     {
         TicketStore.OnTicketChanged += HandleTicketChanged;
-        TicketStore.OnHandoffRecorded += HandleHandoffRecorded;
     }
 
-    private void HandleTicketChanged(TicketItem _) => InvokeAsync(StateHasChanged);
-    private void HandleHandoffRecorded(HandoffPacket _) => InvokeAsync(StateHasChanged);
+    private void HandleTicketChanged(TicketItem _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
 
     public void Dispose()
     {
         TicketStore.OnTicketChanged -= HandleTicketChanged;
-        TicketStore.OnHandoffRecorded -= HandleHandoffRecorded;
     }
 
     private void SelectTicket(TicketItem ticket)
@@ -274,19 +254,17 @@ else if (activeTab == "handoffs")
         selectedTicket = ticket;
     }
 
-    private void Refresh()
+    private async Task UnleashReadyAgents()
     {
-        StateHasChanged();
-    }
-
-    private void TriggerDecomposition()
-    {
-        if (!string.IsNullOrWhiteSpace(quickEpicTitle))
+        try
         {
-            DecompositionEngine.DeconstructEpic(quickEpicTitle, quickEpicDesc);
-            quickEpicTitle = "";
-            quickEpicDesc = "";
-            StateHasChanged();
+            isRunningCircus = true;
+            await GraphExecutor.ExecuteReadyTicketsAsync();
+        }
+        finally
+        {
+            isRunningCircus = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 

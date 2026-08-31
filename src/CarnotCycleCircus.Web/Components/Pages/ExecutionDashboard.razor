@@ -1,6 +1,8 @@
 @page "/dashboard"
 @implements IDisposable
 @inject IGraphWorkflowExecutor GraphExecutor
+@inject ITeamDefinitionManager TeamManager
+@inject IAgentDefinitionManager AgentManager
 @inject IAgentEventStream EventStream
 @inject IApiKeyVaultService KeyVaultService
 @inject ITicketStore TicketStore
@@ -8,15 +10,23 @@
 <div class="page-header">
     <div>
         <h2 style="font-size: 1.5rem; font-weight: 700;">⚡ Panic & Telemetry Dashboard</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent circus stream, active execution pulses, and mid-flight OpenRouter key swapping.</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Live multi-agent circus stream, active execution pulses, and mandatory squad execution controls.</p>
     </div>
 
-    <!-- Live Execution Controls -->
-    <div class="page-header-actions">
-        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
+    <!-- Live Execution Controls with Mandatory Team Selection -->
+    <div class="page-header-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <select class="form-control" style="width: auto; min-width: 220px; font-weight: 600;" value="@selectedTeamId" @onchange="OnTeamSelected">
+            <option value="">-- Select Active Squad --</option>
+            @foreach (var t in TeamManager.GetAllTeams())
+            {
+                <option value="@t.Id">👥 @t.Name (@t.Graph.Nodes.Count nodes)</option>
+            }
+        </select>
+
+        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@(!HasSelectedTeam || GraphExecutor.IsRunning)" style="white-space: nowrap;">
             🚀 Unleash the Circus
         </button>
-        <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
+        <button class="btn btn-secondary" @onclick="StepNext" disabled="@(!HasSelectedTeam || GraphExecutor.IsRunning)" style="white-space: nowrap;">
             ⏭️ Poke Next Agent
         </button>
         <button class="btn btn-secondary" @onclick="Reset" style="white-space: nowrap;">
@@ -28,11 +38,33 @@
     </div>
 </div>
 
+@if (!HasSelectedTeam)
+{
+    <div style="padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047; font-size: 0.92rem; display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 1.4rem;">⚠️</span>
+        <div>
+            <strong>Squad Selection Required:</strong> Please select an active engineering squad from the dropdown above before unleashing the circus or stepping DAG nodes.
+        </div>
+    </div>
+}
+else if (selectedTeam != null)
+{
+    <div style="padding: 10px 16px; border-radius: 8px; margin-bottom: 18px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span>👥</span>
+            <span>Active Squad: <strong>@selectedTeam.Name</strong> (@selectedTeam.Graph.Nodes.Count DAG nodes, @selectedTeam.Members.Count agents)</span>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+            Fallback Model: <span style="color: #f8fafc; font-family: monospace;">@(string.IsNullOrEmpty(selectedTeam.DefaultFallbackModel) ? "None" : selectedTeam.DefaultFallbackModel)</span>
+        </div>
+    </div>
+}
+
 <!-- Active Graph Pulse Status Bar -->
 <div class="glass-card" style="margin-bottom: 20px; padding: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
         <div style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; text-transform: uppercase;">
-            🎪 Ringmaster Live Stage Topology
+            🎪 Ringmaster Live Stage Topology & Node Pulse
         </div>
         <div style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; flex-wrap: wrap;">
             <span>Circus State:</span>
@@ -49,16 +81,24 @@
             var isRemediating = node.State == NodeExecutionState.Remediating;
             var isCompleted = node.State == NodeExecutionState.Completed;
             var isFailed = node.State == NodeExecutionState.Failed;
+            var assignedAgent = !string.IsNullOrEmpty(node.AgentId) ? AgentManager.GetAgent(node.AgentId) : null;
+            var displayName = assignedAgent?.Persona.Name ?? node.Name;
 
             var borderCol = isRunning ? "#38bdf8" : isRemediating ? "#ef4444" : isCompleted ? "#22c55e" : "var(--border-color)";
             var pulseClass = isRunning ? "pulse-running" : isRemediating ? "pulse-remediating" : "";
 
-            <div style="background: var(--bg-primary); border: 2px solid @borderCol; border-radius: 8px; padding: 10px; text-align: center;" class="@pulseClass">
+            <div style="background: var(--bg-primary); border: 2px solid @borderCol; border-radius: 8px; padding: 10px; text-align: center; position: relative;" class="@pulseClass" title="@(isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary) ? node.LastOutputSummary : displayName)">
                 <div style="font-size: 1.4rem;">@node.Role.ToEmoji()</div>
-                <div style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; margin-top: 4px;">@node.Role.ToDisplayName().Split(' ')[0]</div>
-                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isRunning ? "#38bdf8" : "var(--text-muted)");">
-                    @node.State
+                <div style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@displayName</div>
+                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isRunning ? "#38bdf8" : "var(--text-muted)"); font-weight: @(isFailed ? "700" : "normal");">
+                    @(isFailed ? "⚠️ FAILED" : node.State.ToString())
                 </div>
+                @if (isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary))
+                {
+                    <div style="font-size: 0.65rem; color: #f87171; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@node.LastOutputSummary">
+                        @node.LastOutputSummary
+                    </div>
+                }
             </div>
         }
     </div>
@@ -95,90 +135,109 @@
                     _ => "var(--border-color)"
                 };
 
-                <div style="background: @bg; border-left: 3px solid @border; border-radius: 6px; padding: 10px 12px; font-size: 0.85rem;">
+                <div style="background: @bg; border-left: 3px solid @border; padding: 8px 12px; border-radius: 4px; font-size: 0.82rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            @if (msg.Role.HasValue)
-                            {
-                                <span>@msg.Role.Value.ToEmoji()</span>
-                                <span style="font-weight: 700; color: @msg.Role.Value.ToColorHex();">@msg.SenderName</span>
-                            }
-                            else
-                            {
-                                <span style="font-weight: 700; color: #38bdf8;">@msg.SenderName</span>
-                            }
-                            <span class="badge" style="background: rgba(255,255,255,0.06); font-size: 0.65rem;">@msg.Type</span>
-                        </div>
-                        <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">@msg.Timestamp.ToString("HH:mm:ss.fff")</span>
+                        <span style="font-weight: 700; color: #f8fafc;">
+                            @(msg.Role?.ToEmoji() ?? "📢") @msg.SenderName
+                        </span>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">
+                            @msg.Timestamp.ToString("HH:mm:ss")
+                        </span>
                     </div>
-
-                    <div style="color: #f8fafc; line-height: 1.4; white-space: pre-wrap;">@msg.Content</div>
+                    <div style="color: var(--text-main); white-space: pre-wrap; font-size: 0.8rem; line-height: 1.4;">@msg.Content</div>
+                    @if (!string.IsNullOrEmpty(msg.TicketId))
+                    {
+                        <div style="margin-top: 4px; font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">
+                            Ticket: @msg.TicketId
+                        </div>
+                    }
                 </div>
             }
             @if (EventStream.GetHistory().Count == 0)
             {
-                <div style="text-align: center; color: var(--text-muted); margin-top: 40px;">
-                    No event telemetry captured yet. Click "Run Epic Workflow" to launch agents.
+                <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
+                    <div style="font-size: 1.8rem; margin-bottom: 6px;">🦗</div>
+                    <div>Tent is quiet. Select a squad and unleash the circus to view live logs!</div>
                 </div>
             }
         </div>
     </div>
 
-    <!-- Live Control & Mid-Flight Key Swapper -->
-    <div style="display: flex; flex-direction: column; gap: 16px;">
+    <!-- Side Control Column -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
         
-        <!-- Live Key Swapper Card -->
+        <!-- Mid-Flight OpenRouter Key Swapper -->
         <div class="glass-card">
-            <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: #eab308;">
-                🔑 Mid-Workflow Key Swapper
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span>🔑</span> Mid-Flight Ammo Key Swapper
             </h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">
-                Swap inference keys on-the-fly without restarting active executions.
-            </p>
+            
             <div class="form-group">
-                <label class="form-label">Active Team Key</label>
+                <label class="form-label">Global Active OpenRouter Key</label>
                 <select class="form-control" value="@(KeyVaultService.GetActiveKey()?.KeyId ?? "")" @onchange="OnKeySwapped">
+                    <option value="">-- No Active API Key --</option>
                     @foreach (var key in KeyVaultService.GetAllKeys())
                     {
                         <option value="@key.KeyId">@key.KeyName (@key.ApiKeyMasked)</option>
                     }
                 </select>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                    Hot-swap your LLM API tokens in mid-execution if rate limits trip.
+                </div>
             </div>
         </div>
 
-        <!-- Telemetry & Metrics -->
+        <!-- Real-Time Metrics & Graveyard Stats -->
         <div class="glass-card">
-            <h3 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 10px; color: #38bdf8;">
-                📊 Telemetry & Deliverables
+            <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span>📊</span> Live Circus Telemetry
             </h3>
-            <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.82rem;">
-                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <span style="color: var(--text-muted);">Total Tickets in Engine:</span>
-                    <span style="font-weight: 700;">@TicketStore.GetAllTickets().Count</span>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Ready Tickets</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #38bdf8;">
+                        @TicketStore.GetReadyTickets().Count
+                    </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <span style="color: var(--text-muted);">Completed Deliverables:</span>
-                    <span style="font-weight: 700; color: #22c55e;">@TicketStore.GetAllTickets().Sum(t => t.Deliverables.Count)</span>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Done Tickets</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #22c55e;">
+                        @TicketStore.GetAllTickets().Count(t => t.Status == TicketStatus.Done)
+                    </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <span style="color: var(--text-muted);">Inter-Agent Handoffs:</span>
-                    <span style="font-weight: 700; color: #a855f7;">@TicketStore.GetAllHandoffs().Count</span>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Total Handoffs</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">
+                        @TicketStore.GetAllHandoffs().Count
+                    </div>
+                </div>
+                <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">Failed Nodes</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #ef4444;">
+                        @GraphExecutor.CurrentGraph.Nodes.Count(n => n.State == NodeExecutionState.Failed)
+                    </div>
                 </div>
             </div>
         </div>
+
     </div>
 </div>
 
+<!-- CYA Report Modal -->
 @if (showReportModal)
 {
     <div class="modal-backdrop" @onclick="() => showReportModal = false">
-        <div class="modal-dialog" style="max-width: 800px;" @onclick:stopPropagation="true">
+        <div class="modal-dialog" style="max-width: 750px;" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700;">Complete Autonomous Session Report</h3>
+                <h3 style="font-size: 1.15rem; font-weight: 700;">📄 CYA Executive Session Report</h3>
                 <button class="btn btn-secondary" @onclick="() => showReportModal = false" style="padding: 4px 8px;">✕</button>
             </div>
             <div class="modal-body">
-                <pre style="background: var(--bg-primary); padding: 14px; border-radius: 8px; font-size: 0.8rem; overflow-x: auto; max-height: 450px; font-family: monospace;">@sessionReportMarkdown</pre>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+                    Standard-compliant markdown report summarizing all delivered tickets, generated artifacts, and inter-agent handoff chains.
+                </p>
+                <textarea class="form-control" style="height: 300px; font-family: monospace; font-size: 0.8rem;" readonly>@sessionReportMarkdown</textarea>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" @onclick="() => showReportModal = false">Close</button>
@@ -188,26 +247,62 @@
 }
 
 @code {
+    private string selectedTeamId = "";
+    private TeamDefinition? selectedTeam => !string.IsNullOrEmpty(selectedTeamId) ? TeamManager.GetTeam(selectedTeamId) : null;
+    private bool HasSelectedTeam => !string.IsNullOrWhiteSpace(selectedTeamId);
+
     private bool showReportModal;
     private string sessionReportMarkdown = "";
 
     protected override void OnInitialized()
     {
+        var currentTeam = TeamManager.GetCurrentTeamDefinition() ?? TeamManager.GetAllTeams().FirstOrDefault();
+        if (currentTeam != null)
+        {
+            selectedTeamId = currentTeam.Id;
+            GraphExecutor.LoadTeam(currentTeam);
+        }
+
         EventStream.OnMessagePublished += HandleMessagePublished;
         GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
+        TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
     }
 
     private void HandleMessagePublished(AgentMessage _) => InvokeAsync(StateHasChanged);
     private void HandleGraphUpdated(WorkflowGraph _) => InvokeAsync(StateHasChanged);
 
+    private void HandleTeamChanged(EngineeringTeam team)
+    {
+        selectedTeamId = team.Id;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTeamSelected(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString() ?? "";
+        selectedTeamId = id;
+        if (!string.IsNullOrEmpty(id))
+        {
+            var team = TeamManager.GetTeam(id);
+            if (team != null)
+            {
+                TeamManager.SwitchToTeam(id);
+                GraphExecutor.LoadTeam(team);
+            }
+        }
+    }
+
     public void Dispose()
     {
         EventStream.OnMessagePublished -= HandleMessagePublished;
         GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
+        TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
     }
 
     private async Task RunFullWorkflow()
     {
+        if (!HasSelectedTeam) return;
+
         try
         {
             var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
@@ -227,7 +322,7 @@
             EventStream.Publish(AgentMessage.Create(
                 role: null,
                 senderName: "🎪 Circus Ringmaster",
-                content: "⚠️ No active epics or ready tickets in the queue! Click '🚀 New Project' in the top bar or deconstruct an Epic in '📋 The Jira Graveyard' first.",
+                content: "⚠️ No active epics or ready tickets in the queue! Click '🚀 New Project' in the top bar to ignite an initiative first.",
                 type: MessageType.Alert
             ));
         }
@@ -244,6 +339,8 @@
 
     private async Task StepNext()
     {
+        if (!HasSelectedTeam) return;
+
         try
         {
             await GraphExecutor.StepNextNodeAsync();
@@ -283,6 +380,7 @@
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("# Carnot Cycle Circus - Autonomous Engineering Execution Report");
         sb.AppendLine($"Generated at: {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss} UTC\n");
+        sb.AppendLine($"## Active Squad: {(selectedTeam?.Name ?? "None")}\n");
         sb.AppendLine("## Summary of Delivered Tickets");
         foreach (var t in TicketStore.GetAllTickets())
         {

@@ -176,8 +176,8 @@ public class EndToEndSystemVerificationTests : IDisposable
             Id: "team-raft-circus-e2e",
             Name: "🎪 Raft Consensus Engineering Crew",
             Description: "Specialized team executing zero-allocation distributed consensus protocols.",
-            ArchetypeName: "HighPerformance",
             Members: customMembers,
+            Graph: WorkflowGraph.CreateDefaultEngineeringCircus(),
             DefaultFallbackModel: "anthropic/claude-3.7-sonnet",
             CreatedAt: DateTimeOffset.UtcNow
         );
@@ -419,13 +419,14 @@ public class EndToEndSystemVerificationTests : IDisposable
     public async Task TeamProcessDefinition_And_WorkflowGraph_ShouldConfigureAndSerializeCorrectly()
     {
         var teamManager = new TeamDefinitionManager(_storageService);
-        var archetype = teamManager.LoadArchetype("SecurityHardened");
+        var team = teamManager.GetTeam("team-security-hardened") ?? teamManager.GetAllTeams().First();
 
-        archetype.Should().NotBeNull();
-        archetype.Members.Should().HaveCount(8);
+        team.Should().NotBeNull();
+        team.Members.Should().HaveCount(8);
 
-        var json = teamManager.ExportToJson(archetype.Id);
-        json.Should().Contain("SecurityHardened");
+        var json = teamManager.ExportToJson(team.Id);
+        json.Should().Contain(team.Id);
+        json.Should().Contain("Zero-Trust");
 
         var imported = teamManager.ImportFromJson(json);
         imported.Id.Should().StartWith("team-import-");

@@ -14,7 +14,7 @@ public record ProjectBlueprint(
     string Tagline,
     string Category,
     string TargetStack,
-    string RecommendedArchetype,
+    string RecommendedTeamId,
     string EpicTitle,
     string EpicDescription,
     IReadOnlyList<string> InitialGoals,
@@ -26,7 +26,7 @@ public record ProjectIgnitionRequest(
     string Title,
     string Description,
     string TargetStack,
-    string ArchetypeName = "Balanced",
+    string? TeamId = null,
     TicketPriority Priority = TicketPriority.High,
     IReadOnlyList<string>? KeyGoals = null,
     IReadOnlyList<string>? ArchitecturePatterns = null,
@@ -47,7 +47,7 @@ public interface IProjectBlueprintService
     ProjectBlueprint? GetBlueprint(string id);
     Task<BlueprintGenerationResult> LaunchProjectAsync(ProjectIgnitionRequest request, CancellationToken cancellationToken = default);
     Task<BlueprintGenerationResult> LaunchBlueprintAsync(string blueprintId, CancellationToken cancellationToken = default);
-    Task<BlueprintGenerationResult> LaunchCustomProjectAsync(string projectTitle, string projectDescription, string targetStack, string archetypeName = "Balanced", CancellationToken cancellationToken = default);
+    Task<BlueprintGenerationResult> LaunchCustomProjectAsync(string projectTitle, string projectDescription, string targetStack, string? teamId = null, CancellationToken cancellationToken = default);
 }
 
 public class ProjectBlueprintService : IProjectBlueprintService
@@ -86,7 +86,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Tagline: "Zero-allocation reactive pipeline with bounded channels, buffer pooling, and backpressure.",
             Category: "High Performance & Real-Time",
             TargetStack: ".NET 10 / C# 13, Channels, ValueTask, MemoryPool<byte>",
-            RecommendedArchetype: "HighPerformance",
+            RecommendedTeamId: "team-high-performance",
             EpicTitle: "High-Throughput Telemetry Ingestion Pipeline",
             EpicDescription: "Design and implement a high-throughput, zero-allocation ingestion pipeline for real-time telemetry with backpressure channels and anomaly detection.",
             InitialGoals: [
@@ -110,7 +110,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Tagline: "Fault-tolerant distributed workflow with idempotent payment processing and compensation handlers.",
             Category: "Distributed Systems & Cloud",
             TargetStack: "ASP.NET Core, EF Core, Outbox Pattern, PostgreSQL",
-            RecommendedArchetype: "Balanced",
+            RecommendedTeamId: "team-standard-circus",
             EpicTitle: "Resilient Distributed Order & Payment Saga Workflow",
             EpicDescription: "Build a reliable checkout and order orchestration engine with transactional outbox, idempotent payment gateway integration, and automated compensation routines.",
             InitialGoals: [
@@ -134,7 +134,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Tagline: "Defense-in-depth API gateway with AEAD envelope encryption and fine-grained claims authorization.",
             Category: "Security & Cryptography",
             TargetStack: "ASP.NET Core, Microsoft Entra / OAuth2, AES-256-GCM, Redis Rate Limiter",
-            RecommendedArchetype: "SecurityHardened",
+            RecommendedTeamId: "team-zero-trust",
             EpicTitle: "Zero-Trust Identity, Token Vault & RBAC Gateway",
             EpicDescription: "Engineer a high-assurance identity gateway featuring AEAD envelope encryption at rest, short-lived token issuance, STRIDE threat mitigations, and distributed token revocation.",
             InitialGoals: [
@@ -158,7 +158,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Tagline: "Event-sourced domain aggregate roots with asynchronous projection read-models and snapshotting.",
             Category: "Enterprise Architecture",
             TargetStack: ".NET 10, Immutable Records, Marten / Cosmos DB, Projections",
-            RecommendedArchetype: "IvoryTowerCathedrals",
+            RecommendedTeamId: "team-standard-circus",
             EpicTitle: "Distributed CQRS & Event-Sourced Aggregate Core",
             EpicDescription: "Architect a clean event-sourced core where state is derived exclusively from an append-only event stream, paired with asynchronous read-model projections and optimistic concurrency controls.",
             InitialGoals: [
@@ -182,7 +182,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Tagline: "Automated fault injection, latency perturbation, and allocation regression harness.",
             Category: "Testing & Reliability",
             TargetStack: "xUnit, FluentAssertions, BenchmarkDotNet, Testcontainers, OpenTelemetry",
-            RecommendedArchetype: "ChaosMonkeyRodeo",
+            RecommendedTeamId: "team-rapid-prototype",
             EpicTitle: "Autonomous Chaos Testing & Performance Benchmark Arena",
             EpicDescription: "Develop an automated chaos injection and performance benchmarking test suite that stresses systems with network partitions, memory pressure, and fuzzing payloads.",
             InitialGoals: [
@@ -217,10 +217,17 @@ public class ProjectBlueprintService : IProjectBlueprintService
             ? "Autonomous development initiative decomposed into cohesive domain models, application services, and verified deliverables."
             : request.Description.Trim();
         var targetStack = string.IsNullOrWhiteSpace(request.TargetStack) ? ".NET 10 / C# 13 Clean Architecture" : request.TargetStack.Trim();
-        var archetype = string.IsNullOrWhiteSpace(request.ArchetypeName) ? "Balanced" : request.ArchetypeName.Trim();
 
-        // 1. Switch squad archetype
-        _teamManager.LoadArchetype(archetype);
+        // 1. Resolve and set squad / team
+        var teamToUse = (!string.IsNullOrWhiteSpace(request.TeamId) ? _teamManager.GetTeam(request.TeamId) : null)
+            ?? _teamManager.GetCurrentTeamDefinition()
+            ?? _teamManager.GetAllTeams().FirstOrDefault();
+
+        if (teamToUse != null)
+        {
+            _teamManager.SetCurrentTeam(teamToUse);
+        }
+        var teamName = teamToUse?.Name ?? "Circus Troupe";
 
         // 2. Deconstruct Epic and generate DAG subtasks
         var createdTickets = _decompositionEngine.DeconstructEpic(
@@ -234,53 +241,71 @@ public class ProjectBlueprintService : IProjectBlueprintService
         var adrId = $"ADR-0{(Random.Shared.Next(20, 99))}";
         var keyGoals = request.KeyGoals ?? [
             $"Deliver high-performance {title} matching production standards.",
-            "Maintain zero-allocation efficiency on critical hot paths.",
-            "Verify all acceptance criteria with 100% automated test coverage."
+            "Guarantee zero heap allocation hot paths and resilient failure handling.",
+            "Enforce strict STRIDE threat modeling and comprehensive QA verification."
         ];
         var keyPatterns = request.ArchitecturePatterns ?? [
-            "Clean Architecture with strict Domain, Contracts, and Extensions layering",
-            "Immutable C# 13 record types and readonly record structs",
-            "Asynchronous ValueTask and CancellationToken propagation"
+            "Clean Architecture with strict Domain/Application boundary separation",
+            "Immutable C# record types and sealed class hierarchies",
+            "Resilient Channel-based asynchronous message routing"
         ];
         var securityRules = request.SecurityGuardrails ?? [
-            "Comprehensive STRIDE threat modeling against code artifacts",
-            "Input sanitization and memory boundary validation"
+            "Validate all inputs against STRIDE threat classifications",
+            "Zero secret leakage in exceptions, logs, or handoff packets"
         ];
 
-        var adr = new ArchitecturalDecisionRecord(
+        var adrMarkdown = $"""
+        # {adrId}: Architecture & Scaffolding Blueprint for {title}
+
+        ## Status
+        **Accepted** (Automated Project Ignition)
+
+        ## Context
+        The engineering troupe has initiated development for **{title}**.
+        Target Stack: `{targetStack}`
+        Assigned Squad: `{teamName}`
+
+        ### Primary Goals
+        {string.Join("\n", keyGoals.Select(g => $"- {g}"))}
+
+        ## Decision
+        We adopt a high-throughput, zero-allocation Clean Architecture pattern tailored for autonomous multi-agent execution.
+
+        ### Key Patterns & Guardrails
+        {string.Join("\n", keyPatterns.Select(p => $"- **{p}**"))}
+
+        ### Security & Compliance Governance
+        {string.Join("\n", securityRules.Select(s => $"- {s}"))}
+
+        ## Consequences
+        - **Positive**: High velocity execution with strict boundary isolation and full ticket traceability.
+        - **Verification**: Enforced by Lead Architect and QA Analyst verification suites.
+        """;
+
+        _adrManager.SaveAdr(new ArchitecturalDecisionRecord(
             Id: adrId,
-            Title: $"Architectural Specification for {title}",
-            Status: AdrStatus.Proposed,
-            Context: $"New engineering initiative '{title}' initiated. Target Stack: {targetStack}. Scope: {description}. Goals: {string.Join("; ", keyGoals)}",
-            Decision: $"Adopt {targetStack}. Implement {title} enforcing {string.Join(", ", keyPatterns)} with strict Deliverable Isolation (ADR-0005).",
-            AlternativesConsidered: [
-                "Legacy unstructured implementation without ADRs (rejected: violates engineering standards)",
-                "Synchronous monolithic blocking pipeline (rejected: fails scalability criteria)"
-            ],
-            ConsequencesPositive: [
-                "Modular and maintainable Clean Architecture codebase",
-                "Automated test verification and quality gates",
-                "Full deliverable traceability across tickets"
-            ],
-            ConsequencesNegative: [
-                "Initial architectural and scaffolding discipline required"
-            ],
+            Title: $"{title} Blueprint & Topology",
+            Status: AdrStatus.Accepted,
+            Context: $"The engineering troupe has initiated development for {title}. Target Stack: {targetStack}. Assigned Squad: {teamName}. Goals: {string.Join("; ", keyGoals)}",
+            Decision: $"Adopt high-throughput zero-allocation Clean Architecture. Patterns: {string.Join("; ", keyPatterns)}",
+            AlternativesConsidered: ["Monolithic legacy architecture", "Ad-hoc unstructured codebase"],
+            ConsequencesPositive: keyGoals,
+            ConsequencesNegative: ["Requires strict adherence to zero-allocation contracts"],
             CreatedAt: DateTimeOffset.UtcNow,
             UpdatedAt: DateTimeOffset.UtcNow
-        );
-        _adrManager.SaveAdr(adr);
+        ));
 
-        // 4. Seed Knowledge Map Nodes
-        var rootNodeId = $"KN-{Guid.NewGuid().ToString("N")[..5].ToUpperInvariant()}";
+        // 4. Populate Knowledge Map Nodes
+        var knId = $"KN-PROJ-{Guid.NewGuid().ToString("N")[..5].ToUpperInvariant()}";
         _knowledgeMap.AddOrUpdateNode(new KnowledgeNode(
-            Id: rootNodeId,
+            Id: knId,
             Label: title,
             Category: "Initiative",
-            Summary: $"{description} (Stack: {targetStack})",
+            Summary: description,
             Attributes: new Dictionary<string, string>
             {
                 ["Stack"] = targetStack,
-                ["Archetype"] = archetype,
+                ["Team"] = teamName,
                 ["EpicId"] = epicTicket.Id
             }
         ));
@@ -322,7 +347,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
         Project Initiative '{title}' initialized:
         - Description: {description}
         - Target Stack: {targetStack}
-        - Archetype: {archetype}
+        - Squad: {teamName}
         - Key Goals: {string.Join("; ", keyGoals)}
         - Core Patterns: {string.Join("; ", keyPatterns)}
         """;
@@ -343,7 +368,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
         _eventStream.Publish(AgentMessage.Create(
             role: AgentRole.TechnicalProductManager,
             senderName: "🎪 Ringmaster",
-            content: $"Launched initiative '{title}'! Epic {epicTicket.Id} generated with {createdTickets.Count - 1} subtasks across 6 roles, ADR {adrId} established, and squad switched to '{archetype}'.",
+            content: $"Launched initiative '{title}'! Epic {epicTicket.Id} generated with {createdTickets.Count - 1} subtasks across 6 roles, ADR {adrId} established, and squad assigned to '{teamName}'.",
             type: MessageType.StateChange,
             ticketId: epicTicket.Id
         ));
@@ -363,7 +388,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Title: suggestion.Title,
             Description: suggestion.EpicDescription,
             TargetStack: suggestion.TargetStack,
-            ArchetypeName: suggestion.RecommendedArchetype,
+            TeamId: suggestion.RecommendedTeamId,
             Priority: TicketPriority.Critical,
             KeyGoals: suggestion.InitialGoals,
             ArchitecturePatterns: suggestion.KeyPatterns,
@@ -375,14 +400,14 @@ public class ProjectBlueprintService : IProjectBlueprintService
         string projectTitle,
         string projectDescription,
         string targetStack,
-        string archetypeName = "Balanced",
+        string? teamId = null,
         CancellationToken cancellationToken = default)
     {
         return LaunchProjectAsync(new ProjectIgnitionRequest(
             Title: projectTitle,
             Description: projectDescription,
             TargetStack: targetStack,
-            ArchetypeName: archetypeName,
+            TeamId: teamId,
             Priority: TicketPriority.High
         ), cancellationToken);
     }

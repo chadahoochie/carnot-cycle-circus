@@ -421,6 +421,29 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr16.Id] = adr16;
 
+        var adr17 = new ArchitecturalDecisionRecord(
+            Id: "ADR-017",
+            Title: "System Area Separation, Team Archetype Elimination, and Agent-Bound Squad DAGs",
+            Status: AdrStatus.Accepted,
+            Context: "Legacy team archetypes tightly coupled agent personas and squad topology. Workflow DAGs were global or archetype-templated, execution dashboards lacked mandatory squad gating, and ticket dashboards had redundant epic decomposition triggers.",
+            Decision: "Establish clean area separation: Agent Management (IAgentDefinitionManager, /agents) owns the global agent catalog; Team Management (ITeamDefinitionManager, /teams) manages squads embedding their own WorkflowGraph with agent node bindings; Execution Governance (/dashboard) mandates squad selection prior to execution; Ticket Management (/tickets) removes quick decomposition in favor of Project Ignition Studio.",
+            AlternativesConsidered: [
+                "Retain archetypes as metadata tags (rejected: rigid coupling)",
+                "Store DAGs only globally (rejected: each squad needs its own topology and port routing)"
+            ],
+            ConsequencesPositive: [
+                "Clean domain decoupling between agent definitions and squad DAG topologies",
+                "Execution safety enforced through mandatory squad selection",
+                "Uncluttered ticket dashboard"
+            ],
+            ConsequencesNegative: [
+                "Requires migrating legacy archetype references to squad definitions"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr17.Id] = adr17;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

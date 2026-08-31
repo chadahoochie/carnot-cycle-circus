@@ -28,6 +28,16 @@ public class WorkDecompositionTests
         var epic = result.First(t => t.Type == TicketType.Epic);
         epic.Title.Should().Be("Build Distributed PubSub");
 
+        var researchSpike = result.First(t => t.Type == TicketType.ResearchSpike);
+        researchSpike.AssigneeRole.Should().Be(AgentRole.RequirementsResearcher);
+        researchSpike.Status.Should().Be(TicketStatus.Ready);
+        researchSpike.DependsOnTicketIds.Should().BeEmpty();
+
+        var featureStory = result.First(t => t.Type == TicketType.Feature);
+        featureStory.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
+        featureStory.Status.Should().Be(TicketStatus.Backlog);
+        featureStory.DependsOnTicketIds.Should().Contain(researchSpike.Id);
+
         var subtasks = result.Where(t => t.Type == TicketType.Subtask).ToList();
         subtasks.Should().HaveCount(6);
 
@@ -41,7 +51,7 @@ public class WorkDecompositionTests
             AgentRole.IntegrationEngineer
         ]);
 
-        // Verify DAG ordering: Dev depends on Arch, Security & Opt depend on Dev, QA depends on Sec & Opt, Integration depends on QA
+        // Verify DAG ordering: Arch depends on Feature Story, Dev depends on Arch, Security & Opt depend on Dev, QA depends on Sec & Opt, Integration depends on QA
         var archSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.LeadArchitect);
         var devSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.SoftwareDeveloper);
         var secSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.SecurityEngineer);
@@ -49,6 +59,7 @@ public class WorkDecompositionTests
         var qaSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.PrincipalQAAnalyst);
         var intSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.IntegrationEngineer);
 
+        archSubtask.DependsOnTicketIds.Should().Contain(featureStory.Id);
         devSubtask.DependsOnTicketIds.Should().Contain(archSubtask.Id);
         secSubtask.DependsOnTicketIds.Should().Contain(devSubtask.Id);
         optSubtask.DependsOnTicketIds.Should().Contain(devSubtask.Id);
@@ -73,15 +84,19 @@ public class WorkDecompositionTests
             researchBrief
         );
 
-        tickets.Should().HaveCount(2);
+        tickets.Should().HaveCount(3);
         var epic = tickets.First(t => t.Type == TicketType.Epic);
         epic.Deliverables.Should().Contain(d => d.Name == "RESEARCH_BRIEF.md");
         epic.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
 
+        var research = tickets.First(t => t.Type == TicketType.ResearchSpike);
+        research.Status.Should().Be(TicketStatus.Done);
+        research.AssigneeRole.Should().Be(AgentRole.RequirementsResearcher);
+
         var story = tickets.First(t => t.Type == TicketType.Feature);
         story.ParentEpicId.Should().Be(epic.Id);
-        story.AssigneeRole.Should().Be(AgentRole.LeadArchitect);
-        story.Status.Should().Be(TicketStatus.InProgress);
+        story.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
+        story.Status.Should().Be(TicketStatus.Ready);
         story.CreatedByRole.Should().Be(AgentRole.TechnicalProductManager);
 
         // Ensure subtasks are NOT prematurely created during TPM story generation phase
@@ -97,8 +112,8 @@ public class WorkDecompositionTests
             Title: "Distributed PubSub Engine",
             Description: "High-throughput in-memory pub/sub channels",
             Type: TicketType.Feature,
-            Status: TicketStatus.Ready,
-            AssigneeRole: AgentRole.LeadArchitect,
+            Status: TicketStatus.Done,
+            AssigneeRole: AgentRole.TechnicalProductManager,
             CreatedByRole: AgentRole.TechnicalProductManager,
             Priority: TicketPriority.High,
             DependsOnTicketIds: Array.Empty<string>(),

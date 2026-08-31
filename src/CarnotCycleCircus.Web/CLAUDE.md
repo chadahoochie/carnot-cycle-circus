@@ -3,11 +3,11 @@
 Interactive Blazor frontend application for Carnot Cycle Circus.
 
 ## Architecture & Responsibilities
+- **Pages/AgentManager.razor**: Agent Studio for creating, customizing, and managing individual AI agent definitions, model assignments, skills, and system prompts.
+- **Pages/TeamStudio.razor**: Team Management & DAG Canvas for assembling multi-agent squads, interactive DAG visual layout, port cabling (Input, Output, Failure), circuit breaker policies, and live execution/stepping.
 - **Pages/TicketManager.razor**: Embedded Ticket Studio with interactive Kanban board, Epic/Story/Subtask decomposition DAG tree, and inter-agent handoff history drawer.
-- **Pages/WorkflowCanvas.razor**: Visual drag-and-drop workflow graph editor with Input, Output, and Failure ports.
 - **Pages/ExecutionDashboard.razor**: Real-time live execution dashboard with animated graph execution pulses, live key swapper, chat message stream, and session report exporter.
 - **Pages/MemoryInspector.razor**: Hierarchical memory inspector, vector search tester, and memory pruner.
-- **Pages/TeamDefinition.razor**: Team roster management, persona customization, OpenRouter model picker, and archetype loader.
 - **Pages/DocsAndAdrs.razor**: ADR explorer/editor, C4 architecture diagrams, STRIDE threat models, and markdown bundle exporter.
 - **Pages/StandardsManager.razor**: Engineering standards profile editor and ticket policy manager.
 - **Pages/KnowledgeMapExplorer.razor**: Interactive visual AI knowledge graph explorer and semantic query interface.
