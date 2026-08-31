@@ -8,12 +8,12 @@ This document provides a technical reference for the interactive **Blazor Web Co
 
 | Route | Razor Component | Description |
 | :--- | :--- | :--- |
-| **`/`** | `ExecutionDashboard.razor` | Live workflow orchestrator, animated execution pulse map, real-time banter feed, quick-key swapper, and session report exporter. |
+| **`/`**, **`/teams`**, **`/canvas`** | `TeamStudio.razor` | Unified Team Management & Interactive DAG Canvas: squad creation/cloning, visual node placement, Input/Output/Failure port cabling, circuit breaker policies, and live execution/stepping. |
+| **`/agents`** | `AgentManager.razor` | Centralized Agent Studio for defining and customizing individual agent personas, system prompts, role models, and skill assignments. |
+| **`/dashboard`** | `ExecutionDashboard.razor` | Live workflow orchestrator, animated execution pulse map, real-time banter feed, quick-key swapper, and session report exporter. |
 | **`/artifacts`** | `ArtifactsHub.razor` | Real-time repository-synced deliverables hub (PRDs, ADRs, Code bundles, STRIDE models, Benchmark profiles, and QA scorecards) with category filtering and 1-click disk synchronization. |
 | **`/tickets`** | `TicketManager.razor` | Embedded ticket studio: Kanban board, backlog manager, dependency DAG visualizer, and handoff history. |
-| **`/canvas`** | `WorkflowCanvas.razor` | Visual drag-and-drop workflow canvas: node placement, Input/Output/Failure port cabling, and live state highlights. |
 | **`/memory`** | `MemoryInspector.razor` | Hierarchical memory viewer (Working, Episodic, Semantic, Procedural), 64-dim vector search tester, and memory pruner. |
-| **`/teams`** | `TeamDefinition.razor` | Roster manager, archetype loader (6 presets), persona prompt editor, dynamic agent adding/removal, and per-role model/key overrides. |
 | **`/models`** | `ModelCatalog.razor` | OpenRouter model catalog browser: cost tier classification, engineering strength mapping, pricing calculations ($/1M tokens), and 1-click favorites management. |
 | **`/docs`** | `DocsAndAdrs.razor` | ADR editor/explorer, C4 system architecture diagrams, STRIDE threat models, and markdown bundle exporter. |
 | **`/standards`** | `StandardsManager.razor` | Quality gates editor, test coverage sliders, and ticket completion compliance policies. |

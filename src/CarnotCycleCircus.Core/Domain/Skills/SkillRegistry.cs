@@ -144,7 +144,7 @@ public class SkillImporter : ISkillImporter
     public async Task<SkillDefinition> ImportFromUrlAsync(string url, CancellationToken cancellationToken = default)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(TimeSpan.FromSeconds(5));
+        cts.CancelAfter(TimeSpan.FromSeconds(15));
 
         var text = await _httpClient.GetStringAsync(url, cts.Token);
         var uri = new Uri(url);

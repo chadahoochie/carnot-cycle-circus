@@ -118,6 +118,22 @@ public class HandoffRouter : IHandoffRouter
             ticketId: completedTicketId
         ));
 
+        // Propagate deliverables to parent Epic
+        if (!string.IsNullOrWhiteSpace(ticket.ParentEpicId) && ticket.Deliverables.Count > 0)
+        {
+            var epic = _ticketStore.GetTicketById(ticket.ParentEpicId);
+            if (epic != null)
+            {
+                var newDeliverables = ticket.Deliverables
+                    .Where(d => !epic.Deliverables.Any(ed => ed.Name == d.Name))
+                    .ToList();
+                if (newDeliverables.Count > 0)
+                {
+                    _ticketStore.UpdateTicket(epic.WithDeliverables(newDeliverables));
+                }
+            }
+        }
+
         // Find all tickets that were waiting on this ticket and are now ready
         var activatedTickets = new List<TicketItem>();
         var allTickets = _ticketStore.GetAllTickets();

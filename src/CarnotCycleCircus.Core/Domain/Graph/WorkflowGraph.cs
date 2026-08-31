@@ -27,7 +27,8 @@ public record GraphNode(
     NodeExecutionState State = NodeExecutionState.Idle,
     int RetryCount = 0,
     string? CurrentTicketId = null,
-    string? LastOutputSummary = null
+    string? LastOutputSummary = null,
+    string? AgentId = null
 )
 {
     public GraphNode WithState(NodeExecutionState newState, string? outputSummary = null, string? ticketId = null) =>
@@ -65,14 +66,14 @@ public record WorkflowGraph(
     {
         var nodes = new List<GraphNode>
         {
-            new("node-res", AgentRole.RequirementsResearcher, "Requirements Researcher", 30, 100),
-            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 170, 100),
-            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 310, 100),
-            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 450, 100),
-            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 600, 40),
-            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 600, 160),
-            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 750, 100),
-            new("node-int", AgentRole.IntegrationEngineer, "Integration Engineer", 910, 100)
+            new("node-res", AgentRole.RequirementsResearcher, "Requirements Researcher", 30, 100, AgentId: "agent-requirementsresearcher"),
+            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 170, 100, AgentId: "agent-technicalproductmanager"),
+            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 310, 100, AgentId: "agent-leadarchitect"),
+            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 450, 100, AgentId: "agent-softwaredeveloper"),
+            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 600, 40, AgentId: "agent-securityengineer"),
+            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 600, 160, AgentId: "agent-optimizationengineer"),
+            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 750, 100, AgentId: "agent-principalqaanalyst"),
+            new("node-int", AgentRole.IntegrationEngineer, "Integration Engineer", 910, 100, AgentId: "agent-integrationengineer")
         };
 
         var connections = new List<PortConnection>
@@ -109,9 +110,9 @@ public record WorkflowGraph(
     {
         var nodes = new List<GraphNode>
         {
-            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 100, 100),
-            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 400, 100),
-            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 700, 100)
+            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 100, 100, AgentId: "agent-technicalproductmanager"),
+            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 400, 100, AgentId: "agent-softwaredeveloper"),
+            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 700, 100, AgentId: "agent-principalqaanalyst")
         };
 
         var connections = new List<PortConnection>
@@ -134,11 +135,11 @@ public record WorkflowGraph(
     {
         var nodes = new List<GraphNode>
         {
-            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 50, 100),
-            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 250, 100),
-            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 450, 100),
-            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 650, 100),
-            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 850, 100)
+            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 50, 100, AgentId: "agent-technicalproductmanager"),
+            new("node-arch", AgentRole.LeadArchitect, "Lead Architect", 250, 100, AgentId: "agent-leadarchitect"),
+            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 450, 100, AgentId: "agent-softwaredeveloper"),
+            new("node-sec", AgentRole.SecurityEngineer, "Security Engineer", 650, 100, AgentId: "agent-securityengineer"),
+            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 850, 100, AgentId: "agent-principalqaanalyst")
         };
 
         var connections = new List<PortConnection>
@@ -164,10 +165,10 @@ public record WorkflowGraph(
     {
         var nodes = new List<GraphNode>
         {
-            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 50, 100),
-            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 300, 100),
-            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 550, 100),
-            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 800, 100)
+            new("node-tpm", AgentRole.TechnicalProductManager, "Technical Product Manager", 50, 100, AgentId: "agent-technicalproductmanager"),
+            new("node-dev", AgentRole.SoftwareDeveloper, "Software Developer", 300, 100, AgentId: "agent-softwaredeveloper"),
+            new("node-opt", AgentRole.OptimizationEngineer, "Optimization Engineer", 550, 100, AgentId: "agent-optimizationengineer"),
+            new("node-qa", AgentRole.PrincipalQAAnalyst, "Principal QA Analyst", 800, 100, AgentId: "agent-principalqaanalyst")
         };
 
         var connections = new List<PortConnection>

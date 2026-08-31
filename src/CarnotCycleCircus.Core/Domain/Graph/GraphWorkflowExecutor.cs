@@ -1,7 +1,9 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Artifacts;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using CarnotCycleCircus.Core.Domain.Tools;
 
@@ -12,6 +14,8 @@ public interface IGraphWorkflowExecutor
     WorkflowGraph CurrentGraph { get; }
     bool IsRunning { get; }
     void SetGraph(WorkflowGraph graph);
+    void LoadTeam(TeamDefinition team);
+    void LoadTeam(EngineeringTeam team);
     void UpdateNodePosition(string nodeId, int x, int y);
     void AddNode(GraphNode node);
     void RemoveNode(string nodeId);
@@ -45,6 +49,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     private readonly IAgentEventStream _eventStream;
     private readonly IMemoryConsolidationEngine _memoryConsolidation;
     private readonly Learning.ISelfImprovementEngine? _selfImprovement;
+    private readonly ITeamDefinitionManager? _teamManager;
+    private readonly IArtifactManager? _artifactManager;
     private bool _isRunning;
 
     public WorkflowGraph CurrentGraph => _graph;
@@ -60,9 +66,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         IAgentExecutionEngine executionEngine,
         IAgentEventStream eventStream,
         IMemoryConsolidationEngine memoryConsolidation,
-        Learning.ISelfImprovementEngine? selfImprovement = null)
+        Learning.ISelfImprovementEngine? selfImprovement = null,
+        ITeamDefinitionManager? teamManager = null,
+        IArtifactManager? artifactManager = null)
     {
-        _graph = WorkflowGraph.CreateDefaultEngineeringCircus();
         _ticketStore = ticketStore;
         _decompositionEngine = decompositionEngine;
         _handoffRouter = handoffRouter;
@@ -70,6 +77,19 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _eventStream = eventStream;
         _memoryConsolidation = memoryConsolidation;
         _selfImprovement = selfImprovement;
+        _teamManager = teamManager;
+        _artifactManager = artifactManager;
+
+        _graph = _teamManager?.GetCurrentTeam().Graph ?? WorkflowGraph.CreateDefaultEngineeringCircus();
+
+        if (_teamManager != null)
+        {
+            _teamManager.OnCurrentTeamChanged += team =>
+            {
+                _graph = team.Graph;
+                OnGraphUpdated?.Invoke(_graph);
+            };
+        }
     }
 
     public void SetGraph(WorkflowGraph graph)
@@ -173,6 +193,20 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         OnGraphUpdated?.Invoke(_graph);
     }
 
+    public void LoadTeam(TeamDefinition team)
+    {
+        _graph = team.Graph;
+        _isRunning = false;
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
+    public void LoadTeam(EngineeringTeam team)
+    {
+        _graph = team.Graph;
+        _isRunning = false;
+        OnGraphUpdated?.Invoke(_graph);
+    }
+
     public void LoadPreset(string presetId)
     {
         _graph = presetId.ToLowerInvariant() switch
@@ -238,6 +272,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             foreach (var a in artifacts)
             {
                 ticket = ticket.WithDeliverable(a);
+                if (_artifactManager != null)
+                {
+                    await _artifactManager.SaveDeliverableArtifactAsync(ticket, a, cancellationToken);
+                }
             }
             _ticketStore.UpdateTicket(ticket);
 
@@ -271,6 +309,13 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             {
                 UpdateNodeState(node.Id, NodeExecutionState.Failed, ex.Message, ticket.Id);
             }
+            _eventStream.Publish(AgentMessage.Create(
+                role: ticket.AssigneeRole,
+                senderName: ticket.AssigneeRole.ToDisplayName(),
+                content: $"🛑 Task execution failed for [{ticket.Id}] ({ticket.AssigneeRole.ToDisplayName()}): {ex.Message}",
+                type: MessageType.Alert,
+                ticketId: ticket.Id
+            ));
             _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Ready));
             return false;
         }
@@ -299,6 +344,13 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
                 if (!executed)
                 {
+                    _eventStream.Publish(AgentMessage.Create(
+                        role: nextTicket.AssigneeRole,
+                        senderName: "Workflow Engine",
+                        content: $"🛑 Queue execution halted on [{nextTicket.Id}] ({nextTicket.AssigneeRole.ToDisplayName()}).",
+                        type: MessageType.Alert,
+                        ticketId: nextTicket.Id
+                    ));
                     break;
                 }
                 count++;
@@ -414,6 +466,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 foreach (var a in researchArtifacts)
                 {
                     tempResearchTicket = tempResearchTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(tempResearchTicket, a, cancellationToken);
+                    }
                 }
                 _ticketStore.UpdateTicket(tempResearchTicket.WithStatus(TicketStatus.Done));
 
@@ -468,10 +524,22 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 foreach (var a in prdArtifacts)
                 {
                     epicTicket = epicTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(epicTicket, a, cancellationToken);
+                    }
                 }
                 _ticketStore.UpdateTicket(epicTicket);
 
-                var storiesCount = createdStoryTickets.Count(t => t.Type == TicketType.Feature);
+                // Mark the TPM feature stories as Done with the PRD deliverables so Lead Architect can refine and scaffold
+                var stories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
+                foreach (var s in stories)
+                {
+                    var updatedStory = s.WithDeliverables(prdArtifacts).WithStatus(TicketStatus.Done);
+                    _ticketStore.UpdateTicket(updatedStory);
+                }
+
+                var storiesCount = stories.Count;
                 _handoffRouter.RouteSuccessHandoff(
                     epicTicket.Id,
                     AgentRole.TechnicalProductManager,
@@ -497,6 +565,13 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             else
             {
                 epicId = existingEpic!.Id;
+                var stories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
+                foreach (var s in stories.Where(s => s.Status != TicketStatus.Done))
+                {
+                    var updatedStory = s.WithStatus(TicketStatus.Done);
+                    _ticketStore.UpdateTicket(updatedStory);
+                }
+
                 if (tpmNode != null)
                 {
                     UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, "PRD authored & stories established.", epicId);
@@ -542,7 +617,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var artifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket, cancellationToken);
-                foreach (var a in artifacts) archTicket = archTicket.WithDeliverable(a);
+                foreach (var a in artifacts)
+                {
+                    archTicket = archTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(archTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(archTicket);
 
                 _handoffRouter.RouteSuccessHandoff(
@@ -571,7 +653,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var devArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket, cancellationToken);
-                foreach (var a in devArtifacts) devTicket = devTicket.WithDeliverable(a);
+                foreach (var a in devArtifacts)
+                {
+                    devTicket = devTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(devTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(devTicket);
 
                 // Handoff to both downstream review roles: Security and Optimization
@@ -613,7 +702,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var secArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SecurityEngineer, secTicket, cancellationToken);
-                foreach (var a in secArtifacts) secTicket = secTicket.WithDeliverable(a);
+                foreach (var a in secArtifacts)
+                {
+                    secTicket = secTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(secTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(secTicket);
 
                 _handoffRouter.RouteSuccessHandoff(
@@ -635,7 +731,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var optArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.OptimizationEngineer, optTicket, cancellationToken);
-                foreach (var a in optArtifacts) optTicket = optTicket.WithDeliverable(a);
+                foreach (var a in optArtifacts)
+                {
+                    optTicket = optTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(optTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(optTicket);
 
                 _handoffRouter.RouteSuccessHandoff(
@@ -663,7 +766,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var qaArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.PrincipalQAAnalyst, qaTicket, cancellationToken);
-                foreach (var a in qaArtifacts) qaTicket = qaTicket.WithDeliverable(a);
+                foreach (var a in qaArtifacts)
+                {
+                    qaTicket = qaTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(qaTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(qaTicket);
 
                 _handoffRouter.RouteSuccessHandoff(
@@ -700,7 +810,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 await Task.Delay(150, cancellationToken);
 
                 var intArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.IntegrationEngineer, intTicket, cancellationToken);
-                foreach (var a in intArtifacts) intTicket = intTicket.WithDeliverable(a);
+                foreach (var a in intArtifacts)
+                {
+                    intTicket = intTicket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(intTicket, a, cancellationToken);
+                    }
+                }
                 _ticketStore.UpdateTicket(intTicket);
 
                 _handoffRouter.AdvanceWorkflowOnTicketCompletion(intTicket.Id);

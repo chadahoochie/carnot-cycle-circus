@@ -339,7 +339,7 @@ public class ApiKeyVaultService : IApiKeyVaultService
             using var req = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/auth/key");
             req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", rawApiKey);
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(3));
+            cts.CancelAfter(TimeSpan.FromSeconds(10));
 
             var res = await _httpClient.SendAsync(req, cts.Token);
             return res.IsSuccessStatusCode;

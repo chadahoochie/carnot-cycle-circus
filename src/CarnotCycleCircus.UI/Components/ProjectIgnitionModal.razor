@@ -1,4 +1,5 @@
 @inject IProjectBlueprintService BlueprintService
+@inject ITeamDefinitionManager TeamManager
 @inject NavigationManager Navigation
 
 <div class="modal-backdrop" @onclick="Close">
@@ -48,8 +49,8 @@
                     <button class="btn btn-primary" @onclick='() => NavigateTo("/tickets")'>
                         📋 Open Jira Graveyard
                     </button>
-                    <button class="btn btn-secondary" @onclick='() => NavigateTo("/canvas")'>
-                        🎨 View Workflow Canvas
+                    <button class="btn btn-secondary" @onclick='() => NavigateTo("/teams")'>
+                        👥 View Team Management & DAG
                     </button>
                     <button class="btn btn-success" @onclick='() => NavigateTo("/dashboard")'>
                         ⚡ Unleash in Panic Dashboard
@@ -89,18 +90,21 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">Target Tech Stack</label>
-                        <input class="form-control" placeholder=".NET 10 / C# 13, Aspire, Channels, Redis, PostgreSQL" @bind="targetStack" />
+                        <input class="form-control" placeholder=".NET 10 / C# 13 Clean Architecture, Channels, ValueTask" @bind="targetStack" />
                     </div>
                     <div>
-                        <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">Squad Archetype</label>
-                        <select class="form-control" @bind="archetypeName">
-                            <option value="Balanced">🎪 The Full 6-Ring Circus (Balanced)</option>
-                            <option value="HighPerformance">⚡ Zero-Allocation Zealots (Nano-Benchmarkers)</option>
-                            <option value="SecurityHardened">🛡️ Paranoid Zero-Trust Bunker</option>
-                            <option value="IvoryTowerCathedrals">🏛️ Ivory Tower Cathedral Builders</option>
-                            <option value="ChaosMonkeyRodeo">🧪 Chaos Monkey Rodeo</option>
-                            <option value="MoveFastBreakProduction">🤠 Move Fast & Break Production</option>
+                        <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">Assigned Engineering Squad</label>
+                        <select class="form-control" @bind="selectedTeamId">
+                            @foreach (var team in definedTeams)
+                            {
+                                <option value="@team.Id">
+                                    @(team.Id == currentActiveTeamId ? "⭐ (Active) " : "")@team.Name
+                                </option>
+                            }
                         </select>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 3px;">
+                            Defined team models, DAG graphs, and API keys are preserved.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -121,16 +125,31 @@
     private string projectTitle = "";
     private string projectDescription = "";
     private string targetStack = ".NET 10 / C# 13 Clean Architecture, Channels, ValueTask";
-    private string archetypeName = "Balanced";
+    private string selectedTeamId = "";
+    private string currentActiveTeamId = "";
+    private IReadOnlyList<TeamDefinition> definedTeams = [];
     private bool isProcessing = false;
     private BlueprintGenerationResult? generationResult;
+
+    protected override void OnInitialized()
+    {
+        definedTeams = TeamManager.GetAllTeams();
+        var current = TeamManager.GetCurrentTeam();
+        currentActiveTeamId = current.Id;
+        selectedTeamId = current.Id;
+    }
 
     private void PopulateFromSuggestion(ProjectBlueprint suggestion)
     {
         projectTitle = suggestion.EpicTitle;
         projectDescription = suggestion.EpicDescription;
         targetStack = suggestion.TargetStack;
-        archetypeName = suggestion.RecommendedArchetype;
+
+        var matchingTeam = definedTeams.FirstOrDefault(t => t.Id == suggestion.RecommendedTeamId);
+        if (matchingTeam != null)
+        {
+            selectedTeamId = matchingTeam.Id;
+        }
     }
 
     private async Task IgniteProject()
@@ -143,7 +162,7 @@
                 Title: projectTitle,
                 Description: projectDescription,
                 TargetStack: targetStack,
-                ArchetypeName: archetypeName,
+                TeamId: selectedTeamId,
                 Priority: TicketPriority.High
             ));
         }

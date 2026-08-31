@@ -45,7 +45,7 @@ public class ProjectBlueprintServiceTests
 
         var pipelineBp = _blueprintService.GetBlueprint("realtime-telemetry-pipeline");
         pipelineBp.Should().NotBeNull();
-        pipelineBp!.RecommendedArchetype.Should().Be("HighPerformance");
+        pipelineBp!.RecommendedTeamId.Should().Be("team-high-performance");
         pipelineBp.KeyPatterns.Should().NotBeEmpty();
         pipelineBp.SecurityRules.Should().NotBeEmpty();
     }
@@ -74,7 +74,7 @@ public class ProjectBlueprintServiceTests
         var map = _knowledgeMap.GetFullMap();
         map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Project") && n.Attributes["Project"].Contains("Order & Payment Saga"));
 
-        // Verify Active Team Archetype switched
+        // Verify Active Team switched
         var currentTeam = _teamManager.GetCurrentTeam();
         currentTeam.Should().NotBeNull();
     }
@@ -86,7 +86,7 @@ public class ProjectBlueprintServiceTests
             Title: "Real-time Auction Microservice",
             Description: "Bidding engine with sub-millisecond locks and SignalR feeds",
             TargetStack: ".NET 10 / C# 13, Redis Streams, SignalR",
-            ArchetypeName: "HighPerformance",
+            TeamId: "team-high-performance",
             KeyGoals: ["Sub-millisecond bid execution", "Zero allocation hot path"],
             ArchitecturePatterns: ["Channels bounded queue", "Immutable state records"],
             SecurityGuardrails: ["HMAC signature check"]
@@ -116,7 +116,7 @@ public class ProjectBlueprintServiceTests
             projectTitle: "Real-time Auction Microservice",
             projectDescription: "Bidding engine with sub-millisecond locks and SignalR feeds",
             targetStack: ".NET 10 / C# 13, Redis Streams, SignalR",
-            archetypeName: "HighPerformance"
+            teamId: "team-high-performance"
         );
 
         result.Should().NotBeNull();
@@ -131,5 +131,41 @@ public class ProjectBlueprintServiceTests
         var adr = _adrManager.GetAdr(result.AdrId);
         adr.Should().NotBeNull();
         adr!.Title.Should().Contain("Real-time Auction Microservice");
+    }
+
+    [Fact]
+    public async Task LaunchProjectAsync_WithExplicitTeamId_ShouldKeepDefinedTeamWithoutResettingCustomModels()
+    {
+        // Setup a custom defined team with custom model on Software Developer
+        var customTeam = _teamManager.CreateTeam("Alpha Dev Squad", "Specialized Squad", "team-balanced");
+        var devMember = customTeam.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper);
+        var customizedDev = devMember with
+        {
+            OverrideModel = "anthropic/claude-3.5-sonnet",
+            Persona = devMember.Persona with { SystemPrompt = "Custom Strict Zero-Allocation Prompt" }
+        };
+        _teamManager.UpdateMemberInCurrentTeam(customizedDev);
+
+        // Verify team has the custom model
+        _teamManager.GetCurrentTeam().Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
+            .EffectiveModel.Should().Be("anthropic/claude-3.5-sonnet");
+
+        // Launch project with this explicit defined TeamId
+        var result = await _blueprintService.LaunchProjectAsync(new ProjectIgnitionRequest(
+            Title: "Custom Swarm Initiative",
+            Description: "Initiative with custom team",
+            TargetStack: ".NET 10",
+            TeamId: customTeam.Id
+        ));
+
+        result.Should().NotBeNull();
+
+        // Verify active team is still the customized squad and dev still has custom model
+        var activeTeam = _teamManager.GetCurrentTeam();
+        activeTeam.Id.Should().Be(customTeam.Id);
+        activeTeam.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
+            .EffectiveModel.Should().Be("anthropic/claude-3.5-sonnet");
+        activeTeam.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
+            .Persona.SystemPrompt.Should().Be("Custom Strict Zero-Allocation Prompt");
     }
 }

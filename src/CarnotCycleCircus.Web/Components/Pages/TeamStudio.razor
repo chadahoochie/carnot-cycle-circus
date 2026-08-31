@@ -1,0 +1,1135 @@
+@page "/"
+@page "/teams"
+@page "/canvas"
+@implements IDisposable
+@inject ITeamDefinitionManager TeamManager
+@inject IAgentDefinitionManager AgentManager
+@inject IGraphWorkflowExecutor GraphExecutor
+@inject ITicketStore TicketStore
+@inject IAgentEventStream EventStream
+@inject IApiKeyVaultService KeyVaultService
+@inject IModelCatalogService CatalogService
+
+<QuickstartRingmasterBanner />
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">👥 Team Circus Ring & DAG Workflows</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble multi-agent troupes where each squad owns a customized DAG execution graph, port routing, and circuit breaker resilience policies.</p>
+    </div>
+
+    <!-- Squad Selector, Actions & Execution Controls -->
+    <div class="page-header-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <select class="form-control" style="width: auto; min-width: 220px; max-width: 100%; font-weight: 600;" value="@currentTeam.Id" @onchange="OnTeamSelectionChanged">
+            @foreach (var t in TeamManager.GetAllTeams())
+            {
+                <option @key="@t.Id" value="@t.Id" selected="@(t.Id == currentTeam.Id)">@t.Name (@(t.Graph?.Nodes?.Count ?? 0) nodes, @(t.Members?.Count ?? 0) agents)</option>
+            }
+        </select>
+
+        <button class="btn btn-secondary" @onclick="OpenSquadRosterModal" style="white-space: nowrap;" title="View and manage all squads">
+            👥 Squads (@TeamManager.GetAllTeams().Count)
+        </button>
+
+        <button class="btn btn-secondary" @onclick="OpenNewTeamModal" style="white-space: nowrap;" title="Create new squad or clone current squad">
+            📋 New Squad
+        </button>
+
+        <button class="btn btn-secondary" @onclick="OpenAddNodeModal" style="white-space: nowrap;">
+            ➕ Add DAG Node
+        </button>
+
+        <button class="btn btn-primary" @onclick="RunWorkflow" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
+            🚀 Unleash Workflow
+        </button>
+
+        <button class="btn btn-secondary" @onclick="StepNext" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
+            ⏭️ Step Node
+        </button>
+
+        <button class="btn btn-secondary" @onclick="ResetExecution" style="white-space: nowrap;">
+            🔄 Reset Graph
+        </button>
+
+        @if (TeamManager.GetAllTeams().Count > 1)
+        {
+            <button class="btn btn-danger" @onclick="() => OpenDeleteConfirmModal(currentTeam.Id, currentTeam.Name)" style="padding: 6px 10px; font-size: 0.82rem;" title="Delete active squad">
+                🗑️
+            </button>
+        }
+
+        <button class="btn btn-secondary" @onclick="ExportTeam" style="white-space: nowrap;">💾 Export JSON</button>
+        <button class="btn btn-secondary" @onclick="OpenImportModal" style="white-space: nowrap;">📥 Import JSON</button>
+        <a href="dashboard" class="btn btn-secondary" style="white-space: nowrap;">⚡ Panic Dashboard</a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>@statusMessage</span>
+        <button style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-weight: bold;" @onclick="() => statusMessage = null">✕</button>
+    </div>
+}
+
+<!-- Squad Metadata Bar -->
+<div class="glass-card" style="margin-bottom: 20px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+    <div style="flex: 1 1 300px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin: 0;">@currentTeam.Name</h3>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-family: monospace;">@currentTeam.Id</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; margin-bottom: 0;">@currentTeam.Description</p>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.82rem;">
+        <div>
+            <span style="color: var(--text-muted);">DAG Nodes:</span>
+            <span style="font-weight: 700; color: #38bdf8; margin-left: 4px;">@currentTeam.Graph.Nodes.Count</span>
+        </div>
+        <div>
+            <span style="color: var(--text-muted);">Port Cables:</span>
+            <span style="font-weight: 700; color: #a855f7; margin-left: 4px;">@currentTeam.Graph.Connections.Count</span>
+        </div>
+        <div>
+            <span style="color: var(--text-muted);">Fallback Model:</span>
+            <span style="font-weight: 600; color: #eab308; margin-left: 4px;">@(string.IsNullOrEmpty(currentTeam.DefaultFallbackModel) ? "None" : currentTeam.DefaultFallbackModel)</span>
+        </div>
+    </div>
+</div>
+
+<!-- Active Wiring Notification Banner -->
+@if (_isConnecting)
+{
+    <div style="padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; background: rgba(56, 189, 248, 0.15); border: 2px dashed #38bdf8; color: #38bdf8; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span style="font-size: 1.2rem;">🔌</span>
+            <span>
+                <strong>Cabling Mode Active:</strong> Drawing cable from 
+                <strong>@(_sourceConnectingNode?.Name ?? _sourceConnectingNodeId)</strong> 
+                (@(_sourceConnectingPort == PortType.Failure ? "🔴 Failure Port" : "🔵 Output Port")). 
+                Click on any 🟢 <strong>Input Port</strong> on a target node to complete connection.
+            </span>
+        </div>
+        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.8rem; white-space: nowrap;" @onclick="CancelConnecting">✕ Cancel Cabling</button>
+    </div>
+}
+
+<!-- Interactive DAG Canvas for the Active Squad -->
+<div class="glass-card" 
+     style="padding: 0; overflow: auto; position: relative; height: 500px; width: 100%; max-width: 100%; min-width: 0; background: radial-gradient(#1e293b 1px, transparent 1px); background-size: 24px 24px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px;"
+     @onmousemove="HandleCanvasMouseMove"
+     @onmouseup="HandleCanvasMouseUp"
+     @onmouseleave="HandleCanvasMouseUp">
+
+    <div style="position: relative; width: 1150px; height: 490px;">
+    
+        <!-- SVG Connection Lines -->
+        <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+            <defs>
+                <marker id="arrow-out" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8" />
+                </marker>
+                <marker id="arrow-fail" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+                </marker>
+                <marker id="arrow-draft" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#eab308" />
+                </marker>
+            </defs>
+
+            <!-- Render Existing Connections -->
+            @foreach (var conn in currentTeam.Graph.Connections)
+            {
+                var src = currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == conn.SourceNodeId);
+                var tgt = currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == conn.TargetNodeId);
+
+                if (src != null && tgt != null)
+                {
+                    var isFail = conn.SourcePort == PortType.Failure;
+                    var x1 = src.X + (isFail ? 80 : 160);
+                    var y1 = src.Y + (isFail ? 90 : 45);
+                    var x2 = tgt.X;
+                    var y2 = tgt.Y + 45;
+
+                    var strokeColor = isFail ? "#ef4444" : "#38bdf8";
+                    var marker = isFail ? "url(#arrow-fail)" : "url(#arrow-out)";
+                    var dash = isFail ? "5,5" : "none";
+
+                    <g style="pointer-events: auto; cursor: pointer;">
+                        <path d="M @x1 @y1 C @((x1+x2)/2) @y1, @((x1+x2)/2) @y2, @x2 @y2"
+                              fill="none"
+                              stroke="transparent"
+                              stroke-width="14"
+                              @onclick="() => DisconnectCable(conn)">
+                            <title>Click to disconnect: @conn.SourceNodeId -> @conn.TargetNodeId</title>
+                        </path>
+
+                        <path d="M @x1 @y1 C @((x1+x2)/2) @y1, @((x1+x2)/2) @y2, @x2 @y2"
+                              fill="none"
+                              stroke="@strokeColor"
+                              stroke-width="2.5"
+                              stroke-dasharray="@dash"
+                              marker-end="@marker"
+                              class="cable-line"
+                              @onclick="() => DisconnectCable(conn)">
+                            <title>Click to disconnect: @conn.SourceNodeId -> @conn.TargetNodeId</title>
+                        </path>
+                    </g>
+                }
+            }
+
+            <!-- Render Draft Cable in Connection Mode -->
+            @if (_isConnecting)
+            {
+                <path d="M @_draftStartX @_draftStartY C @((_draftStartX + _currentMouseX)/2) @_draftStartY, @((_draftStartX + _currentMouseX)/2) @_currentMouseY, @_currentMouseX @_currentMouseY"
+                      fill="none"
+                      stroke="#eab308"
+                      stroke-width="2.5"
+                      stroke-dasharray="6,4"
+                      marker-end="url(#arrow-draft)" />
+            }
+        </svg>
+
+        <!-- Visual Draggable Nodes -->
+        @foreach (var node in currentTeam.Graph.Nodes)
+        {
+            var isSelected = _selectedNodeId == node.Id;
+            var selectedClass = isSelected ? "node-selected" : "";
+            var pulseClass = node.State == NodeExecutionState.Running ? "node-running" : (node.State == NodeExecutionState.Failed ? "node-failed" : (node.State == NodeExecutionState.Completed ? "node-completed" : ""));
+            var assignedAgent = !string.IsNullOrEmpty(node.AgentId) ? AgentManager.GetAgent(node.AgentId) : null;
+            var displayName = assignedAgent?.Persona.Name ?? node.Name;
+
+            <div style="left: @(node.X)px; top: @(node.Y)px; border: 2px solid @node.Role.ToColorHex();"
+                 class="node-card @selectedClass @pulseClass"
+                 @onmousedown="e => StartDrag(e, node.Id)"
+                 @onclick="() => SelectNode(node.Id)">
+                
+                <!-- Input Port (Green) -->
+                <div style="position: absolute; left: -8px; top: 38px; background: #10b981;"
+                     class="port-handle @(_isConnecting ? "port-target-highlight" : "")"
+                     title="🟢 Input Port (Click to connect inbound cable)"
+                     @onclick:stopPropagation="true"
+                     @onclick="() => HandleInputPortClick(node.Id)">
+                </div>
+
+                <!-- Output Port (Blue) -->
+                <div style="position: absolute; right: -8px; top: 38px; background: #38bdf8;"
+                     class="port-handle"
+                     title="🔵 Output Port (Click to draw outbound cable)"
+                     @onclick:stopPropagation="true"
+                     @onclick="() => StartConnecting(node.Id, PortType.Output)">
+                </div>
+
+                <!-- Failure Port (Red) -->
+                <div style="position: absolute; bottom: -8px; left: 72px; background: #ef4444;"
+                     class="port-handle"
+                     title="🔴 Failure Port (Click to draw remediation cable)"
+                     @onclick:stopPropagation="true"
+                     @onclick="() => StartConnecting(node.Id, PortType.Failure)">
+                </div>
+
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                        <span style="font-size: 1.1rem;">@node.Role.ToEmoji()</span>
+                        <div style="font-size: 0.8rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@displayName">
+                            @displayName
+                        </div>
+                    </div>
+                    @if (node.RetryCount > 0)
+                    {
+                        <span class="badge" style="background: #ef4444; color: #fff; font-size: 0.65rem;">
+                            ↺ @node.RetryCount
+                        </span>
+                    }
+                </div>
+
+                <div style="font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; text-align: center; font-weight: 600; background: rgba(255,255,255,0.06); color: @node.Role.ToColorHex();">
+                    @node.Role.ToDisplayName()
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 0.7rem;">
+                    <span class="badge" style="background: @GetStateBackground(node.State); font-size: 0.65rem;">
+                        @node.State
+                    </span>
+                    @if (!string.IsNullOrEmpty(node.CurrentTicketId))
+                    {
+                        <span style="font-family: monospace; color: var(--text-muted); font-size: 0.65rem;">
+                            @node.CurrentTicketId
+                        </span>
+                    }
+                    else if (assignedAgent != null && !string.IsNullOrEmpty(assignedAgent.EffectiveModel))
+                    {
+                        <span style="font-size: 0.65rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@assignedAgent.EffectiveModel">
+                            🤖 @assignedAgent.EffectiveModel.Split('/').Last()
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Bottom Panel: Port Cables, Node Inspector & Resilience Policies -->
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+    
+    <!-- Active Cables Inspector -->
+    <div class="glass-card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Active Port Cables (@currentTeam.Graph.Connections.Count)</h3>
+        
+        <div style="max-height: 280px; overflow-y: auto;">
+            <table style="width: 100%; font-size: 0.82rem; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border-color); text-align: left; color: var(--text-muted);">
+                        <th style="padding: 6px;">Source</th>
+                        <th style="padding: 6px;">Port</th>
+                        <th style="padding: 6px;">Target</th>
+                        <th style="padding: 6px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in currentTeam.Graph.Connections)
+                    {
+                        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <td style="padding: 6px; font-weight: 600;">@c.SourceNodeId</td>
+                            <td style="padding: 6px; color: @(c.SourcePort == PortType.Failure ? "#ef4444" : "#38bdf8");">
+                                @(c.SourcePort == PortType.Failure ? "🔴 Fail" : "🔵 Out")
+                            </td>
+                            <td style="padding: 6px; font-weight: 600;">@c.TargetNodeId</td>
+                            <td style="padding: 6px; text-align: right;">
+                                <button class="btn btn-danger" style="padding: 1px 6px; font-size: 0.7rem;" title="Disconnect cable" @onclick="() => DisconnectCable(c)">
+                                    ✕
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Selected Node Inspector -->
+    <div class="glass-card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Node & Agent Inspector</h3>
+        
+        @if (_selectedNode != null)
+        {
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.6rem;">@_selectedNode.Role.ToEmoji()</span>
+                        <div>
+                            <div style="font-weight: 700; font-size: 0.95rem; color: #fff;">@_selectedNode.Name</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@_selectedNode.Id</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;" title="Delete node" @onclick="() => DeleteNode(_selectedNode.Id)">
+                        🗑️ Delete
+                    </button>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Assigned Agent (from Agent Studio)</label>
+                    <select class="form-control" value="@(_selectedNode.AgentId ?? "")" @onchange="OnNodeAgentSelectionChanged">
+                        <option value="">-- Use Default Role Persona --</option>
+                        @foreach (var agent in AgentManager.GetAllAgents())
+                        {
+                            <option value="@agent.Id">@agent.Persona.Role.ToEmoji() @agent.Persona.Name (@agent.Persona.Role.ToDisplayName())</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Node Role</label>
+                    <select class="form-control" value="@_selectedNode.Role" @onchange="OnNodeRoleChanged">
+                        @foreach (AgentRole role in Enum.GetValues(typeof(AgentRole)))
+                        {
+                            <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                        }
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.8rem; background: var(--bg-primary); padding: 8px; border-radius: 6px;">
+                    <div>
+                        <span style="color: var(--text-muted);">State:</span>
+                        <div style="font-weight: 600; color: #38bdf8;">@_selectedNode.State</div>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted);">Retry Count:</span>
+                        <div style="font-weight: 600; color: #ef4444;">@_selectedNode.RetryCount</div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_selectedNode.LastOutputSummary))
+                {
+                    <div style="font-size: 0.78rem; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); padding: 8px; border-radius: 6px;">
+                        <div style="font-weight: 600; color: #38bdf8; margin-bottom: 2px;">Last Output Deliverable:</div>
+                        <div style="color: var(--text-main);">@_selectedNode.LastOutputSummary</div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🖱️</div>
+                <div style="font-size: 0.88rem;">Click on any node on the DAG canvas to inspect its agent binding, live state, and configuration.</div>
+            </div>
+        }
+    </div>
+
+    <!-- Resilience Policy -->
+    <div class="glass-card">
+        <h3 style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;">Circuit Breaker & Resilience</h3>
+        
+        <div class="form-group">
+            <label class="form-label">Max Remediation Retries</label>
+            <input class="form-control" type="number" min="1" max="10" value="@currentTeam.Graph.Policy.MaxRetries" @onchange="HandleMaxRetriesChanged" />
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Trips and pauses graph if failure loops exceed this limit.</span>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" checked="@currentTeam.Graph.Policy.CircuitBreakerEnabled" @onchange="HandleCircuitBreakerToggle" />
+                <span>Circuit Breaker Active</span>
+            </label>
+            <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Automatically catches and stops infinite remediation loops.</span>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Fallback Remediation Role</label>
+            <select class="form-control" value="@currentTeam.Graph.Policy.FallbackRole" @onchange="HandleFallbackRoleChanged">
+                @foreach (AgentRole role in Enum.GetValues(typeof(AgentRole)))
+                {
+                    <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Squad Fallback Inference Model</label>
+            <select class="form-control" value="@(currentTeam.DefaultFallbackModel ?? "")" @onchange="HandleFallbackModelChanged">
+                <option value="">-- No Fallback Model --</option>
+                @foreach (var m in availableCatalogModels)
+                {
+                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                }
+                @if (!string.IsNullOrEmpty(currentTeam.DefaultFallbackModel) && !availableCatalogModels.Any(m => m.Id == currentTeam.DefaultFallbackModel))
+                {
+                    <option value="@currentTeam.DefaultFallbackModel">@currentTeam.DefaultFallbackModel</option>
+                }
+            </select>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Inherited when individual agent nodes do not specify an inference model.</span>
+        </div>
+    </div>
+</div>
+
+<!-- Add Node Modal -->
+@if (showAddNodeModal)
+{
+    <div class="modal-backdrop" @onclick="() => showAddNodeModal = false">
+        <div class="modal-dialog" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Add Agent Node to Squad DAG</h3>
+                <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Select Defined Agent (from Agent Studio)</label>
+                    <select class="form-control" value="@newNodeAgentId" @onchange="OnNewNodeAgentSelected">
+                        @foreach (var agent in AgentManager.GetAllAgents())
+                        {
+                            <option value="@agent.Id">@agent.Persona.Role.ToEmoji() @agent.Persona.Name (@agent.Persona.Role.ToDisplayName())</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Node Role</label>
+                    <select class="form-control" @bind="newNodeRole">
+                        @foreach (AgentRole role in Enum.GetValues(typeof(AgentRole)))
+                        {
+                            <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Display Name</label>
+                    <input class="form-control" @bind="newNodeName" placeholder="Node display label..." />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="AddNodeToGraph">➕ Add to DAG</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- New Team Modal -->
+@if (showNewTeamModal)
+{
+    <div class="modal-backdrop" @onclick="() => showNewTeamModal = false">
+        <div class="modal-dialog" style="max-width: 520px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.15rem; font-weight: 700;">Create or Clone Squad</h3>
+                <button class="btn btn-secondary" @onclick="() => showNewTeamModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Squad Name</label>
+                    <input class="form-control" @bind="newTeamName" placeholder="e.g. Core Engineering Swarm" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <input class="form-control" @bind="newTeamDesc" placeholder="Squad purpose and scope..." />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Base Configuration</label>
+                    <select class="form-control" @bind="newTeamBaseChoice">
+                        <option value="clone">📋 Clone Current Squad (@currentTeam.Name)</option>
+                        @foreach (var preset in CarnotCycleCircus.Core.Domain.Teams.TeamDefinition.DefaultPresets)
+                        {
+                            <option value="@preset.Id">🎪 Preset: @preset.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showNewTeamModal = false">Cancel</button>
+                <button class="btn btn-success" @onclick="CreateOrCloneSquad">🎯 Save Squad</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Export / Import JSON Modal -->
+@if (showJsonModal)
+{
+    <div class="modal-backdrop" @onclick="() => showJsonModal = false">
+        <div class="modal-dialog" style="max-width: 750px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">
+                    @(isImportMode ? "📥 Import Squad JSON" : "💾 Export Squad JSON")
+                </h3>
+                <button class="btn btn-secondary" @onclick="() => showJsonModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (isImportMode)
+                {
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Paste a valid JSON representation of a <code>TeamDefinition</code> below:
+                    </p>
+                    <textarea class="form-control" style="height: 260px; font-family: monospace; font-size: 0.8rem;" @bind="jsonPayload" placeholder="{ &quot;Id&quot;: &quot;...&quot;, &quot;Graph&quot;: { ... } }"></textarea>
+                }
+                else
+                {
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
+                        Copy the current squad and DAG layout configuration:
+                    </p>
+                    <textarea class="form-control" style="height: 260px; font-family: monospace; font-size: 0.8rem;" readonly>@jsonPayload</textarea>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showJsonModal = false">Close</button>
+                @if (isImportMode)
+                {
+                    <button class="btn btn-success" @onclick="ApplyJsonImport">Import Squad</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Squad Confirmation Modal -->
+@if (showDeleteConfirmModal)
+{
+    <div class="modal-backdrop" @onclick="() => showDeleteConfirmModal = false">
+        <div class="modal-dialog" style="max-width: 480px; border: 1px solid #ef4444;" @onclick:stopPropagation="true">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.2);">
+                <h3 style="font-size: 1.15rem; font-weight: 700; color: #ef4444;">🗑️ Delete Squad</h3>
+                <button class="btn btn-secondary" @onclick="() => showDeleteConfirmModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: #f8fafc; font-size: 0.95rem; line-height: 1.5; margin-bottom: 12px;">
+                    Are you sure you want to delete squad <strong>@teamToDeleteName</strong> (<code style="color: #38bdf8;">@teamToDeleteId</code>)?
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0;">
+                    This will permanently remove the squad's customized workflow DAG topology and member configuration.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showDeleteConfirmModal = false">Cancel</button>
+                <button class="btn btn-danger" @onclick="ConfirmDeleteTeam" disabled="@(TeamManager.GetAllTeams().Count <= 1)">
+                    🗑️ Delete Squad
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Squad Roster / Swarm Directory Modal -->
+@if (showSquadRosterModal)
+{
+    <div class="modal-backdrop" @onclick="() => showSquadRosterModal = false">
+        <div class="modal-dialog" style="max-width: 780px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.15rem; font-weight: 700;">👥 Squad Roster & Swarm Directory</h3>
+                <button class="btn btn-secondary" @onclick="() => showSquadRosterModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body" style="max-height: 520px; overflow-y: auto;">
+                <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid var(--border-color); text-align: left; color: var(--text-muted);">
+                            <th style="padding: 8px 10px;">Squad</th>
+                            <th style="padding: 8px 10px;">Topology</th>
+                            <th style="padding: 8px 10px;">Status</th>
+                            <th style="padding: 8px 10px; text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var squad in TeamManager.GetAllTeams())
+                        {
+                            var isActive = string.Equals(squad.Id, currentTeam.Id, StringComparison.OrdinalIgnoreCase);
+                            <tr @key="@squad.Id" style="border-bottom: 1px solid var(--border-color); @(isActive ? "background: rgba(56, 189, 248, 0.08);" : "")">
+                                <td style="padding: 10px 10px;">
+                                    <div style="font-weight: 700; color: #f8fafc;">@squad.Name</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">@squad.Id</div>
+                                    @if (!string.IsNullOrWhiteSpace(squad.Description))
+                                    {
+                                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">@squad.Description</div>
+                                    }
+                                </td>
+                                <td style="padding: 10px 10px; white-space: nowrap;">
+                                    <div>@(squad.Graph?.Nodes?.Count ?? 0) nodes</div>
+                                    <div style="color: var(--text-muted); font-size: 0.75rem;">@(squad.Members?.Count ?? 0) agents</div>
+                                </td>
+                                <td style="padding: 10px 10px; white-space: nowrap;">
+                                    @if (isActive)
+                                    {
+                                        <span class="badge" style="background: #38bdf8; color: #000; font-weight: 700;">ACTIVE</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge" style="background: rgba(255, 255, 255, 0.1); color: var(--text-muted);">Ready</span>
+                                    }
+                                </td>
+                                <td style="padding: 10px 10px; text-align: right; white-space: nowrap;">
+                                    @if (!isActive)
+                                    {
+                                        <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.78rem; margin-right: 4px;" @onclick="() => SwitchAndCloseRoster(squad.Id)">
+                                            Select
+                                        </button>
+                                    }
+                                    <button class="btn btn-secondary" style="padding: 3px 6px; font-size: 0.78rem; margin-right: 4px;" title="Duplicate Squad" @onclick="() => DuplicateFromRoster(squad.Id, squad.Name)">
+                                        📋
+                                    </button>
+                                    @if (TeamManager.GetAllTeams().Count > 1)
+                                    {
+                                        <button class="btn btn-danger" style="padding: 3px 6px; font-size: 0.78rem;" title="Delete Squad" @onclick="() => OpenDeleteConfirmModal(squad.Id, squad.Name)">
+                                            🗑️
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showSquadRosterModal = false">Close</button>
+                <button class="btn btn-success" @onclick="() => { showSquadRosterModal = false; OpenNewTeamModal(); }">➕ Create New Squad</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private EngineeringTeam currentTeam = default!;
+    private string? statusMessage;
+
+    // Node Selection & Canvas Dragging State
+    private string? _selectedNodeId;
+    private GraphNode? _selectedNode => currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId);
+
+    private string? _draggingNodeId;
+    private double _dragStartClientX;
+    private double _dragStartClientY;
+    private int _nodeInitialX;
+    private int _nodeInitialY;
+
+    // Port Cabling State
+    private bool _isConnecting;
+    private string? _sourceConnectingNodeId;
+    private PortType _sourceConnectingPort;
+    private GraphNode? _sourceConnectingNode => currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _sourceConnectingNodeId);
+    private int _draftStartX;
+    private int _draftStartY;
+    private int _currentMouseX;
+    private int _currentMouseY;
+
+    // Modals
+    private bool showNewTeamModal;
+    private string newTeamName = "";
+    private string newTeamDesc = "";
+    private string newTeamBaseChoice = "clone";
+
+    private bool showAddNodeModal;
+    private string newNodeAgentId = "";
+    private AgentRole newNodeRole = AgentRole.SoftwareDeveloper;
+    private string newNodeName = "";
+
+    private bool showJsonModal;
+    private bool isImportMode;
+    private string jsonPayload = "";
+
+    private bool showDeleteConfirmModal;
+    private bool showSquadRosterModal;
+    private string? teamToDeleteId;
+    private string? teamToDeleteName;
+
+    private IReadOnlyList<ModelCatalogEntry> availableCatalogModels = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentTeam = TeamManager.GetCurrentTeam();
+        TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
+        GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
+        GraphExecutor.OnNodeStateChanged += HandleNodeStateChanged;
+        GraphExecutor.LoadTeam(currentTeam);
+        availableCatalogModels = await CatalogService.GetModelsAsync();
+    }
+
+    private void HandleGraphUpdated(WorkflowGraph _)
+    {
+        currentTeam = TeamManager.GetCurrentTeam();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleNodeStateChanged(string _, NodeExecutionState __)
+    {
+        currentTeam = TeamManager.GetCurrentTeam();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleFallbackModelChanged(ChangeEventArgs e)
+    {
+        var model = e.Value?.ToString() ?? "";
+        var current = TeamManager.GetCurrentTeamDefinition();
+        if (current != null)
+        {
+            var updated = current with { DefaultFallbackModel = model };
+            TeamManager.SaveTeam(updated);
+            statusMessage = $"Updated squad fallback model to '{(string.IsNullOrWhiteSpace(model) ? "None" : model)}'.";
+        }
+    }
+
+    private void HandleTeamChanged(EngineeringTeam team)
+    {
+        currentTeam = team;
+        GraphExecutor.LoadTeam(team);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTeamSelectionChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (!string.IsNullOrWhiteSpace(val))
+        {
+            var switched = TeamManager.SwitchToTeam(val);
+            if (switched)
+            {
+                currentTeam = TeamManager.GetCurrentTeam();
+                GraphExecutor.LoadTeam(currentTeam);
+                statusMessage = $"Switched active squad to '{currentTeam.Name}'.";
+                _selectedNodeId = null;
+            }
+        }
+    }
+
+    private void SelectNode(string nodeId)
+    {
+        _selectedNodeId = nodeId;
+    }
+
+    private void StartDrag(MouseEventArgs e, string nodeId)
+    {
+        var node = currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node == null) return;
+
+        _selectedNodeId = nodeId;
+        _draggingNodeId = nodeId;
+        _dragStartClientX = e.ClientX;
+        _dragStartClientY = e.ClientY;
+        _nodeInitialX = node.X;
+        _nodeInitialY = node.Y;
+    }
+
+    private void HandleCanvasMouseMove(MouseEventArgs e)
+    {
+        if (_isConnecting)
+        {
+            _currentMouseX = (int)Math.Clamp(e.OffsetX, 10, 1100);
+            _currentMouseY = (int)Math.Clamp(e.OffsetY, 10, 480);
+        }
+
+        if (_draggingNodeId != null)
+        {
+            var deltaX = (int)(e.ClientX - _dragStartClientX);
+            var deltaY = (int)(e.ClientY - _dragStartClientY);
+            var newX = Math.Clamp(_nodeInitialX + deltaX, 20, 950);
+            var newY = Math.Clamp(_nodeInitialY + deltaY, 20, 390);
+
+            var updatedNodes = currentTeam.Graph.Nodes
+                .Select(n => n.Id == _draggingNodeId ? n with { X = newX, Y = newY } : n)
+                .ToList();
+
+            UpdateTeamGraph(currentTeam.Graph with { Nodes = updatedNodes });
+        }
+    }
+
+    private void HandleCanvasMouseUp()
+    {
+        _draggingNodeId = null;
+    }
+
+    private void StartConnecting(string nodeId, PortType port)
+    {
+        var node = currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == nodeId);
+        if (node == null) return;
+
+        _isConnecting = true;
+        _sourceConnectingNodeId = nodeId;
+        _sourceConnectingPort = port;
+
+        _draftStartX = port == PortType.Failure ? node.X + 80 : node.X + 160;
+        _draftStartY = port == PortType.Failure ? node.Y + 90 : node.Y + 45;
+        _currentMouseX = _draftStartX;
+        _currentMouseY = _draftStartY;
+    }
+
+    private void HandleInputPortClick(string targetNodeId)
+    {
+        if (!_isConnecting || string.IsNullOrEmpty(_sourceConnectingNodeId)) return;
+
+        if (_sourceConnectingNodeId != targetNodeId)
+        {
+            var conn = new PortConnection(_sourceConnectingNodeId, _sourceConnectingPort, targetNodeId, PortType.Input);
+            if (GraphExecutor.ValidateConnection(conn, out var err))
+            {
+                var list = currentTeam.Graph.Connections.Append(conn).Distinct().ToList();
+                UpdateTeamGraph(currentTeam.Graph with { Connections = list });
+                statusMessage = $"Connected cable: {_sourceConnectingNodeId} ({_sourceConnectingPort}) ➔ {targetNodeId} (Input).";
+            }
+            else
+            {
+                statusMessage = $"Connection rejected: {err}";
+            }
+        }
+
+        CancelConnecting();
+    }
+
+    private void CancelConnecting()
+    {
+        _isConnecting = false;
+        _sourceConnectingNodeId = null;
+    }
+
+    private void DisconnectCable(PortConnection conn)
+    {
+        var list = currentTeam.Graph.Connections
+            .Where(c => !(c.SourceNodeId == conn.SourceNodeId && c.SourcePort == conn.SourcePort && c.TargetNodeId == conn.TargetNodeId && c.TargetPort == conn.TargetPort))
+            .ToList();
+        UpdateTeamGraph(currentTeam.Graph with { Connections = list });
+        statusMessage = $"Disconnected cable: {conn.SourceNodeId} -> {conn.TargetNodeId}.";
+    }
+
+    private void DeleteNode(string nodeId)
+    {
+        var nodes = currentTeam.Graph.Nodes.Where(n => n.Id != nodeId).ToList();
+        var conns = currentTeam.Graph.Connections.Where(c => c.SourceNodeId != nodeId && c.TargetNodeId != nodeId).ToList();
+        UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes, Connections = conns });
+        _selectedNodeId = null;
+        statusMessage = $"Removed node {nodeId} from DAG.";
+    }
+
+    private void OnNodeAgentSelectionChanged(ChangeEventArgs e)
+    {
+        var agentId = e.Value?.ToString();
+        if (_selectedNode != null)
+        {
+            var agent = !string.IsNullOrEmpty(agentId) ? AgentManager.GetAgent(agentId) : null;
+            var updatedNode = _selectedNode with
+            {
+                AgentId = string.IsNullOrEmpty(agentId) ? null : agentId,
+                Role = agent?.Persona.Role ?? _selectedNode.Role,
+                Name = agent?.Persona.Name ?? _selectedNode.Name
+            };
+            var nodes = currentTeam.Graph.Nodes.Select(n => n.Id == updatedNode.Id ? updatedNode : n).ToList();
+            UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes });
+            statusMessage = $"Assigned agent '{(agent?.Persona.Name ?? "Default")}' to node {updatedNode.Id}.";
+        }
+    }
+
+    private void OnNodeRoleChanged(ChangeEventArgs e)
+    {
+        if (_selectedNode != null && Enum.TryParse<AgentRole>(e.Value?.ToString(), out var role))
+        {
+            var updatedNode = _selectedNode with { Role = role };
+            var nodes = currentTeam.Graph.Nodes.Select(n => n.Id == updatedNode.Id ? updatedNode : n).ToList();
+            UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes });
+        }
+    }
+
+    private void HandleMaxRetriesChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var r) && r >= 1 && r <= 10)
+        {
+            var p = currentTeam.Graph.Policy;
+            UpdateTeamGraph(currentTeam.Graph with { Policy = p with { MaxRetries = r } });
+        }
+    }
+
+    private void HandleCircuitBreakerToggle(ChangeEventArgs e)
+    {
+        if (bool.TryParse(e.Value?.ToString(), out var en))
+        {
+            var p = currentTeam.Graph.Policy;
+            UpdateTeamGraph(currentTeam.Graph with { Policy = p with { CircuitBreakerEnabled = en } });
+        }
+    }
+
+    private void HandleFallbackRoleChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AgentRole>(e.Value?.ToString(), out var role))
+        {
+            var p = currentTeam.Graph.Policy;
+            UpdateTeamGraph(currentTeam.Graph with { Policy = p with { FallbackRole = role } });
+        }
+    }
+
+    private void UpdateTeamGraph(WorkflowGraph graph)
+    {
+        TeamManager.UpdateCurrentTeamGraph(graph);
+        GraphExecutor.SetGraph(graph);
+    }
+
+    private async Task RunWorkflow()
+    {
+        statusMessage = "🚀 Unleashing autonomous engineering pipeline for active squad...";
+        GraphExecutor.LoadTeam(currentTeam);
+        
+        var readyTickets = TicketStore.GetReadyTickets();
+        if (readyTickets.Count > 0)
+        {
+            await GraphExecutor.ExecuteReadyTicketsAsync();
+            statusMessage = "Workflow finished executing ready tickets!";
+        }
+        else
+        {
+            await GraphExecutor.ExecuteWorkflowAsync(
+                $"{currentTeam.Name} Initiative",
+                $"Execute autonomous engineering pipeline with {currentTeam.Name} topology."
+            );
+            statusMessage = "Full epic workflow orchestration executed successfully!";
+        }
+    }
+
+    private async Task StepNext()
+    {
+        GraphExecutor.LoadTeam(currentTeam);
+        var advanced = await GraphExecutor.StepNextNodeAsync();
+        if (advanced)
+        {
+            statusMessage = "Advanced workflow execution to next stage.";
+        }
+        else
+        {
+            statusMessage = "No nodes eligible to step or graph is idle.";
+        }
+    }
+
+    private void ResetExecution()
+    {
+        GraphExecutor.ResetGraph();
+        _selectedNodeId = null;
+        statusMessage = "Execution state reset to Idle.";
+    }
+
+    private void OpenAddNodeModal()
+    {
+        var firstAgent = AgentManager.GetAllAgents().FirstOrDefault();
+        newNodeAgentId = firstAgent?.Id ?? "";
+        newNodeRole = firstAgent?.Persona.Role ?? AgentRole.SoftwareDeveloper;
+        newNodeName = firstAgent?.Persona.Name ?? "New Agent Node";
+        showAddNodeModal = true;
+    }
+
+    private void OnNewNodeAgentSelected(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString() ?? "";
+        newNodeAgentId = id;
+        var agent = AgentManager.GetAgent(id);
+        if (agent != null)
+        {
+            newNodeRole = agent.Persona.Role;
+            newNodeName = agent.Persona.Name;
+        }
+    }
+
+    private void AddNodeToGraph()
+    {
+        var id = $"node-{Guid.NewGuid().ToString("N")[..6]}";
+        var node = new GraphNode(
+            Id: id,
+            Role: newNodeRole,
+            Name: string.IsNullOrWhiteSpace(newNodeName) ? newNodeRole.ToDisplayName() : newNodeName.Trim(),
+            X: 100 + (currentTeam.Graph.Nodes.Count * 40) % 700,
+            Y: 100 + (currentTeam.Graph.Nodes.Count * 30) % 300,
+            AgentId: string.IsNullOrWhiteSpace(newNodeAgentId) ? null : newNodeAgentId
+        );
+
+        var nodes = currentTeam.Graph.Nodes.Append(node).ToList();
+        UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes });
+        showAddNodeModal = false;
+        _selectedNodeId = id;
+        statusMessage = $"Added node '{node.Name}' to squad DAG.";
+    }
+
+    private void OpenNewTeamModal()
+    {
+        newTeamName = $"{currentTeam.Name} (Copy)";
+        newTeamDesc = currentTeam.Description;
+        newTeamBaseChoice = "clone";
+        showNewTeamModal = true;
+    }
+
+    private void CreateOrCloneSquad()
+    {
+        if (string.IsNullOrWhiteSpace(newTeamName))
+        {
+            statusMessage = "Squad name cannot be empty.";
+            return;
+        }
+
+        if (newTeamBaseChoice == "clone")
+        {
+            var dup = TeamManager.DuplicateTeam(currentTeam.Id, newTeamName.Trim());
+            statusMessage = $"Cloned squad '{dup.Name}' successfully.";
+        }
+        else
+        {
+            var created = TeamManager.CreateTeam(newTeamName.Trim(), newTeamDesc.Trim(), newTeamBaseChoice);
+            statusMessage = $"Created squad '{created.Name}' successfully.";
+        }
+
+        showNewTeamModal = false;
+    }
+
+    private void OpenSquadRosterModal()
+    {
+        showSquadRosterModal = true;
+    }
+
+    private void SwitchAndCloseRoster(string teamId)
+    {
+        var switched = TeamManager.SwitchToTeam(teamId);
+        if (switched)
+        {
+            currentTeam = TeamManager.GetCurrentTeam();
+            GraphExecutor.LoadTeam(currentTeam);
+            statusMessage = $"Switched active squad to '{currentTeam.Name}'.";
+            _selectedNodeId = null;
+        }
+        showSquadRosterModal = false;
+    }
+
+    private void DuplicateFromRoster(string teamId, string teamName)
+    {
+        var duplicated = TeamManager.DuplicateTeam(teamId, $"{teamName} (Copy)");
+        statusMessage = $"Duplicated squad '{duplicated.Name}' successfully.";
+    }
+
+    private void OpenDeleteConfirmModal(string teamId, string teamName)
+    {
+        teamToDeleteId = teamId;
+        teamToDeleteName = teamName;
+        showDeleteConfirmModal = true;
+    }
+
+    private void ConfirmDeleteTeam()
+    {
+        if (string.IsNullOrEmpty(teamToDeleteId)) return;
+
+        if (TeamManager.GetAllTeams().Count <= 1)
+        {
+            statusMessage = "Cannot delete the only remaining squad.";
+            showDeleteConfirmModal = false;
+            return;
+        }
+
+        var name = teamToDeleteName ?? teamToDeleteId;
+        var deleted = TeamManager.DeleteTeam(teamToDeleteId);
+        if (deleted)
+        {
+            currentTeam = TeamManager.GetCurrentTeam();
+            GraphExecutor.LoadTeam(currentTeam);
+            statusMessage = $"Deleted squad '{name}' successfully.";
+            _selectedNodeId = null;
+        }
+        else
+        {
+            statusMessage = $"Failed to delete squad '{name}'.";
+        }
+
+        showDeleteConfirmModal = false;
+        teamToDeleteId = null;
+        teamToDeleteName = null;
+    }
+
+    private void ExportTeam()
+    {
+        isImportMode = false;
+        jsonPayload = TeamManager.ExportToJson(currentTeam.Id);
+        showJsonModal = true;
+    }
+
+    private void OpenImportModal()
+    {
+        isImportMode = true;
+        jsonPayload = "";
+        showJsonModal = true;
+    }
+
+    private void ApplyJsonImport()
+    {
+        try
+        {
+            var imported = TeamManager.ImportFromJson(jsonPayload);
+            showJsonModal = false;
+            currentTeam = TeamManager.GetCurrentTeam();
+            GraphExecutor.LoadTeam(currentTeam);
+            statusMessage = $"Imported squad '{imported.Name}' successfully.";
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Import error: {ex.Message}";
+        }
+    }
+
+    private static string GetStateBackground(NodeExecutionState state) => state switch
+    {
+        NodeExecutionState.Running => "rgba(56, 189, 248, 0.2)",
+        NodeExecutionState.Completed => "rgba(34, 197, 94, 0.2)",
+        NodeExecutionState.Failed => "rgba(239, 68, 68, 0.2)",
+        NodeExecutionState.Remediating => "rgba(234, 179, 8, 0.2)",
+        _ => "rgba(255, 255, 255, 0.05)"
+    };
+
+    public void Dispose()
+    {
+        TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
+        GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
+        GraphExecutor.OnNodeStateChanged -= HandleNodeStateChanged;
+    }
+}

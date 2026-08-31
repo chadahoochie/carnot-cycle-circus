@@ -46,4 +46,10 @@ public class OpenRouterClientTests
         var models = await _client.FetchModelsAsync(apiKey);
         models.Should().BeEmpty();
     }
+
+    [Fact]
+    public void OpenRouterClient_DefaultTimeout_ShouldBeTenMinutes()
+    {
+        OpenRouterClient.DefaultTimeout.Should().Be(TimeSpan.FromMinutes(10));
+    }
 }

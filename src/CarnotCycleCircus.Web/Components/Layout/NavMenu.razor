@@ -9,8 +9,18 @@
 
     <ul class="nav-list">
         <li class="nav-item">
-            <NavLink href="" Match="NavLinkMatch.All" @onclick="HandleNavigate">
-                <span>🎯</span> Team Circus Ring
+            <NavLink href="agents" @onclick="HandleNavigate">
+                <span>🤖</span> Agent Studio
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="teams" Match="NavLinkMatch.All" @onclick="HandleNavigate">
+                <span>👥</span> Team Management
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="dashboard" @onclick="HandleNavigate">
+                <span>⚡</span> Panic & Telemetry
             </NavLink>
         </li>
         <li class="nav-item">
@@ -21,16 +31,6 @@
         <li class="nav-item">
             <NavLink href="artifacts" @onclick="HandleNavigate">
                 <span>📦</span> Repo Deliverables
-            </NavLink>
-        </li>
-        <li class="nav-item">
-            <NavLink href="canvas" @onclick="HandleNavigate">
-                <span>🎨</span> Rube Goldberg Canvas
-            </NavLink>
-        </li>
-        <li class="nav-item">
-            <NavLink href="dashboard" @onclick="HandleNavigate">
-                <span>⚡</span> Panic & Telemetry
             </NavLink>
         </li>
         <li class="nav-item">
@@ -98,4 +98,3 @@
         }
     }
 }
-

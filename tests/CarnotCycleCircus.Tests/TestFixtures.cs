@@ -10,12 +10,15 @@ public sealed class MockOpenRouterClient : IOpenRouterClient
     public string? LastApiKey { get; private set; }
     public bool ShouldThrow { get; set; }
     public Func<OpenRouterChatRequest, string>? ResponseFactory { get; set; }
+    public Func<OpenRouterChatRequest, OpenRouterChatResponse>? FullResponseFactory { get; set; }
 
     public Task<OpenRouterChatResponse> CompleteAsync(
         OpenRouterChatRequest request,
         string apiKey,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (ShouldThrow)
         {
             throw new HttpRequestException("OpenRouter API returned 401 Unauthorized: Invalid API key.");
@@ -23,6 +26,11 @@ public sealed class MockOpenRouterClient : IOpenRouterClient
 
         LastRequest = request;
         LastApiKey = apiKey;
+
+        if (FullResponseFactory != null)
+        {
+            return Task.FromResult(FullResponseFactory(request));
+        }
 
         var content = ResponseFactory != null
             ? ResponseFactory(request)
@@ -44,6 +52,7 @@ public sealed class MockOpenRouterClient : IOpenRouterClient
         string? apiKey = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         IReadOnlyList<OpenRouterRawModelDto> list = Array.Empty<OpenRouterRawModelDto>();
         return Task.FromResult(list);
     }
@@ -90,15 +99,22 @@ public sealed class StaticInferenceResolver : IAgentInferenceResolver
 {
     private readonly string _model;
     private readonly string _apiKey;
+    private readonly string? _fallbackModel;
 
-    public StaticInferenceResolver(string model = "deepseek/deepseek-chat", string apiKey = "sk-or-v1-test-active-key")
+    public StaticInferenceResolver(string model = "deepseek/deepseek-chat", string apiKey = "sk-or-v1-test-active-key", string? fallbackModel = null)
     {
         _model = model;
         _apiKey = apiKey;
+        _fallbackModel = fallbackModel;
     }
 
     public (string Model, string ApiKey) ResolveInferenceParameters(AgentMember member, EngineeringTeam team)
     {
         return (_model, _apiKey);
+    }
+
+    public ResolvedInferenceConfig ResolveInferenceConfig(AgentMember member, EngineeringTeam team)
+    {
+        return new ResolvedInferenceConfig(_model, _fallbackModel, _apiKey);
     }
 }

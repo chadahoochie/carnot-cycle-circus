@@ -1,0 +1,685 @@
+@page "/agents"
+@implements IDisposable
+@inject IAgentDefinitionManager AgentDefManager
+@inject ISkillRegistry SkillRegistry
+@inject IAgentNameGenerator NameGenerator
+@inject IModelCatalogService CatalogService
+@inject IApiKeyVaultService KeyVaultService
+
+<div class="page-header">
+    <div>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">🤖 Agent Studio & Performer Roster</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Define, customize, and manage autonomous AI engineering agents with specialized skills, inference models, and role directives.</p>
+    </div>
+
+    <div class="page-header-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <input class="form-control" style="width: 220px; font-size: 0.85rem;" placeholder="🔍 Search agents or skills..." @bind="searchQuery" @bind:event="oninput" />
+
+        <select class="form-control" style="width: auto;" @bind="filterRole">
+            <option value="">All Roles (@allAgents.Count)</option>
+            @foreach (var role in Enum.GetValues<AgentRole>())
+            {
+                <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+            }
+        </select>
+
+        <button class="btn btn-success" @onclick="OpenAddModal" style="white-space: nowrap;">
+            ➕ Enlist Agent
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>@statusMessage</span>
+        <button style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-weight: bold;" @onclick="() => statusMessage = null">✕</button>
+    </div>
+}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 20px;">
+    @foreach (var agent in FilteredAgents)
+    {
+        <div @key="@agent.Id" class="glass-card" style="border-top: 4px solid @agent.Persona.Role.ToColorHex(); display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 2rem;">@agent.Persona.Role.ToEmoji()</span>
+                        <div>
+                            <h3 style="font-size: 1.05rem; font-weight: 700; color: #f8fafc; margin-bottom: 2px;">@agent.Persona.Name</h3>
+                            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                                <span class="badge" style="background: @agent.Persona.Role.ToColorHex(); color: #000; font-size: 0.68rem; font-weight: 700;">@agent.Persona.Role.ToDisplayName()</span>
+                                <span style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">@agent.Id</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" title="Edit Agent" @onclick="() => OpenEditModal(agent)">
+                            ✏️
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 0.75rem;" title="Duplicate Agent" @onclick="() => OpenCloneModal(agent)">
+                            📋
+                        </button>
+                        <button class="btn btn-danger" style="padding: 2px 6px; font-size: 0.75rem;" title="Delete Agent" @onclick="() => DeleteAgent(agent)">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Assigned Skills Badges -->
+                @{
+                    var memberSkills = GetAgentSkills(agent);
+                }
+                @if (memberSkills.Count > 0)
+                {
+                    <div style="margin-bottom: 12px; background: var(--bg-primary); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                        <div style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Assigned Capabilities & Skills:</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                            @foreach (var sk in memberSkills)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); font-size: 0.68rem;">
+                                    🧩 @sk.Name
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label class="form-label" style="margin-bottom: 0;">Primary Inference Model</label>
+                        <a href="models" style="font-size: 0.72rem; color: #38bdf8; text-decoration: none;">🎭 Model Catalog</a>
+                    </div>
+                    <select class="form-control" value="@(agent.EffectiveModel ?? "")" @onchange="(e) => UpdateModel(agent, e)">
+                        <option value="">-- No Model Selected --</option>
+                        @{
+                            var memberRole = agent.Persona.Role;
+                            var favorites = availableCatalogModels.Where(m => m.IsFavorite).ToList();
+                            var recommended = availableCatalogModels.Where(m => !m.IsFavorite && IsRecommendedForRole(m, memberRole)).ToList();
+                            var others = availableCatalogModels.Where(m => !m.IsFavorite && !IsRecommendedForRole(m, memberRole)).ToList();
+                        }
+                        @if (favorites.Count > 0)
+                        {
+                            <optgroup label="⭐ Starred Favorites">
+                                @foreach (var m in favorites)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (recommended.Count > 0)
+                        {
+                            <optgroup label="🎪 Recommended for @memberRole.ToDisplayName()">
+                                @foreach (var m in recommended)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (others.Count > 0)
+                        {
+                            <optgroup label="🌐 Other Available Models">
+                                @foreach (var m in others)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (!string.IsNullOrEmpty(agent.EffectiveModel) && !availableCatalogModels.Any(m => m.Id == agent.EffectiveModel))
+                        {
+                            <optgroup label="📌 Custom Model">
+                                <option value="@agent.EffectiveModel">@agent.EffectiveModel</option>
+                            </optgroup>
+                        }
+                    </select>
+                    @{
+                        var currentSelectedModel = availableCatalogModels.FirstOrDefault(m => m.Id == agent.EffectiveModel);
+                    }
+                    @if (currentSelectedModel != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.7rem; color: var(--text-muted);">
+                            <span>💰 @currentSelectedModel.FormattedPricing</span>
+                            <span>📏 @(currentSelectedModel.ContextLength / 1000)k ctx</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">API Key Override</label>
+                    <select class="form-control" value="@(agent.CustomApiKeyId ?? "")" @onchange="(e) => UpdateKey(agent, e)">
+                        <option value="">Use Global Active Key (Default)</option>
+                        @foreach (var key in KeyVaultService.GetAllKeys())
+                        {
+                            <option value="@key.KeyId">@key.KeyName (@key.ApiKeyMasked)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Role Directive & System Prompt</label>
+                    <textarea class="form-control" rows="3" style="font-size: 0.8rem;" value="@agent.Persona.SystemPrompt" @onchange="(e) => UpdatePrompt(agent, e)"></textarea>
+                </div>
+
+                <div>
+                    <div style="font-size: 0.78rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Allowed Sandboxed Tools:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                        @foreach (var tool in agent.Persona.AllowedToolNames)
+                        {
+                            <span style="font-family: monospace; font-size: 0.72rem; background: var(--bg-primary); border: 1px solid var(--border-color); padding: 2px 6px; border-radius: 4px; color: #38bdf8;">
+                                ⚙️ @tool
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@if (FilteredAgents.Count == 0)
+{
+    <div class="glass-card" style="text-align: center; color: var(--text-muted); padding: 40px; margin-top: 20px;">
+        <span style="font-size: 2rem;">🤖</span>
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: #f8fafc; margin-top: 10px;">No agents match your filter</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 16px;">Try adjusting your search query or role filter, or enlist a new custom agent.</p>
+        <button class="btn btn-success" @onclick="OpenAddModal">➕ Enlist New Agent</button>
+    </div>
+}
+
+<!-- Add / Edit Agent Modal -->
+@if (showAddModal || showEditModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-dialog" style="max-width: 680px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">🤖</span>
+                    <h3 style="font-size: 1.15rem; font-weight: 700;">@(showEditModal ? $"Edit Agent: {modalAgentName}" : "Enlist New Autonomous Agent")</h3>
+                </div>
+                <button class="btn btn-secondary" @onclick="CloseModal" style="padding: 4px 8px;">✕</button>
+            </div>
+
+            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                <!-- Role Selection -->
+                <div class="form-group">
+                    <label class="form-label">1. Circus Role</label>
+                    <select class="form-control" value="@modalAgentRole" @onchange="OnModalRoleChanged">
+                        @foreach (var role in Enum.GetValues<AgentRole>())
+                        {
+                            <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Skill Assignment -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label class="form-label" style="margin-bottom: 0;">2. Specialized Capabilities & Skills</label>
+                        <span style="font-size: 0.75rem; color: #38bdf8;">(@modalSelectedSkillIds.Count skills selected)</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); max-height: 180px; overflow-y: auto;">
+                        @foreach (var skill in SkillRegistry.GetAllSkills())
+                        {
+                            var isChecked = modalSelectedSkillIds.Contains(skill.Id);
+                            <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; cursor: pointer; color: #f8fafc; padding: 4px 6px; border-radius: 4px; background: @(isChecked ? "rgba(56, 189, 248, 0.1)" : "transparent");">
+                                <input type="checkbox" checked="@isChecked" @onchange="(e) => ToggleSkillSelection(skill.Id, e)" style="margin-top: 3px;" />
+                                <div>
+                                    <div style="font-weight: 600; color: @(isChecked ? "#38bdf8" : "#f8fafc");">@skill.Name</div>
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">@skill.Category • @skill.Id</div>
+                                </div>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <!-- Agent Name with Suggestions -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label class="form-label" style="margin-bottom: 0;">3. Absurd Agent Name</label>
+                        <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" @onclick="RerollSuggestedName">
+                            🎲 Reroll Suggestions
+                        </button>
+                    </div>
+                    <input class="form-control" @bind="modalAgentName" placeholder="e.g. Devon 'Coldbrew' Crashdump (Senior Developer)" />
+                    
+                    @if (nameSuggestions.Count > 0)
+                    {
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px;">Click an alternative suggestion:</div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                @foreach (var sug in nameSuggestions)
+                                {
+                                    <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 0.74rem; background: var(--bg-tertiary); border: 1px solid var(--border-color);" @onclick="() => SelectSuggestion(sug)">
+                                        ✨ @sug
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Model Selection -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label class="form-label">Primary OpenRouter Model</label>
+                        <select class="form-control" @bind="modalAgentModel">
+                            <option value="">-- Select Inference Model --</option>
+                            @{
+                                var favs = availableCatalogModels.Where(m => m.IsFavorite).ToList();
+                                var recs = availableCatalogModels.Where(m => !m.IsFavorite && IsRecommendedForRole(m, modalAgentRole)).ToList();
+                                var others = availableCatalogModels.Where(m => !m.IsFavorite && !IsRecommendedForRole(m, modalAgentRole)).ToList();
+                            }
+                            @if (favs.Count > 0)
+                            {
+                                <optgroup label="⭐ Starred Favorites">
+                                    @foreach (var m in favs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (recs.Count > 0)
+                            {
+                                <optgroup label="🎪 Recommended for @modalAgentRole.ToDisplayName()">
+                                    @foreach (var m in recs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (others.Count > 0)
+                            {
+                                <optgroup label="🌐 Other Available Models">
+                                    @foreach (var m in others)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Fallback Model</label>
+                        <select class="form-control" @bind="modalAgentFallbackModel">
+                            <option value="">-- Select Fallback Model (Optional) --</option>
+                            @foreach (var m in availableCatalogModels)
+                            {
+                                <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Sandboxed Tools -->
+                <div class="form-group">
+                    <label class="form-label">Allowed Sandboxed Tools (Comma-separated)</label>
+                    <input class="form-control" @bind="modalAgentTools" placeholder="csharp_syntax_check, web_search, test_runner..." />
+                </div>
+
+                <!-- System Prompt -->
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label class="form-label" style="margin-bottom: 0;">Role Directive & System Prompt</label>
+                        <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" @onclick="RegenerateSystemPrompt">
+                            🔄 Reset Prompt from Skills
+                        </button>
+                    </div>
+                    <textarea class="form-control" rows="4" style="font-size: 0.8rem; font-family: monospace;" @bind="modalAgentSystemPrompt"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button class="btn btn-success" @onclick="SaveModalAgent">💾 @(showEditModal ? "Save Changes" : "Enlist Agent")</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Clone Agent Modal -->
+@if (showCloneModal && selectedAgentToClone != null)
+{
+    <div class="modal-backdrop" @onclick="() => showCloneModal = false">
+        <div class="modal-dialog" style="max-width: 480px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 style="font-size: 1.1rem; font-weight: 700;">📋 Duplicate Agent</h3>
+                <button class="btn btn-secondary" @onclick="() => showCloneModal = false" style="padding: 4px 8px;">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">
+                    Create an independent copy of <strong>@selectedAgentToClone.Persona.Name</strong>:
+                </p>
+                <div class="form-group">
+                    <label class="form-label">New Agent Name</label>
+                    <input class="form-control" @bind="cloneAgentName" placeholder="e.g. Clone of Devon Crashdump" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="() => showCloneModal = false">Cancel</button>
+                <button class="btn btn-primary" @onclick="ExecuteCloneAgent">Duplicate Agent</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AgentMember> allAgents = [];
+    private string searchQuery = "";
+    private string filterRole = "";
+    private string? statusMessage;
+    private IReadOnlyList<ModelCatalogEntry> availableCatalogModels = [];
+
+    // Modal State
+    private bool showAddModal;
+    private bool showEditModal;
+    private bool showCloneModal;
+    private AgentMember? editingAgent;
+    private AgentMember? selectedAgentToClone;
+    private string cloneAgentName = "";
+
+    private AgentRole modalAgentRole = AgentRole.SoftwareDeveloper;
+    private HashSet<string> modalSelectedSkillIds = new();
+    private string modalAgentName = "";
+    private List<string> nameSuggestions = new();
+    private string modalAgentModel = "";
+    private string modalAgentFallbackModel = "";
+    private double modalAgentTemperature = 0.1;
+    private string modalAgentTools = "csharp_syntax_check, test_runner, memory_lookup";
+    private string modalAgentSystemPrompt = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        allAgents = AgentDefManager.GetAllAgents();
+        AgentDefManager.OnAgentsChanged += HandleAgentsChanged;
+        availableCatalogModels = await CatalogService.GetModelsAsync();
+    }
+
+    private void HandleAgentsChanged(IReadOnlyList<AgentMember> agents)
+    {
+        allAgents = agents;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private IReadOnlyList<AgentMember> FilteredAgents
+    {
+        get
+        {
+            var list = allAgents.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(filterRole) && Enum.TryParse<AgentRole>(filterRole, out var role))
+            {
+                list = list.Where(a => a.Persona.Role == role);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var q = searchQuery.Trim();
+                list = list.Where(a =>
+                    a.Persona.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    a.Persona.Role.ToString().Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    a.Persona.AssignedSkillIds.Any(s => s.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+                    (a.EffectiveModel?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            return list.ToList();
+        }
+    }
+
+    private IReadOnlyList<SkillDefinition> GetAgentSkills(AgentMember member)
+    {
+        if (member.Persona.AssignedSkillIds.Count > 0)
+        {
+            return member.Persona.AssignedSkillIds
+                .Select(id => SkillRegistry.GetSkill(id))
+                .Where(s => s != null)
+                .Cast<SkillDefinition>()
+                .ToList();
+        }
+        return SkillRegistry.GetSkillsForRole(member.Persona.Role);
+    }
+
+    private static bool IsRecommendedForRole(ModelCatalogEntry model, AgentRole role) => role switch
+    {
+        AgentRole.RequirementsResearcher => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
+        AgentRole.TechnicalProductManager => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        AgentRole.LeadArchitect => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        AgentRole.SoftwareDeveloper => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
+        AgentRole.SecurityEngineer => model.StrengthAreas.Contains(ModelStrengthArea.SecurityAudit) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
+        AgentRole.OptimizationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
+        AgentRole.PrincipalQAAnalyst => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
+        AgentRole.IntegrationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        _ => true
+    };
+
+    private void UpdateModel(AgentMember member, ChangeEventArgs e)
+    {
+        var model = e.Value?.ToString();
+        var overrideModel = string.IsNullOrWhiteSpace(model) ? null : model;
+        var updated = member with
+        {
+            OverrideModel = overrideModel,
+            Persona = member.Persona with { DefaultModel = overrideModel ?? string.Empty }
+        };
+        AgentDefManager.SaveAgent(updated);
+        statusMessage = $"Updated model for {updated.Persona.Name}.";
+    }
+
+    private void UpdateKey(AgentMember member, ChangeEventArgs e)
+    {
+        var keyId = e.Value?.ToString();
+        var updated = member with { CustomApiKeyId = string.IsNullOrEmpty(keyId) ? null : keyId };
+        AgentDefManager.SaveAgent(updated);
+        statusMessage = $"Updated API key override for {updated.Persona.Name}.";
+    }
+
+    private void UpdatePrompt(AgentMember member, ChangeEventArgs e)
+    {
+        var prompt = e.Value?.ToString() ?? "";
+        var updated = member with { Persona = member.Persona with { SystemPrompt = prompt } };
+        AgentDefManager.SaveAgent(updated);
+        statusMessage = $"Updated system directive for {updated.Persona.Name}.";
+    }
+
+    private void DeleteAgent(AgentMember agent)
+    {
+        if (allAgents.Count <= 1)
+        {
+            statusMessage = "Cannot delete the only remaining agent.";
+            return;
+        }
+
+        var deleted = AgentDefManager.DeleteAgent(agent.Id);
+        if (deleted)
+        {
+            statusMessage = $"Deleted agent '{agent.Persona.Name}'.";
+        }
+    }
+
+    private void OpenAddModal()
+    {
+        editingAgent = null;
+        modalAgentRole = AgentRole.SoftwareDeveloper;
+        modalSelectedSkillIds.Clear();
+        var roleSkills = SkillRegistry.GetSkillsForRole(modalAgentRole);
+        foreach (var s in roleSkills) modalSelectedSkillIds.Add(s.Id);
+        modalAgentModel = "";
+        modalAgentFallbackModel = "";
+        UpdateModalRoleDefaults();
+        showEditModal = false;
+        showAddModal = true;
+    }
+
+    private void OpenEditModal(AgentMember agent)
+    {
+        editingAgent = agent;
+        modalAgentRole = agent.Persona.Role;
+        modalSelectedSkillIds = new HashSet<string>(agent.Persona.AssignedSkillIds);
+        modalAgentName = agent.Persona.Name;
+        modalAgentModel = agent.Persona.DefaultModel ?? "";
+        modalAgentFallbackModel = agent.Persona.FallbackModel ?? "";
+        modalAgentTemperature = agent.Persona.Temperature;
+        modalAgentTools = string.Join(", ", agent.Persona.AllowedToolNames);
+        modalAgentSystemPrompt = agent.Persona.SystemPrompt;
+        nameSuggestions.Clear();
+        showAddModal = false;
+        showEditModal = true;
+    }
+
+    private void OpenCloneModal(AgentMember agent)
+    {
+        selectedAgentToClone = agent;
+        cloneAgentName = $"{agent.Persona.Name} (Copy)";
+        showCloneModal = true;
+    }
+
+    private void ExecuteCloneAgent()
+    {
+        if (selectedAgentToClone != null && !string.IsNullOrWhiteSpace(cloneAgentName))
+        {
+            var duplicated = AgentDefManager.DuplicateAgent(selectedAgentToClone.Id, cloneAgentName.Trim());
+            statusMessage = $"Duplicated agent '{duplicated.Persona.Name}'.";
+        }
+        showCloneModal = false;
+    }
+
+    private void CloseModal()
+    {
+        showAddModal = false;
+        showEditModal = false;
+        editingAgent = null;
+    }
+
+    private void OnModalRoleChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AgentRole>(e.Value?.ToString(), out var role))
+        {
+            modalAgentRole = role;
+            modalSelectedSkillIds.Clear();
+            var roleSkills = SkillRegistry.GetSkillsForRole(modalAgentRole);
+            foreach (var s in roleSkills) modalSelectedSkillIds.Add(s.Id);
+            UpdateModalRoleDefaults();
+        }
+    }
+
+    private void ToggleSkillSelection(string skillId, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? true);
+        if (isChecked) modalSelectedSkillIds.Add(skillId);
+        else modalSelectedSkillIds.Remove(skillId);
+        RefreshNameAndPrompt();
+    }
+
+    private void UpdateModalRoleDefaults()
+    {
+        var defaultPersona = AgentPersona.CreateDefault(modalAgentRole);
+        modalAgentTemperature = defaultPersona.Temperature;
+        var skills = GetSelectedSkills();
+        var tools = new HashSet<string>(defaultPersona.AllowedToolNames);
+        foreach (var s in skills)
+        {
+            foreach (var t in s.RecommendedTools) tools.Add(t);
+        }
+        modalAgentTools = string.Join(", ", tools);
+        RefreshNameAndPrompt();
+    }
+
+    private List<SkillDefinition> GetSelectedSkills()
+    {
+        return modalSelectedSkillIds
+            .Select(id => SkillRegistry.GetSkill(id))
+            .Where(s => s != null)
+            .Cast<SkillDefinition>()
+            .ToList();
+    }
+
+    private void RefreshNameAndPrompt()
+    {
+        var skills = GetSelectedSkills();
+        var suggestions = NameGenerator.GenerateNameSuggestions(modalAgentRole, skills, count: 4);
+        nameSuggestions = suggestions.ToList();
+        if (!showEditModal)
+        {
+            modalAgentName = suggestions.FirstOrDefault() ?? $"{modalAgentRole.ToDisplayName()} Agent";
+        }
+        modalAgentSystemPrompt = NameGenerator.GenerateSystemPrompt(modalAgentRole, modalAgentName, skills);
+    }
+
+    private void RerollSuggestedName()
+    {
+        var skills = GetSelectedSkills();
+        var suggestions = NameGenerator.GenerateNameSuggestions(modalAgentRole, skills, count: 4);
+        nameSuggestions = suggestions.ToList();
+        modalAgentName = suggestions.FirstOrDefault() ?? modalAgentName;
+        modalAgentSystemPrompt = NameGenerator.GenerateSystemPrompt(modalAgentRole, modalAgentName, skills);
+    }
+
+    private void SelectSuggestion(string name)
+    {
+        modalAgentName = name;
+        var skills = GetSelectedSkills();
+        modalAgentSystemPrompt = NameGenerator.GenerateSystemPrompt(modalAgentRole, modalAgentName, skills);
+    }
+
+    private void RegenerateSystemPrompt()
+    {
+        var skills = GetSelectedSkills();
+        modalAgentSystemPrompt = NameGenerator.GenerateSystemPrompt(modalAgentRole, modalAgentName, skills);
+    }
+
+    private void SaveModalAgent()
+    {
+        if (string.IsNullOrWhiteSpace(modalAgentName))
+        {
+            statusMessage = "Agent name cannot be empty.";
+            return;
+        }
+
+        var toolsList = modalAgentTools.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => !string.IsNullOrEmpty(t))
+            .ToList();
+
+        if (toolsList.Count == 0) toolsList = ["csharp_syntax_check", "web_search", "memory_lookup"];
+
+        if (showEditModal && editingAgent != null)
+        {
+            var updated = editingAgent with
+            {
+                OverrideModel = string.IsNullOrWhiteSpace(modalAgentModel) ? null : modalAgentModel,
+                Persona = new AgentPersona(
+                    Role: modalAgentRole,
+                    Name: modalAgentName.Trim(),
+                    SystemPrompt: modalAgentSystemPrompt.Trim(),
+                    DefaultModel: modalAgentModel,
+                    FallbackModel: modalAgentFallbackModel,
+                    Temperature: modalAgentTemperature,
+                    AllowedToolNames: toolsList,
+                    AssignedSkillIds: modalSelectedSkillIds.ToList()
+                )
+            };
+            AgentDefManager.SaveAgent(updated);
+            statusMessage = $"Saved changes for '{updated.Persona.Name}'.";
+        }
+        else
+        {
+            var created = AgentDefManager.CreateAgent(
+                role: modalAgentRole,
+                name: modalAgentName.Trim(),
+                systemPrompt: modalAgentSystemPrompt.Trim(),
+                primaryModel: modalAgentModel,
+                fallbackModel: modalAgentFallbackModel,
+                temperature: modalAgentTemperature,
+                allowedTools: toolsList,
+                assignedSkillIds: modalSelectedSkillIds.ToList()
+            );
+            statusMessage = $"Enlisted new agent '{created.Persona.Name}' into the circus roster!";
+        }
+
+        CloseModal();
+    }
+
+    public void Dispose()
+    {
+        AgentDefManager.OnAgentsChanged -= HandleAgentsChanged;
+    }
+}

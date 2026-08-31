@@ -76,7 +76,8 @@ public static class ServiceCollectionExtensions
         // AI Knowledge Maps
         services.AddSingleton<IKnowledgeMapService, KnowledgeMapService>();
 
-        // Teams, Archetypes & Agent Generator
+        // Agent Management & Team Orchestration
+        services.AddSingleton<IAgentDefinitionManager, AgentDefinitionManager>();
         services.AddSingleton<IAgentNameGenerator, AgentNameGenerator>();
         services.AddSingleton<ITeamDefinitionManager, TeamDefinitionManager>();
 
