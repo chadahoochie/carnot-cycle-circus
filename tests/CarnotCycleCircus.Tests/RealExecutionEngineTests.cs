@@ -1032,4 +1032,106 @@ public class RealExecutionEngineTests
 
         eventStream.GetHistory().Should().NotContain(m => m.Content.Contains("Initiating autonomous failover"));
     }
+
+    [Fact]
+    public async Task AgentExecutionEngine_WithLeadArchitectCommentTaggedCode_ShouldExtractCompanionScaffolds()
+    {
+        var mockClient = new MockOpenRouterClient();
+        mockClient.ResponseFactory = _ => """
+        # ADR-014: High-Performance Order Saga
+        
+        ## Status
+        Accepted
+        
+        ## Decision
+        Use state machine.
+        
+        ```csharp
+        // File: Contracts/IOrderSagaService.cs
+        namespace CarnotCycleCircus.Core.Domain.OrderSaga;
+        public interface IOrderSagaService { }
+        ```
+        
+        ```csharp
+        // File: Models/OrderSagaModels.cs
+        namespace CarnotCycleCircus.Core.Domain.OrderSaga;
+        public readonly record struct OrderSagaResult(string Id, bool IsSuccess);
+        ```
+        """;
+
+        var keyVault = new ApiKeyVaultService();
+        keyVault.AddOrUpdateKey("Test Key", "sk-or-v1-validkey12345678901234567890", isActive: true);
+        var resolver = new AgentInferenceResolver(keyVault);
+        var eventStream = new AgentEventStream();
+        var engine = new AgentExecutionEngine(mockClient, resolver, eventStream: eventStream);
+
+        var archTicket = new TicketItem(
+            Id: "SUB-ARCH-01",
+            ParentEpicId: "EPIC-01",
+            Title: "[Arch] Design ADR & Scaffold Clean Architecture for Distributed Order Saga",
+            Description: "ADR and scaffold",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.LeadArchitect,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Clean Architecture scaffold"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket);
+
+        deliverables.Should().HaveCount(3);
+        deliverables.Should().Contain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-01_ADR.md");
+        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "IOrderSagaService.cs");
+        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "OrderSagaModels.cs");
+    }
+
+    [Fact]
+    public async Task AgentExecutionEngine_WithLeadArchitectMarkdownOnly_ShouldSynthesizeFallbackCleanScaffolds()
+    {
+        var mockClient = new MockOpenRouterClient();
+        mockClient.ResponseFactory = _ => """
+        # ADR-014: Realtime Telemetry Architecture
+        
+        ## Status
+        Accepted
+        
+        ## Decision
+        Use zero allocation channels for telemetry ingestion.
+        """;
+
+        var keyVault = new ApiKeyVaultService();
+        keyVault.AddOrUpdateKey("Test Key", "sk-or-v1-validkey12345678901234567890", isActive: true);
+        var resolver = new AgentInferenceResolver(keyVault);
+        var eventStream = new AgentEventStream();
+        var engine = new AgentExecutionEngine(mockClient, resolver, eventStream: eventStream);
+
+        var archTicket = new TicketItem(
+            Id: "SUB-ARCH-02",
+            ParentEpicId: "EPIC-02",
+            Title: "[Arch] Design ADR & Scaffold Clean Architecture for Real-time Telemetry Pipeline: Core Engine & Protocols",
+            Description: "ADR and scaffold",
+            Type: TicketType.Subtask,
+            Status: TicketStatus.Ready,
+            AssigneeRole: AgentRole.LeadArchitect,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Clean Architecture scaffold"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket);
+
+        deliverables.Should().Contain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-02_ADR.md");
+        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "IRealTimeTelemetryPipelineService.cs");
+        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineModels.cs");
+        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineServiceCollectionExtensions.cs");
+    }
 }

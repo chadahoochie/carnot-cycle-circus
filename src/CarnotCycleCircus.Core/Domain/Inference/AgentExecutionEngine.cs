@@ -530,33 +530,73 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 defaultArtifactName = $"{ticket.Id}_ADR.md";
                 contentType = "markdown";
                 description = "Clean Architecture Blueprint & Architectural Decision Record (ADR)";
-                userPrompt = $"""
+                userPrompt = $$"""
                 Produce a formal Nygard / MADR-compliant Architectural Decision Record (ADR) AND a complete Clean Architecture solution scaffolding bundle in Markdown for:
-                Ticket: {ticket.Id} - {ticket.Title}
-                Description: {ticket.Description}
+                Ticket: {{ticket.Id}} - {{ticket.Title}}
+                Description: {{ticket.Description}}
                 Acceptance Criteria:
-                {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}
-                {repoContext}
-                {upstreamSummary}
+                {{string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}}
+                {{repoContext}}
+                {{upstreamSummary}}
 
                 === MANDATORY CLEAN ARCHITECTURE SCAFFOLDING REQUIREMENTS ===
                 You MUST explicitly scaffold the Clean Architecture solution structure and define exact C# Type Contracts and Interfaces so downstream Software Developers implement without ambiguity or cohesion drift:
-                1. Target Namespace: `{targetNamespace}.{domainContext}`
+                1. Target Namespace: `{{targetNamespace}}.{{domainContext}}`
                 2. Layering Structure:
-                   - **Domain Layer**: Core immutable entities, Value Objects (`readonly record struct`), Domain Enums, and Domain Events (`Domain/`).
-                   - **Application / Contracts Layer**: Primary Service Interfaces (`I{domainContext}Pipeline` or `I{domainContext}Service`), DTOs, and Pipeline Contracts (`Contracts/`).
-                   - **Dependency Injection Extension**: Explicit `Add{domainContext}(this IServiceCollection services)` registration extension (`Extensions/`).
-                3. Output both:
-                   - The formal ADR document in Markdown (`# ADR-014: High-Performance Architecture for {ticket.Title}`)
-                   - Compilable C# Clean Architecture scaffold files using labeled ````csharp:FilePath.cs```` code blocks so downstream Software Developers implement the exact cohesive architecture!
+                   - **Domain Layer**: Core immutable entities, Value Objects (`readonly record struct`), Domain Enums, and Domain Events (`Domain/` or `Models/`).
+                   - **Application / Contracts Layer**: Primary Service Interfaces (`I{{domainContext}}Service` or `I{{domainContext}}Pipeline`), DTOs, and Pipeline Contracts (`Contracts/`).
+                   - **Dependency Injection Extension**: Explicit `Add{{domainContext}}(this IServiceCollection services)` registration extension (`Extensions/`).
+                3. Output BOTH:
+                   - The formal ADR document in Markdown (`# ADR-014: High-Performance Architecture for {{ticket.Title}}`)
+                   - Compilable C# Clean Architecture scaffold files using labeled code blocks:
+                     ```csharp:Contracts/I{{domainContext}}Service.cs
+                     // File: Contracts/I{{domainContext}}Service.cs
+                     namespace {{targetNamespace}}.{{domainContext}};
+
+                     using System;
+                     using System.Threading;
+                     using System.Threading.Tasks;
+
+                     public interface I{{domainContext}}Service
+                     {
+                         // Exact service signatures tailored to the ticket requirements and acceptance criteria
+                     }
+                     ```
+
+                     ```csharp:Models/{{domainContext}}Models.cs
+                     // File: Models/{{domainContext}}Models.cs
+                     namespace {{targetNamespace}}.{{domainContext}};
+
+                     using System;
+
+                     // Exact immutable records and readonly record structs for this domain
+                     public readonly record struct {{domainContext}}Result(string Id, bool IsSuccess, string Message);
+                     public record {{domainContext}}Entity(string Id, string Name, DateTimeOffset CreatedAt);
+                     ```
+
+                     ```csharp:Extensions/{{domainContext}}ServiceCollectionExtensions.cs
+                     // File: Extensions/{{domainContext}}ServiceCollectionExtensions.cs
+                     namespace {{targetNamespace}}.{{domainContext}};
+
+                     using Microsoft.Extensions.DependencyInjection;
+
+                     public static class {{domainContext}}ServiceCollectionExtensions
+                     {
+                         public static IServiceCollection Add{{domainContext}}(this IServiceCollection services)
+                         {
+                             // DI registration
+                             return services;
+                         }
+                     }
+                     ```
 
                 Structure the document with:
-                # ADR-014: High-Performance Architecture for {ticket.Title}
+                # ADR-014: High-Performance Architecture for {{ticket.Title}}
                 ## Status
                 Accepted
                 ## Context
-                ## Architectural Decision (Specify immutable C# records, bounded Channel<T>, zero-allocation pipelines, connectable failure DAG ports)
-                ## Exact C# Type Contracts & Interface Signatures (Provide compilable C# contract snippets)
+                ## Architectural Decision (Specify immutable C# records, bounded Channel<T>, zero-allocation protocols, connectable failure DAG ports)
+                ## Exact C# Type Contracts & Interface Signatures (Provide the compilable C# scaffold code blocks shown above)
                 ## Clean Architecture Scaffolding Blueprint (Explicitly list Domain, Contracts, Infrastructure, and DI layouts)
                 ## Alternatives Considered
                 ## Consequences & Trade-offs (Positive and Negative)
@@ -577,11 +617,19 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 {{upstreamSummary}}
 
                 === CRITICAL PRODUCTION CODE MANDATE ===
-                You MUST implement the exact types, records, and interfaces defined in the upstream Lead Architect's Clean Architecture scaffold and PRD above.
+                You MUST implement the exact domain types, records, methods, and interfaces tailored to the ticket requirements, acceptance criteria, and upstream Lead Architect's Clean Architecture scaffold and PRD above.
+                Target Namespace: `{{targetNamespace}}.{{domainContext}}`
                 Do NOT invent arbitrary generic class names like 'SUB_XXXXService' or 'MyService'. Use domain names (e.g., `{{domainContext}}Service`, `I{{domainContext}}Service`, `{{domainContext}}Models`).
-                Do NOT output mock simulations, empty placeholders, 'await Task.Yield()', or 'throw new NotImplementedException()'. Write COMPLETE, working, production-grade business logic.
+                Do NOT output mock simulations, empty placeholders, 'await Task.Yield()', or 'throw new NotImplementedException()'. Write COMPLETE, working, production-grade business logic and real algorithms.
 
-                Output each file in a distinct labeled code block using the format:
+                Output each file in a distinct labeled code block:
+                1. `Contracts/I{{domainContext}}Service.cs` - Service interfaces, contracts, DTOs
+                2. `Models/{{domainContext}}Models.cs` - Domain models, immutable records, readonly record structs, domain events
+                3. `Services/{{domainContext}}Service.cs` - Full production business logic implementation
+                4. `Extensions/{{domainContext}}ServiceCollectionExtensions.cs` - Microsoft.Extensions.DependencyInjection wireup
+                5. `Tests/{{domainContext}}ServiceTests.cs` - Complete xUnit unit tests asserting every Acceptance Criterion
+
+                Example Format:
                 ```csharp:Contracts/I{{domainContext}}Service.cs
                 // File: Contracts/I{{domainContext}}Service.cs
                 namespace {{targetNamespace}}.{{domainContext}};
@@ -592,7 +640,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
                 public interface I{{domainContext}}Service
                 {
-                    ValueTask<bool> ProcessAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default);
+                    // Define exact service methods required by ticket acceptance criteria
                 }
                 ```
 
@@ -619,21 +667,13 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 public sealed class {{domainContext}}Service : I{{domainContext}}Service
                 {
                     private readonly ILogger<{{domainContext}}Service>? _logger;
-                    private readonly ConcurrentDictionary<string, {{domainContext}}Entity> _store = new();
 
                     public {{domainContext}}Service(ILogger<{{domainContext}}Service>? logger = null)
                     {
                         _logger = logger;
                     }
 
-                    public async ValueTask<bool> ProcessAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var span = payload.Span;
-                        if (span.IsEmpty) return false;
-                        _logger?.LogInformation("Processing payload of size {Size} bytes.", span.Length);
-                        return true;
-                    }
+                    // Implement complete domain logic and algorithms fulfilling ticket requirements
                 }
                 ```
 
@@ -658,7 +698,6 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 namespace {{targetNamespace}}.{{domainContext}}.Tests;
 
                 using System;
-                using System.Text;
                 using System.Threading;
                 using System.Threading.Tasks;
                 using Xunit;
@@ -666,22 +705,10 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 public class {{domainContext}}ServiceTests
                 {
                     [Fact]
-                    public async Task ProcessAsync_WithValidPayload_ShouldReturnTrue()
+                    public async Task ExecuteAsync_ValidInput_ShouldSatisfyAcceptanceCriteria()
                     {
                         var service = new {{domainContext}}Service();
-                        var data = Encoding.UTF8.GetBytes("test payload");
-                        var result = await service.ProcessAsync(data, CancellationToken.None);
-                        Assert.True(result);
-                    }
-
-                    [Fact]
-                    public async Task ProcessAsync_WhenCancelled_ShouldThrow()
-                    {
-                        var service = new {{domainContext}}Service();
-                        using var cts = new CancellationTokenSource();
-                        cts.Cancel();
-                        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
-                            await service.ProcessAsync(new byte[10], cts.Token));
+                        // Assert ticket acceptance criteria
                     }
                 }
                 ```
@@ -1003,20 +1030,59 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             Description: defaultDescription
         ));
 
-        // For Lead Architect, if they also scaffolded C# type contracts using labeled code blocks, extract them as companion artifacts
+        // For Lead Architect, if they also scaffolded C# type contracts, extract them as companion artifacts
         if (ticket.AssigneeRole == AgentRole.LeadArchitect)
         {
-            var codeBlocks = Regex.Matches(cleaned, @"```(?:csharp|cs):([^\n\r]+)\s*\n([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+            var codeBlocks = Regex.Matches(cleaned, @"```(?:csharp|cs)?(?::([^\n\r]+))?\s*\n(?:(?:\/\/|\/\*|\#)\s*File:\s*([^\n\r*]+)(?:\*\/)?\s*\n)?([\s\S]*?)\n```", RegexOptions.IgnoreCase);
+            int blockIndex = 1;
             foreach (Match m in codeBlocks)
             {
-                var tag = m.Groups[1].Value.Trim();
-                var code = m.Groups[2].Value.Trim();
-                var fileName = Path.GetFileName(tag).Replace('\\', '_').Replace('/', '_');
+                var labelTag = m.Groups[1].Value.Trim();
+                var commentTag = m.Groups[2].Value.Trim();
+                var code = m.Groups[3].Value.Trim();
+
+                if (string.IsNullOrWhiteSpace(code)) continue;
+
+                string fileName;
+                if (!string.IsNullOrWhiteSpace(labelTag))
+                {
+                    fileName = Path.GetFileName(labelTag);
+                }
+                else if (!string.IsNullOrWhiteSpace(commentTag))
+                {
+                    fileName = Path.GetFileName(commentTag);
+                }
+                else
+                {
+                    // Infer filename based on code declarations
+                    if (Regex.IsMatch(code, @"\bpublic\s+interface\s+(I\w+)", RegexOptions.IgnoreCase))
+                    {
+                        var ifaceMatch = Regex.Match(code, @"\bpublic\s+interface\s+(I\w+)", RegexOptions.IgnoreCase);
+                        fileName = $"{ifaceMatch.Groups[1].Value}.cs";
+                    }
+                    else if (Regex.IsMatch(code, @"\bpublic\s+(?:readonly\s+)?record\s+(?:struct\s+)?(\w+)", RegexOptions.IgnoreCase))
+                    {
+                        var recordMatch = Regex.Match(code, @"\bpublic\s+(?:readonly\s+)?record\s+(?:struct\s+)?(\w+)", RegexOptions.IgnoreCase);
+                        fileName = $"{recordMatch.Groups[1].Value}.cs";
+                    }
+                    else if (Regex.IsMatch(code, @"\bpublic\s+static\s+class\s+(\w+)", RegexOptions.IgnoreCase))
+                    {
+                        var classMatch = Regex.Match(code, @"\bpublic\s+static\s+class\s+(\w+)", RegexOptions.IgnoreCase);
+                        fileName = $"{classMatch.Groups[1].Value}.cs";
+                    }
+                    else
+                    {
+                        fileName = $"{ExtractDomainContext(ticket)}_Scaffold_{blockIndex}.cs";
+                    }
+                }
+
+                fileName = fileName.Replace('\\', '_').Replace('/', '_');
                 if (!fileName.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
                 {
                     fileName += ".cs";
                 }
-                if (!string.IsNullOrWhiteSpace(code) && !artifacts.Any(a => a.Name == fileName))
+
+                if (!artifacts.Any(a => string.Equals(a.Name, fileName, StringComparison.OrdinalIgnoreCase)))
                 {
                     artifacts.Add(new ArtifactItem(
                         Name: fileName,
@@ -1025,6 +1091,57 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                         Description: $"Architectural Scaffold - {fileName}"
                     ));
                 }
+                blockIndex++;
+            }
+
+            // Fallback: If Lead Architect output only markdown ADR with 0 companion C# code blocks, synthesize baseline Clean Architecture scaffolds
+            if (!artifacts.Any(a => a.ContentType == "csharp" || a.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+            {
+                var domainCtx = ExtractDomainContext(ticket);
+                var targetNs = "CarnotCycleCircus.Core.Domain";
+
+                var interfaceCode = $$"""
+                // File: Contracts/I{{domainCtx}}Service.cs
+                namespace {{targetNs}}.{{domainCtx}};
+
+                using System;
+                using System.Threading;
+                using System.Threading.Tasks;
+
+                public interface I{{domainCtx}}Service
+                {
+                    ValueTask<bool> ExecuteAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default);
+                }
+                """;
+
+                var modelsCode = $$"""
+                // File: Models/{{domainCtx}}Models.cs
+                namespace {{targetNs}}.{{domainCtx}};
+
+                using System;
+
+                public readonly record struct {{domainCtx}}Result(string Id, bool IsSuccess, string Message);
+                public record {{domainCtx}}State(string Id, string Name, DateTimeOffset Timestamp);
+                """;
+
+                var extCode = $$"""
+                // File: Extensions/{{domainCtx}}ServiceCollectionExtensions.cs
+                namespace {{targetNs}}.{{domainCtx}};
+
+                using Microsoft.Extensions.DependencyInjection;
+
+                public static class {{domainCtx}}ServiceCollectionExtensions
+                {
+                    public static IServiceCollection Add{{domainCtx}}(this IServiceCollection services)
+                    {
+                        return services;
+                    }
+                }
+                """;
+
+                artifacts.Add(new ArtifactItem($"I{domainCtx}Service.cs", interfaceCode.Trim(), "csharp", $"Architectural Scaffold - I{domainCtx}Service.cs"));
+                artifacts.Add(new ArtifactItem($"{domainCtx}Models.cs", modelsCode.Trim(), "csharp", $"Architectural Scaffold - {domainCtx}Models.cs"));
+                artifacts.Add(new ArtifactItem($"{domainCtx}ServiceCollectionExtensions.cs", extCode.Trim(), "csharp", $"Architectural Scaffold - {domainCtx}ServiceCollectionExtensions.cs"));
             }
         }
 
@@ -1034,13 +1151,58 @@ public class AgentExecutionEngine : IAgentExecutionEngine
     private static string ExtractDomainContext(TicketItem ticket)
     {
         var title = ticket.Title;
-        title = Regex.Replace(title, @"^\[(?:Arch|Dev|Security|Opt|QA|TPM|Research|Integration)\]\s*", "", RegexOptions.IgnoreCase);
-        title = Regex.Replace(title, @"^(?:Implement|Design|Review|Benchmark|Verify|Audit|Scaffold)\s+", "", RegexOptions.IgnoreCase);
-        title = Regex.Replace(title, @"\s+for\s+.*$", "", RegexOptions.IgnoreCase);
+
+        // 1. Remove role prefix [Arch], [Dev], etc.
+        title = Regex.Replace(title, @"^\[(?:Arch|Dev|Security|Opt|QA|TPM|Research|Integration)\]\s*", "", RegexOptions.IgnoreCase).Trim();
+
+        // 2. If the title is in the format "... for <Domain/Feature>[: Sub-domain]", extract the domain after 'for'
+        var forMatch = Regex.Match(title, @"\bfor\s+(.+)$", RegexOptions.IgnoreCase);
+        if (forMatch.Success && !string.IsNullOrWhiteSpace(forMatch.Groups[1].Value))
+        {
+            title = forMatch.Groups[1].Value.Trim();
+        }
+        else
+        {
+            // If no 'for', strip common action verb prefixes
+            title = Regex.Replace(title, @"^(?:Implement|Design|Review|Benchmark|Verify|Audit|Scaffold|Author|Create|Groom|Refine|Package|Wire)\s+", "", RegexOptions.IgnoreCase).Trim();
+            title = Regex.Replace(title, @"^(?:ADR|PRD|STRIDE|QA|Test Strategy)\s+(?:for|on|of)\s+", "", RegexOptions.IgnoreCase).Trim();
+        }
+
+        // 3. If there is a colon (e.g. "Telemetry Pipeline: Core Engine & Protocols"), prioritize the primary initiative title before colon
+        if (title.Contains(':'))
+        {
+            var parts = title.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]))
+            {
+                if (!parts[0].Contains("Research", StringComparison.OrdinalIgnoreCase) &&
+                    !parts[0].Contains("Feasibility", StringComparison.OrdinalIgnoreCase) &&
+                    !parts[0].Contains("Ticket", StringComparison.OrdinalIgnoreCase))
+                {
+                    title = parts[0];
+                }
+                else if (parts.Length > 1)
+                {
+                    title = parts[1];
+                }
+            }
+        }
+
+        // 4. Clean non-alphanumeric characters
         title = Regex.Replace(title, @"[^a-zA-Z0-9]", " ");
-        
         var words = title.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0) return "CoreService";
+
+        // 5. Remove generic fluff words if there are other meaningful words
+        var filteredWords = words.Where(w => !string.Equals(w, "ADR", StringComparison.OrdinalIgnoreCase) &&
+                                             !string.Equals(w, "PRD", StringComparison.OrdinalIgnoreCase) &&
+                                             !string.Equals(w, "Subtask", StringComparison.OrdinalIgnoreCase) &&
+                                             !string.Equals(w, "Story", StringComparison.OrdinalIgnoreCase) &&
+                                             !string.Equals(w, "Ticket", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (filteredWords.Count > 0)
+        {
+            words = filteredWords.ToArray();
+        }
 
         var pascal = string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + (w.Length > 1 ? w[1..] : "")));
         return string.IsNullOrWhiteSpace(pascal) ? "CoreService" : pascal;
