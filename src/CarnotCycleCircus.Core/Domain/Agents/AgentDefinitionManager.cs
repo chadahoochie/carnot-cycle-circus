@@ -80,10 +80,7 @@ public class AgentDefinitionManager : IAgentDefinitionManager
     private void SaveToStorage()
     {
         if (_storageService == null) return;
-        _ = Task.Run(async () =>
-        {
-            await FlushAsync();
-        });
+        _ = FlushAsync();
     }
 
     public IReadOnlyList<AgentMember> GetAllAgents() =>

@@ -251,10 +251,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
     private void SaveToStorage()
     {
         if (_storageService == null) return;
-        _ = Task.Run(async () =>
-        {
-            await FlushAsync();
-        });
+        _ = FlushAsync();
     }
 
     public IReadOnlyList<TeamDefinition> GetAllTeams() =>
