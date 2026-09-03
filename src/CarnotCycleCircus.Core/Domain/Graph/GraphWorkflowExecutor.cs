@@ -1,18 +1,36 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Approvals;
 using CarnotCycleCircus.Core.Domain.Artifacts;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using CarnotCycleCircus.Core.Domain.Tools;
 
 namespace CarnotCycleCircus.Core.Domain.Graph;
 
+public record ActiveExecutionStatus(
+    AgentRole Role,
+    string RoleName,
+    string TicketId,
+    string TicketTitle,
+    string Model,
+    DateTimeOffset StartedAt,
+    string CurrentPhase,
+    int ChunksReceived = 0,
+    string LastSnippet = ""
+);
+
 public interface IGraphWorkflowExecutor
 {
     WorkflowGraph CurrentGraph { get; }
     bool IsRunning { get; }
+    ActiveExecutionStatus? CurrentActiveExecution { get; }
+    IWorkflowApprovalService ApprovalService { get; }
+    event Action<ActiveExecutionStatus?>? OnActiveExecutionChanged;
+
     void SetGraph(WorkflowGraph graph);
     void LoadTeam(TeamDefinition team);
     void LoadTeam(EngineeringTeam team);
@@ -51,13 +69,20 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     private readonly Learning.ISelfImprovementEngine? _selfImprovement;
     private readonly ITeamDefinitionManager? _teamManager;
     private readonly IArtifactManager? _artifactManager;
+    private readonly IWorkflowApprovalService _approvalService;
+    private readonly IActiveProjectContext? _activeProjectContext;
+    private readonly IProjectManager? _projectManager;
     private bool _isRunning;
+    private ActiveExecutionStatus? _currentActiveExecution;
 
     public WorkflowGraph CurrentGraph => _graph;
     public bool IsRunning => _isRunning;
+    public ActiveExecutionStatus? CurrentActiveExecution => _currentActiveExecution;
+    public IWorkflowApprovalService ApprovalService => _approvalService;
 
     public event Action<WorkflowGraph>? OnGraphUpdated;
     public event Action<string, NodeExecutionState>? OnNodeStateChanged;
+    public event Action<ActiveExecutionStatus?>? OnActiveExecutionChanged;
 
     public GraphWorkflowExecutor(
         ITicketStore ticketStore,
@@ -68,7 +93,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         IMemoryConsolidationEngine memoryConsolidation,
         Learning.ISelfImprovementEngine? selfImprovement = null,
         ITeamDefinitionManager? teamManager = null,
-        IArtifactManager? artifactManager = null)
+        IArtifactManager? artifactManager = null,
+        IWorkflowApprovalService? approvalService = null,
+        IActiveProjectContext? activeProjectContext = null,
+        IProjectManager? projectManager = null)
     {
         _ticketStore = ticketStore;
         _decompositionEngine = decompositionEngine;
@@ -79,6 +107,11 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _selfImprovement = selfImprovement;
         _teamManager = teamManager;
         _artifactManager = artifactManager;
+        _approvalService = approvalService ?? new WorkflowApprovalService(requireUserApproval: false);
+        _activeProjectContext = activeProjectContext;
+        _projectManager = projectManager;
+
+        _executionEngine.OnStreamingChunk += OnChunkReceived;
 
         _graph = _teamManager?.GetCurrentTeam().Graph ?? WorkflowGraph.CreateDefaultEngineeringCircus();
 
@@ -90,6 +123,28 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 OnGraphUpdated?.Invoke(_graph);
             };
         }
+    }
+
+    private void OnChunkReceived(StreamingChunkEvent evt)
+    {
+        if (_currentActiveExecution != null && _currentActiveExecution.TicketId == evt.TicketId)
+        {
+            var combined = _currentActiveExecution.LastSnippet + evt.Chunk;
+            var snippet = combined.Length <= 400 ? combined : combined[^400..];
+            _currentActiveExecution = _currentActiveExecution with
+            {
+                ChunksReceived = _currentActiveExecution.ChunksReceived + 1,
+                LastSnippet = snippet,
+                CurrentPhase = $"Streaming deliverable ({_currentActiveExecution.ChunksReceived + 1} chunks)"
+            };
+            OnActiveExecutionChanged?.Invoke(_currentActiveExecution);
+        }
+    }
+
+    private void SetActiveExecution(ActiveExecutionStatus? status)
+    {
+        _currentActiveExecution = status;
+        OnActiveExecutionChanged?.Invoke(_currentActiveExecution);
     }
 
     public void SetGraph(WorkflowGraph graph)
@@ -264,6 +319,16 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             ticketId: ticket.Id
         ));
 
+        SetActiveExecution(new ActiveExecutionStatus(
+            Role: ticket.AssigneeRole,
+            RoleName: ticket.AssigneeRole.ToDisplayName(),
+            TicketId: ticket.Id,
+            TicketTitle: ticket.Title,
+            Model: "Auto-Resolved",
+            StartedAt: DateTimeOffset.UtcNow,
+            CurrentPhase: "Initiating LLM inference..."
+        ));
+
         await Task.Delay(100, cancellationToken);
 
         try
@@ -278,6 +343,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
             }
             _ticketStore.UpdateTicket(ticket);
+
+            SetActiveExecution(null);
 
             // Record handoff to all downstream roles
             var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
@@ -305,6 +372,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         }
         catch (Exception ex)
         {
+            SetActiveExecution(null);
             if (node != null)
             {
                 UpdateNodeState(node.Id, NodeExecutionState.Failed, ex.Message, ticket.Id);
@@ -326,10 +394,10 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _isRunning = true;
         try
         {
-            int maxIterations = 50;
+            int maxIterations = 100;
             int count = 0;
 
-            while (count < maxIterations)
+            while (count < maxIterations && !cancellationToken.IsCancellationRequested)
             {
                 var readyTickets = _ticketStore.GetReadyTickets()
                     .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
@@ -341,20 +409,48 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
 
                 var nextTicket = readyTickets.First();
+
+                if (nextTicket.AssigneeRole == AgentRole.SoftwareDeveloper && !string.IsNullOrEmpty(nextTicket.ParentEpicId))
+                {
+                    var parentEpic = _ticketStore.GetTicketById(nextTicket.ParentEpicId);
+                    var devApproved = await EnsureArchitectToCoderApprovalAsync(
+                        nextTicket.ParentEpicId,
+                        parentEpic?.Title ?? nextTicket.Title,
+                        nextTicket,
+                        cancellationToken);
+                    if (!devApproved)
+                    {
+                        break;
+                    }
+                }
+
                 var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
                 if (!executed)
                 {
+                    var otherReady = readyTickets.Where(t => t.Id != nextTicket.Id).ToList();
+                    if (otherReady.Count == 0)
+                    {
+                        _eventStream.Publish(AgentMessage.Create(
+                            role: nextTicket.AssigneeRole,
+                            senderName: "Workflow Engine",
+                            content: $"🛑 Queue execution halted on [{nextTicket.Id}] ({nextTicket.AssigneeRole.ToDisplayName()}).",
+                            type: MessageType.Alert,
+                            ticketId: nextTicket.Id
+                        ));
+                        break;
+                    }
+
                     _eventStream.Publish(AgentMessage.Create(
                         role: nextTicket.AssigneeRole,
                         senderName: "Workflow Engine",
-                        content: $"🛑 Queue execution halted on [{nextTicket.Id}] ({nextTicket.AssigneeRole.ToDisplayName()}).",
+                        content: $"⚠️ Execution failed on [{nextTicket.Id}]. Continuing with remaining independent ready ticket(s)...",
                         type: MessageType.Alert,
                         ticketId: nextTicket.Id
                     ));
-                    break;
+                    continue;
                 }
                 count++;
-                await Task.Delay(150, cancellationToken);
+                await Task.Delay(100, cancellationToken);
             }
 
             // Mark parent stories/epics Done if all subtasks are Done
@@ -387,6 +483,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         }
         finally
         {
+            SetActiveExecution(null);
             _isRunning = false;
             OnGraphUpdated?.Invoke(_graph);
         }
@@ -399,6 +496,16 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     {
         _isRunning = true;
         ResetGraph();
+
+        if (_activeProjectContext?.CurrentProject != null)
+        {
+            var touched = _activeProjectContext.CurrentProject.Touch();
+            _activeProjectContext.SetActiveProject(touched);
+            if (_projectManager != null)
+            {
+                _ = _projectManager.UpdateAsync(touched, cancellationToken);
+            }
+        }
 
         try
         {
@@ -413,9 +520,26 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             var existingEpic = _ticketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && string.Equals(t.Title, epicTitle, StringComparison.OrdinalIgnoreCase));
             string epicId;
 
+            if (existingEpic != null && existingEpic.Status == TicketStatus.Done)
+            {
+                // Re-running an existing epic: reactivate it for a clean execution run
+                existingEpic = existingEpic.WithStatus(TicketStatus.InProgress);
+                _ticketStore.UpdateTicket(existingEpic);
+            }
+
             // 1. Collaborative Discovery Stage: Requirements Researcher & Technical Product Manager
             var resNode = GetNodeByRole(AgentRole.RequirementsResearcher);
             ArtifactItem? researchBrief = existingEpic?.Deliverables.FirstOrDefault(d => d.Name.EndsWith("_RESEARCH_BRIEF.md", StringComparison.OrdinalIgnoreCase));
+
+            // Also check research ticket deliverables if not directly on the epic
+            if (researchBrief == null && existingEpic != null)
+            {
+                var existingResearchTicket = _ticketStore.GetTicketsByEpic(existingEpic.Id)
+                    .FirstOrDefault(t => t.Type == TicketType.ResearchSpike && t.Status == TicketStatus.Done);
+                researchBrief = existingResearchTicket?.Deliverables.FirstOrDefault(d => d.Name.EndsWith("_RESEARCH_BRIEF.md", StringComparison.OrdinalIgnoreCase));
+            }
+
+            IReadOnlyList<ArtifactItem>? newlyGeneratedResearchArtifacts = null;
 
             if (researchBrief == null)
             {
@@ -460,8 +584,20 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     _ticketStore.CreateTicket(tempResearchTicket);
                 }
 
+                SetActiveExecution(new ActiveExecutionStatus(
+                    Role: AgentRole.RequirementsResearcher,
+                    RoleName: AgentRole.RequirementsResearcher.ToDisplayName(),
+                    TicketId: tempResearchTicket.Id,
+                    TicketTitle: tempResearchTicket.Title,
+                    Model: "Auto-Resolved",
+                    StartedAt: DateTimeOffset.UtcNow,
+                    CurrentPhase: "Synthesizing deep feasibility research brief..."
+                ));
+
                 var researchArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.RequirementsResearcher, tempResearchTicket, cancellationToken);
+                newlyGeneratedResearchArtifacts = researchArtifacts;
                 researchBrief = researchArtifacts.FirstOrDefault();
+                SetActiveExecution(null);
 
                 foreach (var a in researchArtifacts)
                 {
@@ -472,6 +608,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     }
                 }
                 _ticketStore.UpdateTicket(tempResearchTicket.WithStatus(TicketStatus.Done));
+
+                if (existingEpic != null && researchBrief != null && !existingEpic.Deliverables.Any(d => d.Name == researchBrief.Name))
+                {
+                    existingEpic = existingEpic.WithDeliverable(researchBrief);
+                    _ticketStore.UpdateTicket(existingEpic);
+                }
 
                 _handoffRouter.RouteSuccessHandoff(
                     tempResearchTicket.Id,
@@ -504,7 +646,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
             var hasPrd = existingEpic != null && existingEpic.Deliverables.Any(d => d.Name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase));
 
-            if (!hasPrd)
+            if (!hasPrd || newlyGeneratedResearchArtifacts != null)
             {
                 if (tpmNode != null)
                 {
@@ -520,7 +662,18 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
                 epicId = epicTicket.Id;
 
+                SetActiveExecution(new ActiveExecutionStatus(
+                    Role: AgentRole.TechnicalProductManager,
+                    RoleName: AgentRole.TechnicalProductManager.ToDisplayName(),
+                    TicketId: epicTicket.Id,
+                    TicketTitle: $"PRD & Story Decomposition: {epicTitle}",
+                    Model: "Auto-Resolved",
+                    StartedAt: DateTimeOffset.UtcNow,
+                    CurrentPhase: "Authoring PRD & extracting modular user stories..."
+                ));
+
                 var prdArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.TechnicalProductManager, epicTicket, cancellationToken);
+                SetActiveExecution(null);
                 foreach (var a in prdArtifacts)
                 {
                     epicTicket = epicTicket.WithDeliverable(a);
@@ -531,8 +684,18 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
                 _ticketStore.UpdateTicket(epicTicket);
 
-                // Mark the TPM feature stories as Done with the PRD deliverables so Lead Architect can refine and scaffold
-                var stories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
+                // Dynamically sync and extract modular User Stories from the authored PRD
+                var primaryPrd = prdArtifacts.FirstOrDefault(a => a.Name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase)) ?? prdArtifacts.FirstOrDefault();
+                IReadOnlyList<TicketItem> stories;
+                if (primaryPrd != null && !string.IsNullOrWhiteSpace(primaryPrd.Content))
+                {
+                    stories = _decompositionEngine.SyncUserStoriesFromPrd(epicId, primaryPrd.Content, epicTicket.Priority);
+                }
+                else
+                {
+                    stories = _ticketStore.GetTicketsByEpic(epicId).Where(t => t.Type == TicketType.Feature).ToList();
+                }
+
                 foreach (var s in stories)
                 {
                     var updatedStory = s.WithDeliverables(prdArtifacts).WithStatus(TicketStatus.Done);
@@ -578,6 +741,13 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
             }
 
+            // 2B. User Interaction Required Step: TPM ➔ Lead Architect Approval Gate
+            var tpmApproved = await EnsureTpmToArchitectApprovalAsync(epicId, epicTitle, cancellationToken);
+            if (!tpmApproved)
+            {
+                return false;
+            }
+
             // 3. Lead Architect Phase: Backlog Refinement followed by Architecture & ADR Scaffolding
             var archNode = GetNodeByRole(AgentRole.LeadArchitect);
             
@@ -605,232 +775,80 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 }
             }
 
-            // 3B. Architect ADR & Clean Architecture Scaffolding
-            var readyTickets = _ticketStore.GetReadyTickets();
-            var archTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect && t.Type == TicketType.Subtask)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.LeadArchitect);
+            // 4. Autonomous DAG Execution Loop: Drains all ready subtasks across all stories for this Epic
+            int maxIterations = 100;
+            int count = 0;
 
-            if (archNode != null && archTicket != null)
+            while (count < maxIterations && !cancellationToken.IsCancellationRequested)
             {
-                UpdateNodeState(archNode.Id, NodeExecutionState.Running, ticketId: archTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var artifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket, cancellationToken);
-                foreach (var a in artifacts)
+                var epicTickets = _ticketStore.GetTicketsByEpic(epicId);
+                var pendingSubtasks = epicTickets.Where(t => t.Type == TicketType.Subtask && t.Status != TicketStatus.Done).ToList();
+                if (pendingSubtasks.Count == 0)
                 {
-                    archTicket = archTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
+                    break;
+                }
+
+                var readySubtasks = _ticketStore.GetReadyTickets()
+                    .Where(t => t.Type == TicketType.Subtask && (t.ParentEpicId == epicId || string.IsNullOrWhiteSpace(t.ParentEpicId)) && t.Status != TicketStatus.Done)
+                    .ToList();
+
+                if (readySubtasks.Count == 0)
+                {
+                    // Check if any subtask is in remediating state
+                    var remediating = pendingSubtasks.Where(t => t.Status == TicketStatus.Remediating).ToList();
+                    if (remediating.Count > 0)
                     {
-                        await _artifactManager.SaveDeliverableArtifactAsync(archTicket, a, cancellationToken);
+                        await ExecuteTicketAsync(remediating[0].Id, cancellationToken);
+                        count++;
+                        continue;
+                    }
+
+                    // Subtasks remain but none are currently ready
+                    break;
+                }
+
+                var nextTicket = readySubtasks.First();
+
+                // 4B. User Interaction Required Step: Lead Architect ➔ Coder (SoftwareDeveloper) Approval Gate
+                if (nextTicket.AssigneeRole == AgentRole.SoftwareDeveloper)
+                {
+                    var devApproved = await EnsureArchitectToCoderApprovalAsync(epicId, epicTitle, nextTicket, cancellationToken);
+                    if (!devApproved)
+                    {
+                        return false;
                     }
                 }
-                _ticketStore.UpdateTicket(archTicket);
 
-                _handoffRouter.RouteSuccessHandoff(
-                    archTicket.Id,
-                    AgentRole.LeadArchitect,
-                    AgentRole.SoftwareDeveloper,
-                    "ADR Architecture & Topology finalized after backlog refinement. 'Listen, strange developers lyin' in Slack distributin' interfaces is no basis for a system!'",
-                    "Implement feature with zero heap allocations matching refined subtasks and ADR contracts.",
-                    artifacts
-                );
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(archTicket.Id);
-                await _memoryConsolidation.ConsolidateTaskCompletionAsync(archTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(archNode.Id, NodeExecutionState.Completed, "Backlog refined & ADR/Topology designed.", archTicket.Id);
-            }
-
-            // 4. Software Developer Phase
-            var devNode = GetNodeByRole(AgentRole.SoftwareDeveloper);
-            readyTickets = _ticketStore.GetReadyTickets();
-            var devTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SoftwareDeveloper);
-
-            if (devNode != null && devTicket != null)
-            {
-                UpdateNodeState(devNode.Id, NodeExecutionState.Running, ticketId: devTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var devArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket, cancellationToken);
-                foreach (var a in devArtifacts)
+                var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
+                if (!executed)
                 {
-                    devTicket = devTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
+                    var alternativeReady = readySubtasks.Where(t => t.Id != nextTicket.Id).ToList();
+                    if (alternativeReady.Count > 0)
                     {
-                        await _artifactManager.SaveDeliverableArtifactAsync(devTicket, a, cancellationToken);
+                        _eventStream.Publish(AgentMessage.Create(
+                            role: nextTicket.AssigneeRole,
+                            senderName: "Workflow Engine",
+                            content: $"⚠️ Subtask [{nextTicket.Id}] failed. Proceeding with independent ready subtask [{alternativeReady[0].Id}]...",
+                            type: MessageType.Alert,
+                            ticketId: nextTicket.Id
+                        ));
+                        await ExecuteTicketAsync(alternativeReady[0].Id, cancellationToken);
+                    }
+                    else
+                    {
+                        _eventStream.Publish(AgentMessage.Create(
+                            role: nextTicket.AssigneeRole,
+                            senderName: "Workflow Engine",
+                            content: $"🛑 Swarm execution halted on [{nextTicket.Id}] ({nextTicket.AssigneeRole.ToDisplayName()}).",
+                            type: MessageType.Alert,
+                            ticketId: nextTicket.Id
+                        ));
+                        break;
                     }
                 }
-                _ticketStore.UpdateTicket(devTicket);
 
-                // Handoff to both downstream review roles: Security and Optimization
-                _handoffRouter.RouteSuccessHandoff(
-                    devTicket.Id,
-                    AgentRole.SoftwareDeveloper,
-                    AgentRole.SecurityEngineer,
-                    "Feature implemented! Zero heap allocations.",
-                    "Perform STRIDE threat audit on implementation.",
-                    devArtifacts
-                );
-
-                _handoffRouter.RouteSuccessHandoff(
-                    devTicket.Id,
-                    AgentRole.SoftwareDeveloper,
-                    AgentRole.OptimizationEngineer,
-                    "Feature implemented! Zero heap allocations.",
-                    "Perform allocation and latency benchmark profiling.",
-                    devArtifacts
-                );
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(devTicket.Id);
-                await _memoryConsolidation.ConsolidateTaskCompletionAsync(devTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(devNode.Id, NodeExecutionState.Completed, "Implementation delivered.", devTicket.Id);
-            }
-
-            // 5. Parallel Security & Optimization Phase
-            var secNode = GetNodeByRole(AgentRole.SecurityEngineer);
-            var optNode = GetNodeByRole(AgentRole.OptimizationEngineer);
-            readyTickets = _ticketStore.GetReadyTickets();
-            var secTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SecurityEngineer && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.SecurityEngineer);
-            var optTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.OptimizationEngineer && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.OptimizationEngineer);
-
-            if (secNode != null && secTicket != null)
-            {
-                UpdateNodeState(secNode.Id, NodeExecutionState.Running, ticketId: secTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var secArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.SecurityEngineer, secTicket, cancellationToken);
-                foreach (var a in secArtifacts)
-                {
-                    secTicket = secTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
-                    {
-                        await _artifactManager.SaveDeliverableArtifactAsync(secTicket, a, cancellationToken);
-                    }
-                }
-                _ticketStore.UpdateTicket(secTicket);
-
-                _handoffRouter.RouteSuccessHandoff(
-                    secTicket.Id,
-                    AgentRole.SecurityEngineer,
-                    AgentRole.PrincipalQAAnalyst,
-                    "STRIDE Threat Model audit approved.",
-                    "Verify security findings and trace against QA test plan.",
-                    secArtifacts
-                );
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(secTicket.Id);
-                UpdateNodeState(secNode.Id, NodeExecutionState.Completed, "STRIDE Threat Model Approved.", secTicket.Id);
-            }
-
-            if (optNode != null && optTicket != null)
-            {
-                UpdateNodeState(optNode.Id, NodeExecutionState.Running, ticketId: optTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var optArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.OptimizationEngineer, optTicket, cancellationToken);
-                foreach (var a in optArtifacts)
-                {
-                    optTicket = optTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
-                    {
-                        await _artifactManager.SaveDeliverableArtifactAsync(optTicket, a, cancellationToken);
-                    }
-                }
-                _ticketStore.UpdateTicket(optTicket);
-
-                _handoffRouter.RouteSuccessHandoff(
-                    optTicket.Id,
-                    AgentRole.OptimizationEngineer,
-                    AgentRole.PrincipalQAAnalyst,
-                    "Zero-Allocations & latency benchmarks verified.",
-                    "Verify performance SLA conformance in QA scorecard.",
-                    optArtifacts
-                );
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(optTicket.Id);
-                UpdateNodeState(optNode.Id, NodeExecutionState.Completed, "Zero-Allocations Verified.", optTicket.Id);
-            }
-
-            // 6. Principal QA Phase
-            var qaNode = GetNodeByRole(AgentRole.PrincipalQAAnalyst);
-            readyTickets = _ticketStore.GetReadyTickets();
-            var qaTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.PrincipalQAAnalyst);
-
-            if (qaNode != null && qaTicket != null)
-            {
-                UpdateNodeState(qaNode.Id, NodeExecutionState.Running, ticketId: qaTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var qaArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.PrincipalQAAnalyst, qaTicket, cancellationToken);
-                foreach (var a in qaArtifacts)
-                {
-                    qaTicket = qaTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
-                    {
-                        await _artifactManager.SaveDeliverableArtifactAsync(qaTicket, a, cancellationToken);
-                    }
-                }
-                _ticketStore.UpdateTicket(qaTicket);
-
-                _handoffRouter.RouteSuccessHandoff(
-                    qaTicket.Id,
-                    AgentRole.PrincipalQAAnalyst,
-                    AgentRole.IntegrationEngineer,
-                    "QA Acceptance criteria 100% verified and certified.",
-                    "Package Clean Architecture solution and publish Release Manifest.",
-                    qaArtifacts
-                );
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(qaTicket.Id);
-                await _memoryConsolidation.ConsolidateTaskCompletionAsync(qaTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(qaNode.Id, NodeExecutionState.Completed, "QA Certification 100% Passed.", qaTicket.Id);
-
-                _eventStream.Publish(AgentMessage.Create(
-                    role: AgentRole.PrincipalQAAnalyst,
-                    senderName: "Quinn the Build-Executioner (Principal QA)",
-                    content: "🧪 Quinn the Build-Executioner (QA): 'That's a lot of nuts!' Tortured the build with edge cases. Production release certified: 'Alllllrighty then!'",
-                    type: MessageType.StateChange,
-                    ticketId: qaTicket.Id
-                ));
-            }
-
-            // 7. Integration & Solution Packaging Phase
-            var intNode = GetNodeByRole(AgentRole.IntegrationEngineer);
-            readyTickets = _ticketStore.GetReadyTickets();
-            var intTicket = readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.IntegrationEngineer && t.ParentEpicId == epicId)
-                ?? readyTickets.FirstOrDefault(t => t.AssigneeRole == AgentRole.IntegrationEngineer);
-
-            if (intNode != null && intTicket != null)
-            {
-                UpdateNodeState(intNode.Id, NodeExecutionState.Running, ticketId: intTicket.Id);
-                await Task.Delay(150, cancellationToken);
-
-                var intArtifacts = await _executionEngine.ExecuteRoleTaskAsync(AgentRole.IntegrationEngineer, intTicket, cancellationToken);
-                foreach (var a in intArtifacts)
-                {
-                    intTicket = intTicket.WithDeliverable(a);
-                    if (_artifactManager != null)
-                    {
-                        await _artifactManager.SaveDeliverableArtifactAsync(intTicket, a, cancellationToken);
-                    }
-                }
-                _ticketStore.UpdateTicket(intTicket);
-
-                _handoffRouter.AdvanceWorkflowOnTicketCompletion(intTicket.Id);
-                await _memoryConsolidation.ConsolidateTaskCompletionAsync(intTicket, _eventStream.GetHistory(), cancellationToken);
-                UpdateNodeState(intNode.Id, NodeExecutionState.Completed, "Solution Packaged & Wired.", intTicket.Id);
-
-                _eventStream.Publish(AgentMessage.Create(
-                    role: AgentRole.IntegrationEngineer,
-                    senderName: "Ingrid the Package-Master (Release Integrator)",
-                    content: "📦 Ingrid 'The Tarball' Tarjan (Release Integrator): 'Clean build, clean clone, zero merge conflicts!' Packaged Clean Architecture solution and published Release Manifest.",
-                    type: MessageType.StateChange,
-                    ticketId: intTicket.Id
-                ));
+                count++;
+                await Task.Delay(100, cancellationToken);
             }
 
             _eventStream.Publish(AgentMessage.Create(
@@ -897,6 +915,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         }
         finally
         {
+            SetActiveExecution(null);
             _isRunning = false;
             OnGraphUpdated?.Invoke(_graph);
         }
@@ -968,5 +987,268 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         _graph = _graph with { Nodes = nodes };
         OnNodeStateChanged?.Invoke(nodeId, state);
         OnGraphUpdated?.Invoke(_graph);
+    }
+
+    private async Task<bool> EnsureTpmToArchitectApprovalAsync(
+        string epicId,
+        string epicTitle,
+        CancellationToken cancellationToken)
+    {
+        if (_approvalService.IsGateApproved(epicId, ApprovalGateStage.TpmToArchitect))
+        {
+            return true;
+        }
+
+        var epicObj = _ticketStore.GetTicketById(epicId);
+        var prdArtifact = epicObj?.Deliverables.FirstOrDefault(d => d.Name.EndsWith("_PRD.md", StringComparison.OrdinalIgnoreCase))
+            ?? epicObj?.Deliverables.FirstOrDefault();
+
+        var stories = _ticketStore.GetTicketsByEpic(epicId)
+            .Where(t => t.Type == TicketType.Feature)
+            .ToList();
+
+        var items = new List<ApprovalItemSummary>();
+
+        if (prdArtifact != null)
+        {
+            var preview = prdArtifact.Content.Length > 800 ? prdArtifact.Content[..800] + "..." : prdArtifact.Content;
+            items.Add(new ApprovalItemSummary(
+                Category: "Product Requirements Document (PRD)",
+                Title: prdArtifact.Name,
+                Details: preview,
+                KeyPoints: [
+                    $"Initiative: {epicTitle}",
+                    $"Authored By: {AgentRole.TechnicalProductManager.ToDisplayName()}",
+                    $"Specification Size: {prdArtifact.Content.Length} characters"
+                ]
+            ));
+        }
+
+        foreach (var story in stories)
+        {
+            items.Add(new ApprovalItemSummary(
+                Category: "User Story (Feature)",
+                Title: $"[{story.Id}] {story.Title}",
+                Details: story.Description,
+                KeyPoints: story.AcceptanceCriteria
+            ));
+        }
+
+        var gate1ProjId = epicObj?.ProjectId ?? _activeProjectContext?.CurrentProjectId;
+        var gate1Request = new WorkflowApprovalRequest(
+            Id: $"APPR-TPM-ARCH-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+            EpicId: epicId,
+            ProjectId: gate1ProjId,
+            Stage: ApprovalGateStage.TpmToArchitect,
+            GateTitle: "User Approval Required: PRD & User Story Scope",
+            GateDescription: $"The Technical Product Manager has authored the formal PRD and synthesized {stories.Count} foundational User Stories for initiative '{epicTitle}'. Your review and approval is required before the Lead Architect begins technical decomposition and architecture design.",
+            NextStepDescription: "Authorize Lead Architect to refine user stories into technical execution subtasks, author Architectural Decision Record (ADR), and scaffold Clean Architecture contracts.",
+            PrecedingRole: AgentRole.TechnicalProductManager,
+            ProceedingRole: AgentRole.LeadArchitect,
+            ItemsToApprove: items,
+            Deliverables: prdArtifact != null ? [prdArtifact] : Array.Empty<ArtifactItem>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var tpmNode = GetNodeByRole(AgentRole.TechnicalProductManager);
+        if (tpmNode != null)
+        {
+            UpdateNodeState(tpmNode.Id, NodeExecutionState.WaitingForApproval, "Awaiting User Approval of PRD & User Stories", epicId);
+        }
+
+        _eventStream.Publish(AgentMessage.Create(
+            role: AgentRole.TechnicalProductManager,
+            senderName: "Approval Gatekeeper",
+            content: $"✋ USER INTERACTION REQUIRED: Approval requested for PRD and {stories.Count} user stories for '{epicTitle}'.",
+            type: MessageType.Alert,
+            ticketId: epicId,
+            projectId: gate1ProjId
+        ));
+
+        SetActiveExecution(new ActiveExecutionStatus(
+            Role: AgentRole.TechnicalProductManager,
+            RoleName: AgentRole.TechnicalProductManager.ToDisplayName(),
+            TicketId: epicId,
+            TicketTitle: $"Awaiting Approval: {epicTitle}",
+            Model: "Human Gate",
+            StartedAt: DateTimeOffset.UtcNow,
+            CurrentPhase: "Awaiting User Approval (TPM ➔ Lead Architect)..."
+        ));
+
+        var resolution = await _approvalService.RequestApprovalAsync(gate1Request, cancellationToken);
+        SetActiveExecution(null);
+
+        if (tpmNode != null)
+        {
+            UpdateNodeState(tpmNode.Id, NodeExecutionState.Completed, $"PRD authored & {stories.Count} stories approved for refinement.", epicId);
+        }
+
+        if (resolution.Status == ApprovalStatus.Rejected)
+        {
+            _eventStream.Publish(AgentMessage.Create(
+                role: AgentRole.TechnicalProductManager,
+                senderName: "Approval Gatekeeper",
+                content: $"🛑 Workflow halted: User REJECTED approval for PRD & User Stories: {resolution.UserFeedback ?? "No reason provided."}",
+                type: MessageType.Alert,
+                ticketId: epicId,
+                projectId: gate1ProjId
+            ));
+            return false;
+        }
+
+        _eventStream.Publish(AgentMessage.Create(
+            role: AgentRole.LeadArchitect,
+            senderName: "Approval Gatekeeper",
+            content: $"✅ User APPROVED PRD & User Stories! Proceeding to Lead Architect refinement. Notes: {resolution.UserFeedback ?? "Approved without notes"}",
+            type: MessageType.StateChange,
+            ticketId: epicId,
+            projectId: gate1ProjId
+        ));
+
+        return true;
+    }
+
+    private async Task<bool> EnsureArchitectToCoderApprovalAsync(
+        string epicId,
+        string epicTitle,
+        TicketItem devTicket,
+        CancellationToken cancellationToken)
+    {
+        if (_approvalService.IsGateApproved(epicId, ApprovalGateStage.ArchitectToCoder))
+        {
+            return true;
+        }
+
+        var allSubtasks = _ticketStore.GetTicketsByEpic(epicId)
+            .Where(t => t.Type == TicketType.Subtask)
+            .ToList();
+
+        var adrDeliverables = allSubtasks
+            .Where(t => t.AssigneeRole == AgentRole.LeadArchitect)
+            .SelectMany(t => t.Deliverables)
+            .ToList();
+
+        if (adrDeliverables.Count == 0)
+        {
+            var epicTicketObj = _ticketStore.GetTicketById(epicId);
+            if (epicTicketObj != null)
+            {
+                adrDeliverables = epicTicketObj.Deliverables
+                    .Where(d => d.Name.EndsWith("_ADR.md", StringComparison.OrdinalIgnoreCase) || d.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+        }
+
+        var primaryAdr = adrDeliverables.FirstOrDefault(d => d.Name.EndsWith("_ADR.md", StringComparison.OrdinalIgnoreCase)) ?? adrDeliverables.FirstOrDefault();
+
+        var items = new List<ApprovalItemSummary>();
+        if (primaryAdr != null)
+        {
+            var adrPreview = primaryAdr.Content.Length > 800 ? primaryAdr.Content[..800] + "..." : primaryAdr.Content;
+            items.Add(new ApprovalItemSummary(
+                Category: "Architectural Decision Record (ADR)",
+                Title: primaryAdr.Name,
+                Details: adrPreview,
+                KeyPoints: [
+                    $"Initiative: {epicTitle}",
+                    $"Authored By: {AgentRole.LeadArchitect.ToDisplayName()}",
+                    $"Architecture: Clean Architecture & Zero-Allocation Hot Paths"
+                ]
+            ));
+        }
+
+        var companionCode = adrDeliverables.Where(d => d.Name.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (companionCode.Count > 0)
+        {
+            items.Add(new ApprovalItemSummary(
+                Category: "Clean Architecture Scaffolding",
+                Title: $"{companionCode.Count} Companion Scaffold File(s)",
+                Details: string.Join(", ", companionCode.Select(c => c.Name)),
+                KeyPoints: companionCode.Select(c => $"File: {c.Name} ({c.Content.Length} chars)").ToList()
+            ));
+        }
+
+        foreach (var st in allSubtasks.OrderBy(t => t.CreatedAt))
+        {
+            items.Add(new ApprovalItemSummary(
+                Category: $"Technical Subtask ({st.AssigneeRole.ToDisplayName()})",
+                Title: $"[{st.Id}] {st.Title}",
+                Details: st.Description,
+                KeyPoints: st.AcceptanceCriteria
+            ));
+        }
+
+        var gate2ProjId = _ticketStore.GetTicketById(epicId)?.ProjectId ?? devTicket.ProjectId ?? _activeProjectContext?.CurrentProjectId;
+        var gate2Request = new WorkflowApprovalRequest(
+            Id: $"APPR-ARCH-DEV-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
+            EpicId: epicId,
+            ProjectId: gate2ProjId,
+            Stage: ApprovalGateStage.ArchitectToCoder,
+            GateTitle: "User Approval Required: Architecture Design & Implementation Plan",
+            GateDescription: $"The Lead Architect has finalized the Architectural Decision Record (ADR), scaffolded Clean Architecture contracts, and mapped {allSubtasks.Count} technical execution subtasks. Your review and approval is required before the Coder begins writing implementation code.",
+            NextStepDescription: "Authorize Coder (Software Developer) to implement domain models, service methods, business logic, and xUnit unit tests strictly adhering to the approved ADR contracts.",
+            PrecedingRole: AgentRole.LeadArchitect,
+            ProceedingRole: AgentRole.SoftwareDeveloper,
+            ItemsToApprove: items,
+            Deliverables: adrDeliverables,
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var devNode = GetNodeByRole(AgentRole.SoftwareDeveloper);
+        if (devNode != null)
+        {
+            UpdateNodeState(devNode.Id, NodeExecutionState.WaitingForApproval, "Awaiting User Approval of ADR & Technical Plan", devTicket.Id);
+        }
+
+        _eventStream.Publish(AgentMessage.Create(
+            role: AgentRole.LeadArchitect,
+            senderName: "Approval Gatekeeper",
+            content: $"✋ USER INTERACTION REQUIRED: Approval requested for ADR and {allSubtasks.Count} technical subtasks before Coder begins implementation.",
+            type: MessageType.Alert,
+            ticketId: devTicket.Id,
+            projectId: gate2ProjId
+        ));
+
+        SetActiveExecution(new ActiveExecutionStatus(
+            Role: AgentRole.LeadArchitect,
+            RoleName: AgentRole.LeadArchitect.ToDisplayName(),
+            TicketId: devTicket.Id,
+            TicketTitle: $"Awaiting Approval: {devTicket.Title}",
+            Model: "Human Gate",
+            StartedAt: DateTimeOffset.UtcNow,
+            CurrentPhase: "Awaiting User Approval (Lead Architect ➔ Coder)..."
+        ));
+
+        var resolution = await _approvalService.RequestApprovalAsync(gate2Request, cancellationToken);
+        SetActiveExecution(null);
+
+        if (devNode != null && devNode.State == NodeExecutionState.WaitingForApproval)
+        {
+            UpdateNodeState(devNode.Id, NodeExecutionState.Idle, null, devTicket.Id);
+        }
+
+        if (resolution.Status == ApprovalStatus.Rejected)
+        {
+            _eventStream.Publish(AgentMessage.Create(
+                role: AgentRole.LeadArchitect,
+                senderName: "Approval Gatekeeper",
+                content: $"🛑 Workflow halted: User REJECTED approval for Architecture & Technical Plan: {resolution.UserFeedback ?? "No reason provided."}",
+                type: MessageType.Alert,
+                ticketId: devTicket.Id,
+                projectId: gate2ProjId
+            ));
+            return false;
+        }
+
+        _eventStream.Publish(AgentMessage.Create(
+            role: AgentRole.SoftwareDeveloper,
+            senderName: "Approval Gatekeeper",
+            content: $"✅ User APPROVED Architecture & Implementation Plan! Unleashing Coder (Software Developer). Notes: {resolution.UserFeedback ?? "Approved without notes"}",
+            type: MessageType.StateChange,
+            ticketId: devTicket.Id,
+            projectId: gate2ProjId
+        ));
+
+        return true;
     }
 }

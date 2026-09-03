@@ -136,4 +136,137 @@ public class WorkDecompositionTests
         var otherSubtasks = subtasks.Where(s => s.AssigneeRole != AgentRole.LeadArchitect).ToList();
         otherSubtasks.Should().OnlyContain(s => s.Status == TicketStatus.Backlog);
     }
+
+    [Fact]
+    public void SyncUserStoriesFromPrd_WithJsonManifest_ShouldExtractMultipleFeatureStories()
+    {
+        var epicId = "EPIC-TEST-MULTI";
+        var epicTicket = new TicketItem(
+            Id: epicId,
+            ParentEpicId: null,
+            Title: "High-Throughput Telemetry Pipeline",
+            Description: "Real-time telemetry engine",
+            Type: TicketType.Epic,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Process events at sub-5ms"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        _ticketStore.CreateTicket(epicTicket);
+
+        // Initial single placeholder story
+        var initialStory = new TicketItem(
+            Id: "STORY-INIT-001",
+            ParentEpicId: epicId,
+            Title: "High-Throughput Telemetry Pipeline: Core Engine & Protocols",
+            Description: "Initial placeholder story",
+            Type: TicketType.Feature,
+            Status: TicketStatus.Backlog,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Initial criteria"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        _ticketStore.CreateTicket(initialStory);
+
+        var prdContent = """
+        # Product Requirements Document (PRD): High-Throughput Telemetry Pipeline
+        ## 1. Executive Summary
+        Building scalable telemetry pipeline.
+        ## 4. User Stories
+        Detailed text...
+        ```json:user_stories
+        [
+          {
+            "title": "Ingestion Channel & Backpressure",
+            "description": "Bounded channel queue with backpressure",
+            "acceptanceCriteria": ["Sub-5ms latency", "Drop policy on overflow"]
+          },
+          {
+            "title": "Payload Validation & Anomaly Scoring",
+            "description": "Zero-allocation schema validator",
+            "acceptanceCriteria": ["Reject invalid schemas", "Zero heap allocations"]
+          },
+          {
+            "title": "Storage Outbox & Real-time Stream",
+            "description": "Durable persistence and SignalR stream",
+            "acceptanceCriteria": ["At-least-once outbox delivery", "SignalR client broadcast"]
+          }
+        ]
+        ```
+        """;
+
+        var result = _engine.SyncUserStoriesFromPrd(epicId, prdContent);
+
+        result.Should().HaveCount(3);
+        result.Should().OnlyContain(s => s.Type == TicketType.Feature);
+        result.Should().OnlyContain(s => s.ParentEpicId == epicId);
+        result.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+
+        // Story 1 upgraded existing ticket ID
+        result[0].Id.Should().Be("STORY-INIT-001");
+        result[0].Title.Should().Contain("Ingestion Channel & Backpressure");
+        result[0].AcceptanceCriteria.Should().Contain("Sub-5ms latency");
+
+        // Stories 2 and 3 created as new tickets
+        result[1].Title.Should().Contain("Payload Validation & Anomaly Scoring");
+        result[2].Title.Should().Contain("Storage Outbox & Real-time Stream");
+    }
+
+    [Fact]
+    public void SyncUserStoriesFromPrd_WithMarkdownHeadings_ShouldExtractMultipleFeatureStories()
+    {
+        var epicId = "EPIC-TEST-MD";
+        var epicTicket = new TicketItem(
+            Id: epicId,
+            ParentEpicId: null,
+            Title: "Distributed Order Saga",
+            Description: "Order saga orchestrator",
+            Type: TicketType.Epic,
+            Status: TicketStatus.InProgress,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Saga compensation"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+        _ticketStore.CreateTicket(epicTicket);
+
+        var prdContent = """
+        # Product Requirements Document (PRD): Distributed Order Saga
+        ## 4. User Stories & Functional Acceptance Criteria
+
+        ### User Story 1: Saga State Coordinator
+        - Description: Coordinate multi-stage order workflow with idempotent compensation.
+        - Acceptance Criteria:
+          - [ ] State persisted with optimistic locking
+          - [ ] Timeout compensation triggers after 30s
+
+        ### User Story 2: Payment Gateway Adapter
+        - Description: Secure adapter communicating with third-party payment APIs.
+        - Acceptance Criteria:
+          - [ ] Idempotency key included on all POST calls
+          - [ ] Zero secret leakage in logs
+        """;
+
+        var result = _engine.SyncUserStoriesFromPrd(epicId, prdContent);
+
+        result.Should().HaveCount(2);
+        result[0].Title.Should().Contain("Saga State Coordinator");
+        result[0].AcceptanceCriteria.Should().Contain("State persisted with optimistic locking");
+        result[1].Title.Should().Contain("Payment Gateway Adapter");
+        result[1].AcceptanceCriteria.Should().Contain("Zero secret leakage in logs");
+    }
 }

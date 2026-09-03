@@ -5,6 +5,7 @@ using CarnotCycleCircus.Core.Domain.Docs;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Tickets;
 
 namespace CarnotCycleCircus.Core.Domain.Harvester;
@@ -80,6 +81,8 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
     private readonly IWorkDecompositionEngine _decompositionEngine;
     private readonly IAdrDocumentManager _adrManager;
     private readonly IAgentEventStream _eventStream;
+    private readonly IActiveProjectContext? _activeProjectContext;
+    private readonly IProjectManager? _projectManager;
     private CodebaseHarvestReport? _latestReport;
 
     public CodebaseHarvesterService(
@@ -88,7 +91,9 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
         ITicketStore ticketStore,
         IWorkDecompositionEngine decompositionEngine,
         IAdrDocumentManager adrManager,
-        IAgentEventStream eventStream)
+        IAgentEventStream eventStream,
+        IActiveProjectContext? activeProjectContext = null,
+        IProjectManager? projectManager = null)
     {
         _knowledgeMap = knowledgeMap;
         _memoryStore = memoryStore;
@@ -96,6 +101,8 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
         _decompositionEngine = decompositionEngine;
         _adrManager = adrManager;
         _eventStream = eventStream;
+        _activeProjectContext = activeProjectContext;
+        _projectManager = projectManager;
     }
 
     public CodebaseHarvestReport? GetLatestReport() => _latestReport;
@@ -313,6 +320,17 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
         var generatedTicketIds = new List<string>();
         if (autoGenerateBacklog)
         {
+            if (_activeProjectContext?.CurrentProject == null && _projectManager != null)
+            {
+                var newProj = await _projectManager.CreateAsync(
+                    name: solutionName,
+                    description: $"Harvested codebase at {directoryPath}",
+                    workspaceDirectory: directoryPath,
+                    cancellationToken: cancellationToken
+                );
+                _activeProjectContext?.SetActiveProject(newProj);
+            }
+
             var epicTickets = _decompositionEngine.DeconstructEpic(
                 $"Modernize & Harden {solutionName}",
                 $"Autonomous engineering sweep to audit STRIDE security, benchmark zero-allocation hot paths, and expand unit test coverage for {solutionName}.",
@@ -342,7 +360,8 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
             role: AgentRole.LeadArchitect,
             senderName: "🔍 Codebase Harvester",
             content: $"Scanned '{solutionName}' ({discoveredProjects.Count} projects, {csFiles.Count} C# files, {detectedPatterns.Count} patterns detected). Backlog populated with {generatedTicketIds.Count} action items.",
-            type: MessageType.StateChange
+            type: MessageType.StateChange,
+            projectId: _activeProjectContext?.CurrentProjectId
         ));
 
         return report;

@@ -1,7 +1,9 @@
 @page "/artifacts"
+@implements IDisposable
 @inject IArtifactManager ArtifactManager
 @inject ITicketStore TicketStore
 @inject IJSRuntime JSRuntime
+@inject IActiveProjectContext ActiveProjectContext
 
 <div class="page-header">
     <div>
@@ -11,16 +13,29 @@
         </p>
     </div>
 
-    <div class="page-header-actions" style="display: flex; gap: 10px; align-items: center;">
-        <button class="btn btn-success" @onclick="SyncAllArtifactsToDisk" disabled="@isSyncing" style="white-space: nowrap; font-weight: 700;">
-            @(isSyncing ? "⏳ Syncing..." : "⚡ Sync All to Repo")
-        </button>
-        <button class="btn btn-secondary" @onclick="RefreshArtifacts" style="white-space: nowrap;">
-            🔄 Refresh
-        </button>
-    </div>
+    @if (ActiveProjectContext.HasActiveProject)
+    {
+        <div class="page-header-actions" style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-success" @onclick="SyncAllArtifactsToDisk" disabled="@isSyncing" style="white-space: nowrap; font-weight: 700;">
+                @(isSyncing ? "⏳ Syncing..." : "⚡ Sync All to Repo")
+            </button>
+            <button class="btn btn-secondary" @onclick="RefreshArtifacts" style="white-space: nowrap;">
+                🔄 Refresh
+            </button>
+        </div>
+    }
 </div>
 
+@if (!ActiveProjectContext.HasActiveProject)
+{
+    <div class="glass-card" style="text-align: center; padding: 48px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">📁</div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">Select a project to view artifacts</h3>
+        <p style="color: var(--text-muted);">Deliverables are scoped to a project. Choose or create an active project from the sidebar switcher.</p>
+    </div>
+}
+else
+{
 <!-- Storage & Sync Status Banner -->
 <div class="glass-card" style="margin-bottom: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; background: rgba(15, 23, 42, 0.65);">
     <div>
@@ -199,6 +214,7 @@ else
         </div>
     </div>
 }
+}
 
 @code {
     private List<ArtifactDescriptor> artifacts = new();
@@ -210,8 +226,9 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
         RefreshArtifacts();
-        if (artifacts.Count == 0)
+        if (artifacts.Count == 0 && ActiveProjectContext.HasActiveProject)
         {
             await SyncAllArtifactsToDisk();
         }
@@ -221,9 +238,22 @@ else
         }
     }
 
+    private void HandleActiveProjectChanged(Project? _)
+    {
+        RefreshArtifacts();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
+    }
+
     private void RefreshArtifacts()
     {
-        artifacts = ArtifactManager.GetAllArtifacts().ToList();
+        artifacts = ActiveProjectContext.CurrentProjectId is { } projectId
+            ? ArtifactManager.GetByProject(projectId).ToList()
+            : new List<ArtifactDescriptor>();
         if (selectedArtifact == null || !artifacts.Any(a => a.FullPath == selectedArtifact.FullPath))
         {
             selectedArtifact = artifacts.FirstOrDefault();

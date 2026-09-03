@@ -10,6 +10,7 @@ public interface IArtifactManager
     bool IsArtifactsDirectoryWriteable { get; }
     
     IReadOnlyList<ArtifactDescriptor> GetAllArtifacts();
+    IReadOnlyList<ArtifactDescriptor> GetByProject(string projectId);
     IReadOnlyList<ArtifactDescriptor> GetArtifactsByTicket(string ticketId);
     IReadOnlyList<ArtifactDescriptor> GetArtifactsByCategory(string category);
     IReadOnlyList<ArtifactDescriptor> GetArtifactsByRole(AgentRole role);

@@ -1,4 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Agents;
+using CarnotCycleCircus.Core.Domain.Approvals;
 using CarnotCycleCircus.Core.Domain.Artifacts;
 using CarnotCycleCircus.Core.Domain.Blueprints;
 using CarnotCycleCircus.Core.Domain.Docs;
@@ -10,6 +11,7 @@ using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Models;
+using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Quotes;
 using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Showcase;
@@ -33,6 +35,10 @@ public static class ServiceCollectionExtensions
         configureOptions?.Invoke(storageOptions);
         services.AddSingleton(storageOptions);
         services.AddSingleton<IPersistentStorageService, FilePersistentStorageService>();
+
+        // Projects
+        services.AddSingleton<IProjectManager, ProjectManager>();
+        services.AddSingleton<IActiveProjectContext, ActiveProjectContext>();
 
         // Event Stream & Message Bus
         services.AddSingleton<IAgentEventStream, AgentEventStream>();
@@ -96,6 +102,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IProjectBlueprintService, ProjectBlueprintService>();
         services.AddSingleton<ICodebaseHarvesterService, CodebaseHarvesterService>();
         services.AddSingleton<IShowcaseDemoService, ShowcaseDemoService>();
+
+        // Workflow Human Approval Gates
+        services.AddSingleton<IWorkflowApprovalService>(sp => new WorkflowApprovalService(requireUserApproval: true));
 
         // Graph Orchestrator & Workflow Executor
         services.AddSingleton<IGraphWorkflowExecutor, GraphWorkflowExecutor>();

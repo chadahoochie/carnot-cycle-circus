@@ -1,5 +1,7 @@
 @page "/docs"
+@implements IDisposable
 @inject IAdrDocumentManager AdrManager
+@inject IActiveProjectContext ActiveProjectContext
 
 <div class="page-header">
     <div>
@@ -7,19 +9,32 @@
         <p style="color: var(--text-muted); font-size: 0.9rem;">Automated MADR/Nygard decision records, C4 system cathedrals, paranoid threat models, and CYA markdown bundles.</p>
     </div>
 
-    <div class="page-header-actions">
-        <button class="btn btn-secondary" @onclick="ExportBundle" style="white-space: nowrap;">
-            📦 Export CYA Markdown Bundle
-        </button>
-        <button class="btn btn-success" @onclick="() => showCreateAdrModal = true" style="white-space: nowrap;">
-            ➕ Propose New ADR
-        </button>
-    </div>
+    @if (ActiveProjectContext.HasActiveProject)
+    {
+        <div class="page-header-actions">
+            <button class="btn btn-secondary" @onclick="ExportBundle" style="white-space: nowrap;">
+                📦 Export CYA Markdown Bundle
+            </button>
+            <button class="btn btn-success" @onclick="() => showCreateAdrModal = true" style="white-space: nowrap;">
+                ➕ Propose New ADR
+            </button>
+        </div>
+    }
 </div>
 
+@if (!ActiveProjectContext.HasActiveProject)
+{
+    <div class="glass-card" style="text-align: center; padding: 48px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">📁</div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">Select a project to view docs</h3>
+        <p style="color: var(--text-muted);">ADRs and project documents are scoped to a project. Choose or create an active project from the sidebar switcher.</p>
+    </div>
+}
+else
+{
 <div style="display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; flex-wrap: wrap;">
     <button class="btn @(activeTab == "adrs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "adrs"' style="white-space: nowrap;">
-        🏛️ Architectural Decision Records (@AdrManager.GetAllAdrs().Count)
+        🏛️ Architectural Decision Records (@ScopedAdrs.Count)
     </button>
     <button class="btn @(activeTab == "c4" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "c4"' style="white-space: nowrap;">
         📐 C4 Architecture Cathedrals
@@ -34,7 +49,7 @@
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
         <!-- ADR List -->
         <div style="display: flex; flex-direction: column; gap: 10px;">
-            @foreach (var adr in AdrManager.GetAllAdrs())
+            @foreach (var adr in ScopedAdrs)
             {
                 var isSelected = selectedAdr?.Id == adr.Id;
                 <div class="glass-card" style="cursor: pointer; border-left: 4px solid @(isSelected ? "#38bdf8" : "#334155");" @onclick="() => selectedAdr = adr">
@@ -135,6 +150,7 @@ else if (activeTab == "stride")
         <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap;">@(strideDoc?.ContentMarkdown ?? "No STRIDE threat model found.")</div>
     </div>
 }
+}
 
 @if (showCreateAdrModal)
 {
@@ -205,9 +221,26 @@ else if (activeTab == "stride")
     private string newAdrPositive = "";
     private string newAdrNegative = "";
 
+    private IReadOnlyList<ArchitecturalDecisionRecord> ScopedAdrs =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? AdrManager.GetByProject(projectId)
+            : Array.Empty<ArchitecturalDecisionRecord>();
+
     protected override void OnInitialized()
     {
-        selectedAdr = AdrManager.GetAllAdrs().FirstOrDefault();
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
+        selectedAdr = ScopedAdrs.FirstOrDefault();
+    }
+
+    private void HandleActiveProjectChanged(Project? _)
+    {
+        selectedAdr = ScopedAdrs.FirstOrDefault();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
     }
 
     private void ExportBundle()
@@ -218,11 +251,12 @@ else if (activeTab == "stride")
 
     private void SaveNewAdr()
     {
-        if (string.IsNullOrWhiteSpace(newAdrTitle)) return;
+        if (string.IsNullOrWhiteSpace(newAdrTitle) || !ActiveProjectContext.HasActiveProject) return;
 
         var count = AdrManager.GetAllAdrs().Count + 1;
         var adr = new ArchitecturalDecisionRecord(
             Id: $"ADR-{count:D3}",
+            ProjectId: ActiveProjectContext.CurrentProjectId,
             Title: newAdrTitle,
             Status: AdrStatus.Accepted,
             Context: newAdrContext,

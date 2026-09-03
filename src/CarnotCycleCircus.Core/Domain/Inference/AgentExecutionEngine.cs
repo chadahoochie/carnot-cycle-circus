@@ -8,10 +8,16 @@ using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using CarnotCycleCircus.Core.Domain.Tools;
 
+using CarnotCycleCircus.Core.Domain.Projects;
+
 namespace CarnotCycleCircus.Core.Domain.Inference;
+
+public record StreamingChunkEvent(AgentRole Role, string TicketId, string Chunk, string? ProjectId = null);
 
 public interface IAgentExecutionEngine
 {
+    event Action<StreamingChunkEvent>? OnStreamingChunk;
+
     Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(
         AgentRole role,
         TicketItem ticket,
@@ -20,6 +26,8 @@ public interface IAgentExecutionEngine
 
 public class AgentExecutionEngine : IAgentExecutionEngine
 {
+    public event Action<StreamingChunkEvent>? OnStreamingChunk;
+
     private readonly IOpenRouterClient _openRouterClient;
     private readonly IAgentInferenceResolver _inferenceResolver;
     private readonly ITeamDefinitionManager? _teamManager;
@@ -29,6 +37,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
     private readonly IPersistentMemoryStore? _memoryStore;
     private readonly ICodebaseHarvesterService? _harvester;
     private readonly ITicketStore? _ticketStore;
+    private readonly IActiveProjectContext? _activeProjectContext;
 
     public AgentExecutionEngine(
         IOpenRouterClient openRouterClient,
@@ -39,7 +48,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         IKnowledgeMapService? knowledgeMap = null,
         IPersistentMemoryStore? memoryStore = null,
         ICodebaseHarvesterService? harvester = null,
-        ITicketStore? ticketStore = null)
+        ITicketStore? ticketStore = null,
+        IActiveProjectContext? activeProjectContext = null)
     {
         _openRouterClient = openRouterClient ?? throw new ArgumentNullException(nameof(openRouterClient));
         _inferenceResolver = inferenceResolver ?? throw new ArgumentNullException(nameof(inferenceResolver));
@@ -50,6 +60,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         _memoryStore = memoryStore;
         _harvester = harvester;
         _ticketStore = ticketStore;
+        _activeProjectContext = activeProjectContext;
     }
 
     public async Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(
@@ -151,6 +162,17 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                     ticketId: ticket.Id
                 ));
 
+                foreach (var art in artifacts)
+                {
+                    _eventStream?.Publish(AgentMessage.Create(
+                        role: role,
+                        senderName: member.Persona.Name,
+                        content: $"📄 Created deliverable artifact: '{art.Name}' ({art.ContentType})",
+                        type: MessageType.ArtifactCreated,
+                        ticketId: ticket.Id
+                    ));
+                }
+
                 return artifacts;
             }
 
@@ -177,6 +199,17 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                         type: MessageType.Handoff,
                         ticketId: ticket.Id
                     ));
+
+                    foreach (var art in fallbackArtifacts)
+                    {
+                        _eventStream?.Publish(AgentMessage.Create(
+                            role: role,
+                            senderName: member.Persona.Name,
+                            content: $"📄 Created deliverable artifact: '{art.Name}' ({art.ContentType})",
+                            type: MessageType.ArtifactCreated,
+                            ticketId: ticket.Id
+                        ));
+                    }
 
                     return fallbackArtifacts;
                 }
@@ -343,14 +376,19 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             new("user", userPrompt)
         };
 
+        var maxTokens = DetermineMaxTokensForModel(model, role);
+
         var request = new OpenRouterChatRequest(
             Model: model,
             Messages: messages,
             Temperature: Math.Clamp(member.Persona.Temperature, 0.0, 1.0),
-            MaxTokens: 8192
+            MaxTokens: maxTokens
         );
 
-        var response = await _openRouterClient.CompleteAsync(request, apiKey, cancellationToken);
+        var response = await _openRouterClient.CompleteStreamAsync(request, apiKey, chunk =>
+        {
+            OnStreamingChunk?.Invoke(new StreamingChunkEvent(role, ticket.Id, chunk, ticket.ProjectId ?? _activeProjectContext?.CurrentProjectId));
+        }, cancellationToken);
         var rawContent = response.FirstContent;
         var finishReason = response.FirstFinishReason;
 
@@ -367,6 +405,14 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             var syntaxTool = new CSharpSyntaxCheckTool();
             var syntaxErrors = new List<string>();
 
+            _eventStream?.Publish(AgentMessage.Create(
+                role: role,
+                senderName: member.Persona.Name,
+                content: $"🔍 Performing Roslyn AST syntax validation on {parsedArtifacts.Count(a => a.ContentType == "csharp")} generated C# file(s)...",
+                type: MessageType.Thought,
+                ticketId: ticket.Id
+            ));
+
             foreach (var art in parsedArtifacts.Where(a => a.ContentType == "csharp"))
             {
                 var checkRes = await syntaxTool.ExecuteAsync(new ToolExecutionContext("csharp_syntax_check", new Dictionary<string, string> { ["code"] = art.Content }, role, ticket.Id), cancellationToken);
@@ -376,12 +422,22 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 }
             }
 
-            if (syntaxErrors.Count > 0)
+            if (syntaxErrors.Count == 0)
             {
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
                     senderName: member.Persona.Name,
-                    content: $"🔧 Detected syntax issues in generated C# code. Initiating autonomous self-healing remediation pass...",
+                    content: $"✅ Roslyn AST syntax validation passed with 0 structural errors.",
+                    type: MessageType.Thought,
+                    ticketId: ticket.Id
+                ));
+            }
+            else
+            {
+                _eventStream?.Publish(AgentMessage.Create(
+                    role: role,
+                    senderName: member.Persona.Name,
+                    content: $"🔧 Detected {syntaxErrors.Count} syntax issue(s) in generated C# code. Initiating autonomous self-healing remediation pass...",
                     type: MessageType.Alert,
                     ticketId: ticket.Id
                 ));
@@ -403,7 +459,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
                 try
                 {
-                    var remResponse = await _openRouterClient.CompleteAsync(new OpenRouterChatRequest(model, remediationMessages, Temperature: 0.1, MaxTokens: 8192), apiKey, cancellationToken);
+                    var remResponse = await _openRouterClient.CompleteAsync(new OpenRouterChatRequest(model, remediationMessages, Temperature: 0.1, MaxTokens: DetermineMaxTokensForModel(model, role)), apiKey, cancellationToken);
                     if (!string.IsNullOrWhiteSpace(remResponse.FirstContent))
                     {
                         var healed = ParseDeliverableArtifacts(remResponse.FirstContent, defaultArtifactName, contentType, description, ticket);
@@ -506,23 +562,53 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 defaultArtifactName = $"{ticket.Id}_PRD.md";
                 contentType = "markdown";
                 description = "Product Requirements Document (PRD)";
-                userPrompt = $"""
+                userPrompt = $$"""
                 Produce a comprehensive, rigorous Product Requirements Document (PRD) in Markdown format for:
-                Ticket: {ticket.Id} - {ticket.Title}
-                Description: {ticket.Description}
-                Priority: {ticket.Priority}
+                Ticket: {{ticket.Id}} - {{ticket.Title}}
+                Description: {{ticket.Description}}
+                Priority: {{ticket.Priority}}
                 Acceptance Criteria:
-                {string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}
-                {repoContext}
-                {upstreamSummary}
+                {{string.Join("\n", ticket.AcceptanceCriteria.Select(ac => $"- {ac}"))}}
+                {{repoContext}}
+                {{upstreamSummary}}
+
+                === MANDATORY MODULAR USER STORY DECOMPOSITION ===
+                Synthesize the upstream Research Brief and explicitly decompose this initiative into 2 to 4 distinct, cohesive User Stories (Feature tracks).
+                Each User Story must represent a modular engineering capability (e.g. Domain & State Protocols, Ingestion & Transport Pipeline, Storage & Outbox, or Client API & Telemetry).
 
                 Structure the document with:
-                # Product Requirements Document (PRD): {ticket.Title}
+                # Product Requirements Document (PRD): {{ticket.Title}}
                 ## 1. Executive Summary & Objective (Synthesized from upstream Research Brief)
                 ## 2. Target Users & System Context
                 ## 3. Domain Concepts & Entities (Specify exact entity names, value objects, and states)
-                ## 4. Functional Acceptance Criteria (use - [ ] checkboxes for all user stories)
+                ## 4. User Stories & Functional Acceptance Criteria
+                ### User Story 1: [Feature Title]
+                - Description: [Specific scope and responsibilities]
+                - Acceptance Criteria:
+                  - [ ] [Measurable criterion 1]
+                  - [ ] [Measurable criterion 2]
+
+                ### User Story 2: [Feature Title]
+                - Description: [Specific scope and responsibilities]
+                - Acceptance Criteria:
+                  - [ ] [Measurable criterion 1]
+                  - [ ] [Measurable criterion 2]
+
+                (Provide 2 to 4 modular User Stories matching the domain scope)
+
                 ## 5. Non-Functional Requirements (NFRs) (Latency SLA, GC Zero-Allocations, STRIDE Security Baseline, Self-Healing Failure Ports)
+
+                === MACHINE-READABLE USER STORIES MANIFEST ===
+                At the very end of your PRD document, include a JSON block defining each user story so the Ticket Store automatically extracts them into discrete Feature tickets:
+                ```json:user_stories
+                [
+                  {
+                    "title": "Story Title",
+                    "description": "Story Description",
+                    "acceptanceCriteria": ["Criterion 1", "Criterion 2"]
+                  }
+                ]
+                ```
                 """;
                 break;
 
@@ -1206,5 +1292,25 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
         var pascal = string.Concat(words.Select(w => char.ToUpperInvariant(w[0]) + (w.Length > 1 ? w[1..] : "")));
         return string.IsNullOrWhiteSpace(pascal) ? "CoreService" : pascal;
+    }
+
+    public static int DetermineMaxTokensForModel(string model, AgentRole role)
+    {
+        // Reasoning models (e.g. DeepSeek-R1, DeepSeek-V4 Pro, o1, o3) generate substantial internal
+        // thinking tokens that count toward max_tokens. Expanding token headroom to 16,384 ensures
+        // reasoning models complete their chain-of-thought without truncating the deliverable content (FinishReason: length).
+        // Complex engineering generation roles (Architect ADRs + Clean Architecture scaffolds, Software Developer multi-file implementations,
+        // and TPM user story decomposition PRDs) also require expanded output capacity.
+        if (model.Contains("deepseek", StringComparison.OrdinalIgnoreCase) ||
+            model.Contains("r1", StringComparison.OrdinalIgnoreCase) ||
+            model.Contains("o1", StringComparison.OrdinalIgnoreCase) ||
+            model.Contains("o3", StringComparison.OrdinalIgnoreCase) ||
+            model.Contains("claude-3.7", StringComparison.OrdinalIgnoreCase) ||
+            role is AgentRole.LeadArchitect or AgentRole.SoftwareDeveloper or AgentRole.TechnicalProductManager)
+        {
+            return 16384;
+        }
+
+        return 8192;
     }
 }

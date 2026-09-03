@@ -42,6 +42,9 @@ public class HandoffRouter : IHandoffRouter
         string actionRequested,
         IReadOnlyList<ArtifactItem>? deliverables = null)
     {
+        var ticket = _ticketStore.GetTicketById(ticketId);
+        var projectId = ticket?.ProjectId;
+
         var packet = HandoffPacket.Create(
             ticketId: ticketId,
             fromRole: fromRole,
@@ -49,7 +52,8 @@ public class HandoffRouter : IHandoffRouter
             contextSummary: summary,
             actionRequested: actionRequested,
             artifacts: deliverables,
-            reviewChecklist: ["Verify acceptance criteria", "Validate domain boundaries", "Ensure non-breaking contracts"]
+            reviewChecklist: ["Verify acceptance criteria", "Validate domain boundaries", "Ensure non-breaking contracts"],
+            projectId: projectId
         );
 
         _ticketStore.RecordHandoff(packet);
@@ -59,7 +63,8 @@ public class HandoffRouter : IHandoffRouter
             senderName: fromRole.ToDisplayName(),
             content: $"📦 Handoff packet [{packet.HandoffId}] dispatched to {toRole.ToDisplayName()}: {summary}",
             type: MessageType.Handoff,
-            ticketId: ticketId
+            ticketId: ticketId,
+            projectId: projectId
         ));
 
         return packet;
@@ -73,6 +78,7 @@ public class HandoffRouter : IHandoffRouter
         string remediationInstructions)
     {
         var ticket = _ticketStore.GetTicketById(ticketId);
+        var projectId = ticket?.ProjectId;
         if (ticket != null)
         {
             var updated = ticket.WithStatus(TicketStatus.Remediating).WithAssignee(remediationRole);
@@ -86,7 +92,8 @@ public class HandoffRouter : IHandoffRouter
             contextSummary: $"REJECTION / REMEDIATION: {rejectionReason}",
             actionRequested: $"Fix reported deficiencies: {remediationInstructions}",
             reviewChecklist: ["Review failure findings", "Apply fix in codebase", "Re-run verification"],
-            remediationNotes: remediationInstructions
+            remediationNotes: remediationInstructions,
+            projectId: projectId
         );
 
         _ticketStore.RecordHandoff(packet);
@@ -96,7 +103,8 @@ public class HandoffRouter : IHandoffRouter
             senderName: rejectingRole.ToDisplayName(),
             content: $"🚨 REJECTED ticket {ticketId} - routed to {remediationRole.ToDisplayName()} for remediation: {rejectionReason}",
             type: MessageType.Alert,
-            ticketId: ticketId
+            ticketId: ticketId,
+            projectId: projectId
         ));
 
         return packet;
@@ -115,7 +123,8 @@ public class HandoffRouter : IHandoffRouter
             senderName: ticket.AssigneeRole.ToDisplayName(),
             content: $"✅ Completed ticket [{ticket.Id}] {ticket.Title}",
             type: MessageType.StateChange,
-            ticketId: completedTicketId
+            ticketId: completedTicketId,
+            projectId: ticket.ProjectId
         ));
 
         // Propagate deliverables to parent Epic
@@ -151,7 +160,8 @@ public class HandoffRouter : IHandoffRouter
                     senderName: "Ticket Engine",
                     content: $"🚀 Dependencies satisfied for [{readyTicket.Id}] {readyTicket.Title}. Assigned to {readyTicket.AssigneeRole.ToDisplayName()} (Status: Ready).",
                     type: MessageType.StateChange,
-                    ticketId: readyTicket.Id
+                    ticketId: readyTicket.Id,
+                    projectId: readyTicket.ProjectId
                 ));
             }
         }
@@ -172,7 +182,8 @@ public class HandoffRouter : IHandoffRouter
                         senderName: "Ticket Engine",
                         content: $"🏆 All subtasks finished for [{completedParent.Id}] {completedParent.Title}! Marked as Done.",
                         type: MessageType.StateChange,
-                        ticketId: completedParent.Id
+                        ticketId: completedParent.Id,
+                        projectId: completedParent.ProjectId
                     ));
                 }
 
@@ -186,7 +197,8 @@ public class HandoffRouter : IHandoffRouter
                         senderName: "Ticket Engine",
                         content: $"🏆 All subtasks finished for Epic [{completedEpic.Id}] {completedEpic.Title}! Marked as Done.",
                         type: MessageType.StateChange,
-                        ticketId: completedEpic.Id
+                        ticketId: completedEpic.Id,
+                        projectId: completedEpic.ProjectId
                     ));
                 }
             }

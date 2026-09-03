@@ -1,0 +1,474 @@
+@page "/projects"
+@inject IProjectManager ProjectManager
+@inject IActiveProjectContext ActiveProjectContext
+@inject ITicketStore TicketStore
+@inject IArtifactManager ArtifactManager
+@inject ITeamDefinitionManager TeamManager
+@implements IDisposable
+
+<div class="projects-hub" style="padding: 24px; max-width: 1400px; margin: 0 auto;">
+    <!-- Header with Stats -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.8rem;">🚀</span>
+                <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Project Workspace Hub</h1>
+            </div>
+            <p style="color: var(--text-muted); margin: 4px 0 0 0; font-size: 0.88rem;">
+                Manage isolated engineering initiatives, squads, workspace bindings, and active execution context.
+            </p>
+        </div>
+
+        <button class="btn btn-primary" @onclick="OpenCreateModal" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px;">
+            <span>➕</span> New Project
+        </button>
+    </div>
+
+    <!-- Quick Stats Bar -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Initiatives</div>
+            <div style="font-size: 1.6rem; font-weight: 700; color: #38bdf8; margin-top: 4px;">@_projects.Count</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Active Projects</div>
+            <div style="font-size: 1.6rem; font-weight: 700; color: #22c55e; margin-top: 4px;">
+                @_projects.Count(p => p.Status == ProjectStatus.Active)
+            </div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Active Context</div>
+            <div style="font-size: 1.05rem; font-weight: 600; color: @(ActiveProjectContext.CurrentProject != null ? "#f59e0b" : "var(--text-muted)"); margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                @(ActiveProjectContext.CurrentProject?.Name ?? "None (Global Scope)")
+            </div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 18px;">
+            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Scoped Tickets</div>
+            <div style="font-size: 1.6rem; font-weight: 700; color: #a855f7; margin-top: 4px;">
+                @GetTotalScopedTicketCount()
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & Search -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            @foreach (var filter in new[] { "All", "Active", "Paused", "Completed", "Archived" })
+            {
+                <button class="btn @(selectedFilter == filter ? "btn-primary" : "btn-secondary")"
+                        @onclick="() => selectedFilter = filter"
+                        style="padding: 5px 12px; font-size: 0.8rem;">
+                    @filter
+                </button>
+            }
+        </div>
+
+        <input type="text"
+               placeholder="Search projects..."
+               @bind="searchQuery"
+               @bind:event="oninput"
+               style="padding: 6px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; width: 260px;" />
+    </div>
+
+    <!-- Projects Grid -->
+    @if (FilteredProjects.Count == 0)
+    {
+        <div style="text-align: center; padding: 48px; background: rgba(30, 41, 59, 0.4); border: 1px dashed var(--border-color); border-radius: 8px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🎪</div>
+            <h3 style="font-size: 1.1rem; font-weight: 600;">No projects match your filter.</h3>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">
+                Create a new project initiative or adjust your search filter.
+            </p>
+            <button class="btn btn-primary" @onclick="OpenCreateModal" style="margin-top: 14px;">
+                ➕ Create Project
+            </button>
+        </div>
+    }
+    else
+    {
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px;">
+            @foreach (var proj in FilteredProjects)
+            {
+                var isActive = ActiveProjectContext.CurrentProjectId == proj.Id;
+                var tickets = TicketStore.GetByProject(proj.Id);
+                var artifacts = ArtifactManager.GetByProject(proj.Id);
+                var team = !string.IsNullOrEmpty(proj.TeamId) ? TeamManager.GetTeam(proj.TeamId) : null;
+
+                <div style="background: rgba(30, 41, 59, 0.7); border: 2px solid @(isActive ? "#38bdf8" : "var(--border-color)"); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.15s, border-color 0.15s; box-shadow: @(isActive ? "0 0 15px rgba(56, 189, 248, 0.2)" : "none");">
+                    <div>
+                        <!-- Top Row: Status & Active Tag -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span class="badge" style="background: @GetStatusBg(proj.Status); color: @GetStatusColor(proj.Status); border: 1px solid @GetStatusColor(proj.Status); font-size: 0.72rem; font-weight: 600;">
+                                ● @proj.Status.ToString().ToUpperInvariant()
+                            </span>
+                            @if (isActive)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.72rem; font-weight: 700;">
+                                    ★ CURRENT ACTIVE
+                                </span>
+                            }
+                        </div>
+
+                        <!-- Project Title & Description -->
+                        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0 0 6px 0; color: #f8fafc;">
+                            @proj.Name
+                        </h3>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0 0 14px 0; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            @proj.Description
+                        </p>
+
+                        <!-- Metadata Badges -->
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; font-size: 0.75rem;">
+                            @if (team != null)
+                            {
+                                <span style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); padding: 2px 8px; border-radius: 4px;">
+                                    👥 @team.Name
+                                </span>
+                            }
+                            @if (!string.IsNullOrEmpty(proj.WorkspaceDirectory))
+                            {
+                                <span style="background: rgba(15, 23, 42, 0.6); color: #94a3b8; border: 1px solid var(--border-color); padding: 2px 8px; border-radius: 4px; font-family: monospace;" title="@proj.WorkspaceDirectory">
+                                    📁 @GetShortWorkspace(proj.WorkspaceDirectory)
+                                </span>
+                            }
+                        </div>
+
+                        <!-- Quick Counts -->
+                        <div style="display: flex; gap: 16px; margin-bottom: 16px; padding: 8px 12px; background: rgba(15, 23, 42, 0.5); border-radius: 6px; font-size: 0.78rem;">
+                            <div>
+                                <span style="color: var(--text-muted);">Tickets:</span>
+                                <strong style="color: #38bdf8; margin-left: 4px;">@tickets.Count</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Deliverables:</span>
+                                <strong style="color: #22c55e; margin-left: 4px;">@artifacts.Count</strong>
+                            </div>
+                            <div>
+                                <span style="color: var(--text-muted);">Updated:</span>
+                                <span style="color: #94a3b8; margin-left: 4px;">@((proj.LastActivityAt ?? proj.CreatedAt).ToString("MMM d"))</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Action Bar -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div>
+                            @if (!isActive)
+                            {
+                                <button class="btn btn-primary" @onclick="() => SetActiveProject(proj)" style="padding: 5px 12px; font-size: 0.78rem;">
+                                    Set Active
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-secondary" @onclick="ClearActiveProject" style="padding: 5px 12px; font-size: 0.78rem; color: #f87171;">
+                                    Deselect
+                                </button>
+                            }
+                        </div>
+
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn btn-secondary" @onclick="() => OpenEditModal(proj)" style="padding: 5px 10px; font-size: 0.78rem;" title="Edit Project">
+                                ✏️
+                            </button>
+                            <button class="btn btn-secondary" @onclick="() => CycleStatus(proj)" style="padding: 5px 10px; font-size: 0.78rem;" title="Change Status">
+                                🔄
+                            </button>
+                            <button class="btn btn-secondary" @onclick="() => DeleteProject(proj.Id)" style="padding: 5px 10px; font-size: 0.78rem; color: #ef4444;" title="Delete Project">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Project Create / Edit Modal -->
+@if (showProjectModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-dialog" style="max-width: 540px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.2rem;">@(isEditing ? "✏️" : "🚀")</span>
+                    <h3 style="font-size: 1.1rem; font-weight: 700; margin: 0;">@(isEditing ? "Edit Project" : "Create New Project")</h3>
+                </div>
+                <button class="btn btn-secondary" @onclick="CloseModal" style="padding: 4px 8px;">✕</button>
+            </div>
+
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px; padding: 16px 20px;">
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Project Name *</label>
+                    <input type="text" @bind="modalFormName" placeholder="e.g. Carnot In-Memory Caching Engine" style="width: 100%; padding: 8px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;" />
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Description</label>
+                    <textarea @bind="modalFormDescription" rows="3" placeholder="High-level architecture goals and deliverables..." style="width: 100%; padding: 8px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; resize: vertical;"></textarea>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Assigned Engineering Squad</label>
+                    <select @bind="modalFormTeamId" style="width: 100%; padding: 8px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;">
+                        <option value="">-- None (Dynamic Squad) --</option>
+                        @foreach (var team in TeamManager.GetAllTeams())
+                        {
+                            <option value="@team.Id">@team.Name (@team.Members.Count agents)</option>
+                        }
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Workspace Directory Path</label>
+                    <input type="text" @bind="modalFormWorkspace" placeholder="/workspace or relative path" style="width: 100%; padding: 8px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; font-family: monospace;" />
+                </div>
+
+                @if (isEditing)
+                {
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;">Status</label>
+                        <select @bind="modalFormStatus" style="width: 100%; padding: 8px 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;">
+                            <option value="@ProjectStatus.Active">Active</option>
+                            <option value="@ProjectStatus.Paused">Paused</option>
+                            <option value="@ProjectStatus.Completed">Completed</option>
+                            <option value="@ProjectStatus.Archived">Archived</option>
+                        </select>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(modalError))
+                {
+                    <div style="padding: 8px 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; border-radius: 6px; color: #ef4444; font-size: 0.8rem;">
+                        @modalError
+                    </div>
+                }
+            </div>
+
+            <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                <button class="btn btn-primary" @onclick="SaveProjectModal">
+                    @(isEditing ? "Save Changes" : "Create & Activate")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<Project> _projects = Array.Empty<Project>();
+    private string selectedFilter = "All";
+    private string searchQuery = "";
+
+    // Modal state
+    private bool showProjectModal = false;
+    private bool isEditing = false;
+    private string? editingProjectId;
+    private string modalFormName = "";
+    private string modalFormDescription = "";
+    private string? modalFormTeamId = "";
+    private string? modalFormWorkspace = "";
+    private ProjectStatus modalFormStatus = ProjectStatus.Active;
+    private string? modalError;
+
+    private IReadOnlyList<Project> FilteredProjects
+    {
+        get
+        {
+            var list = _projects.AsEnumerable();
+
+            if (selectedFilter != "All" && Enum.TryParse<ProjectStatus>(selectedFilter, true, out var status))
+            {
+                list = list.Where(p => p.Status == status);
+            }
+
+            if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                var q = searchQuery.Trim();
+                list = list.Where(p =>
+                    p.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    p.Description.Contains(q, StringComparison.OrdinalIgnoreCase)
+                );
+            }
+
+            return list.OrderByDescending(p => p.LastActivityAt ?? p.CreatedAt).ToList();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        RefreshProjects();
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
+        ProjectManager.OnProjectCreated += HandleProjectChanged;
+        ProjectManager.OnProjectUpdated += HandleProjectChanged;
+        ProjectManager.OnProjectDeleted += HandleProjectDeleted;
+    }
+
+    private void RefreshProjects()
+    {
+        _projects = ProjectManager.GetAll();
+    }
+
+    private int GetTotalScopedTicketCount()
+    {
+        return _projects.Sum(p => TicketStore.GetByProject(p.Id).Count);
+    }
+
+    private void SetActiveProject(Project project)
+    {
+        ActiveProjectContext.SetActiveProject(project);
+    }
+
+    private void ClearActiveProject()
+    {
+        ActiveProjectContext.SetActiveProject(null);
+    }
+
+    private void OpenCreateModal()
+    {
+        isEditing = false;
+        editingProjectId = null;
+        modalFormName = "";
+        modalFormDescription = "";
+        modalFormTeamId = "";
+        modalFormWorkspace = "";
+        modalFormStatus = ProjectStatus.Active;
+        modalError = null;
+        showProjectModal = true;
+    }
+
+    private void OpenEditModal(Project project)
+    {
+        isEditing = true;
+        editingProjectId = project.Id;
+        modalFormName = project.Name;
+        modalFormDescription = project.Description;
+        modalFormTeamId = project.TeamId ?? "";
+        modalFormWorkspace = project.WorkspaceDirectory ?? "";
+        modalFormStatus = project.Status;
+        modalError = null;
+        showProjectModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showProjectModal = false;
+    }
+
+    private async Task SaveProjectModal()
+    {
+        if (string.IsNullOrWhiteSpace(modalFormName))
+        {
+            modalError = "Project name is required.";
+            return;
+        }
+
+        modalError = null;
+
+        try
+        {
+            if (isEditing && editingProjectId != null)
+            {
+                var existing = ProjectManager.GetById(editingProjectId);
+                if (existing != null)
+                {
+                    var updated = existing with
+                    {
+                        Name = modalFormName.Trim(),
+                        Description = modalFormDescription.Trim(),
+                        TeamId = string.IsNullOrWhiteSpace(modalFormTeamId) ? null : modalFormTeamId,
+                        WorkspaceDirectory = string.IsNullOrWhiteSpace(modalFormWorkspace) ? null : modalFormWorkspace.Trim(),
+                        Status = modalFormStatus
+                    };
+                    await ProjectManager.UpdateAsync(updated);
+
+                    if (ActiveProjectContext.CurrentProjectId == updated.Id)
+                    {
+                        ActiveProjectContext.SetActiveProject(updated);
+                    }
+                }
+            }
+            else
+            {
+                var created = await ProjectManager.CreateAsync(
+                    name: modalFormName.Trim(),
+                    description: modalFormDescription.Trim(),
+                    teamId: string.IsNullOrWhiteSpace(modalFormTeamId) ? null : modalFormTeamId,
+                    workspaceDirectory: string.IsNullOrWhiteSpace(modalFormWorkspace) ? null : modalFormWorkspace.Trim()
+                );
+                ActiveProjectContext.SetActiveProject(created);
+            }
+
+            showProjectModal = false;
+            RefreshProjects();
+        }
+        catch (Exception ex)
+        {
+            modalError = ex.Message;
+        }
+    }
+
+    private async Task CycleStatus(Project project)
+    {
+        var nextStatus = project.Status switch
+        {
+            ProjectStatus.Active => ProjectStatus.Paused,
+            ProjectStatus.Paused => ProjectStatus.Completed,
+            ProjectStatus.Completed => ProjectStatus.Archived,
+            ProjectStatus.Archived => ProjectStatus.Active,
+            _ => ProjectStatus.Active
+        };
+
+        var updated = project.WithStatus(nextStatus);
+        await ProjectManager.UpdateAsync(updated);
+        if (ActiveProjectContext.CurrentProjectId == updated.Id)
+        {
+            ActiveProjectContext.SetActiveProject(updated);
+        }
+        RefreshProjects();
+    }
+
+    private async Task DeleteProject(string projectId)
+    {
+        await ProjectManager.DeleteAsync(projectId);
+        RefreshProjects();
+    }
+
+    private static string GetShortWorkspace(string path)
+    {
+        if (path.Length <= 24) return path;
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? $"…/{parts[^1]}" : path;
+    }
+
+    private static string GetStatusColor(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Active => "#22c55e",
+        ProjectStatus.Paused => "#f59e0b",
+        ProjectStatus.Completed => "#3b82f6",
+        ProjectStatus.Archived => "#94a3b8",
+        _ => "#94a3b8"
+    };
+
+    private static string GetStatusBg(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Active => "rgba(34, 197, 94, 0.15)",
+        ProjectStatus.Paused => "rgba(245, 158, 11, 0.15)",
+        ProjectStatus.Completed => "rgba(59, 130, 246, 0.15)",
+        ProjectStatus.Archived => "rgba(148, 163, 184, 0.15)",
+        _ => "rgba(148, 163, 184, 0.15)"
+    };
+
+    private void HandleActiveProjectChanged(Project? project) => InvokeAsync(StateHasChanged);
+    private void HandleProjectChanged(Project project) => InvokeAsync(() => { RefreshProjects(); StateHasChanged(); });
+    private void HandleProjectDeleted(string projectId) => InvokeAsync(() => { RefreshProjects(); StateHasChanged(); });
+
+    public void Dispose()
+    {
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
+        ProjectManager.OnProjectCreated -= HandleProjectChanged;
+        ProjectManager.OnProjectUpdated -= HandleProjectChanged;
+        ProjectManager.OnProjectDeleted -= HandleProjectDeleted;
+    }
+}

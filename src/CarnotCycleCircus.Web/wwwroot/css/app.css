@@ -562,6 +562,23 @@ input[type="range"] {
   border-color: #ef4444 !important;
 }
 
+@keyframes pulse-amber-ring {
+  0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.8); }
+  70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+  100% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+.pulse-waiting {
+  animation: pulse-amber-ring 1.5s infinite;
+  border-color: #f59e0b !important;
+}
+
+.node-waiting {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.6) !important;
+  animation: pulse-amber-ring 1.8s infinite;
+}
+
 /* Interactive Workflow Canvas Enhancements */
 @keyframes flow-pulse {
   from {

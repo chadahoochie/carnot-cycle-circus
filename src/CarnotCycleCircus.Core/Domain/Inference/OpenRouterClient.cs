@@ -124,6 +124,12 @@ public interface IOpenRouterClient
         string apiKey,
         CancellationToken cancellationToken = default);
 
+    Task<OpenRouterChatResponse> CompleteStreamAsync(
+        OpenRouterChatRequest request,
+        string apiKey,
+        Action<string>? onChunk = null,
+        CancellationToken cancellationToken = default) => CompleteAsync(request, apiKey, cancellationToken);
+
     Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(
         string? apiKey = null,
         CancellationToken cancellationToken = default);
@@ -197,37 +203,194 @@ public class OpenRouterClient : IOpenRouterClient
             max_tokens = request.MaxTokens
         });
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
-        httpRequest.Headers.Add("HTTP-Referer", "https://github.com/chadahoochie/carnot-cycle-circus");
-        httpRequest.Headers.Add("X-Title", "Carnot Cycle Circus");
-        httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        int maxRetries = 2;
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new HttpRequestException($"OpenRouter API returned {(int)response.StatusCode} {response.ReasonPhrase}: {errBody}");
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+            httpRequest.Headers.Add("HTTP-Referer", "https://github.com/chadahoochie/carnot-cycle-circus");
+            httpRequest.Headers.Add("X-Title", "Carnot Cycle Circus");
+            httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage? response = null;
+            try
+            {
+                response = await _httpClient.SendAsync(httpRequest, cancellationToken);
+                if (((int)response.StatusCode == 429 || (int)response.StatusCode >= 500) && attempt < maxRetries)
+                {
+                    await Task.Delay((attempt + 1) * 2000, cancellationToken);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    throw new HttpRequestException($"OpenRouter API returned {(int)response.StatusCode} {response.ReasonPhrase}: {errBody}");
+                }
+
+                var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                var parsed = JsonSerializer.Deserialize<OpenRouterChatResponse>(responseBody, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (parsed == null)
+                {
+                    throw new InvalidOperationException("Failed to deserialize OpenRouter response.");
+                }
+
+                if (parsed.Error.HasValue && parsed.Error.Value.ValueKind != JsonValueKind.Undefined && parsed.Error.Value.ValueKind != JsonValueKind.Null)
+                {
+                    var errMsg = parsed.Error.Value.ToString();
+                    throw new HttpRequestException($"OpenRouter returned API error: {errMsg}");
+                }
+
+                return parsed;
+            }
+            finally
+            {
+                response?.Dispose();
+            }
         }
 
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        var parsed = JsonSerializer.Deserialize<OpenRouterChatResponse>(responseBody, new JsonSerializerOptions
+        throw new HttpRequestException("OpenRouter request failed after retry attempts.");
+    }
+
+    public async Task<OpenRouterChatResponse> CompleteStreamAsync(
+        OpenRouterChatRequest request,
+        string apiKey,
+        Action<string>? onChunk = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
         {
-            PropertyNameCaseInsensitive = true
+            throw new InvalidOperationException("An active OpenRouter API key is required to perform LLM inference.");
+        }
+
+        if (apiKey.Contains("mock", StringComparison.OrdinalIgnoreCase) ||
+            apiKey.Contains("sandbox", StringComparison.OrdinalIgnoreCase))
+        {
+            return await CompleteAsync(request, apiKey, cancellationToken);
+        }
+
+        var json = JsonSerializer.Serialize(new
+        {
+            model = request.Model,
+            messages = request.Messages.Select(m => new { role = m.Role, content = m.Content ?? string.Empty }),
+            temperature = request.Temperature,
+            max_tokens = request.MaxTokens,
+            stream = true
         });
 
-        if (parsed == null)
+        int maxRetries = 2;
+        for (int attempt = 0; attempt <= maxRetries; attempt++)
         {
-            throw new InvalidOperationException("Failed to deserialize OpenRouter response.");
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+            httpRequest.Headers.Add("HTTP-Referer", "https://github.com/chadahoochie/carnot-cycle-circus");
+            httpRequest.Headers.Add("X-Title", "Carnot Cycle Circus");
+            httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            HttpResponseMessage? response = null;
+            try
+            {
+                response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+                if (((int)response.StatusCode == 429 || (int)response.StatusCode >= 500) && attempt < maxRetries)
+                {
+                    await Task.Delay((attempt + 1) * 2000, cancellationToken);
+                    continue;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                    throw new HttpRequestException($"OpenRouter API returned {(int)response.StatusCode} {response.ReasonPhrase}: {errBody}");
+                }
+
+                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using var reader = new StreamReader(stream, Encoding.UTF8);
+
+                var fullContent = new StringBuilder();
+                string? finishReason = null;
+                string? modelUsed = request.Model;
+                string? completionId = null;
+
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    var line = await reader.ReadLineAsync(cancellationToken);
+                    if (line == null) break;
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    if (line.StartsWith("data: "))
+                    {
+                        var data = line["data: ".Length..].Trim();
+                        if (data == "[DONE]") break;
+
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(data);
+                            var root = doc.RootElement;
+                            if (root.TryGetProperty("id", out var idElem)) completionId = idElem.GetString();
+                            if (root.TryGetProperty("model", out var mElem)) modelUsed = mElem.GetString();
+
+                            if (root.TryGetProperty("choices", out var choicesElem) && choicesElem.GetArrayLength() > 0)
+                            {
+                                var firstChoice = choicesElem[0];
+                                if (firstChoice.TryGetProperty("finish_reason", out var frElem) && frElem.ValueKind == JsonValueKind.String)
+                                {
+                                    finishReason = frElem.GetString();
+                                }
+
+                                if (firstChoice.TryGetProperty("delta", out var deltaElem))
+                                {
+                                    string? chunkText = null;
+                                    if (deltaElem.TryGetProperty("content", out var cElem) && cElem.ValueKind == JsonValueKind.String)
+                                    {
+                                        chunkText = cElem.GetString();
+                                    }
+                                    else if (deltaElem.TryGetProperty("reasoning", out var rElem) && rElem.ValueKind == JsonValueKind.String)
+                                    {
+                                        chunkText = rElem.GetString();
+                                    }
+
+                                    if (!string.IsNullOrEmpty(chunkText))
+                                    {
+                                        fullContent.Append(chunkText);
+                                        onChunk?.Invoke(chunkText);
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                var contentStr = fullContent.ToString();
+                return new OpenRouterChatResponse(
+                    Id: completionId ?? $"gen-stream-{Guid.NewGuid():N}",
+                    Model: modelUsed,
+                    Choices: new List<OpenRouterChoice>
+                    {
+                        new(
+                            Index: 0,
+                            Message: new OpenRouterMessage("assistant", contentStr),
+                            FinishReason: finishReason ?? "stop"
+                        )
+                    }
+                );
+            }
+            catch (Exception) when (attempt < maxRetries && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay((attempt + 1) * 2000, cancellationToken);
+            }
+            finally
+            {
+                response?.Dispose();
+            }
         }
 
-        if (parsed.Error.HasValue && parsed.Error.Value.ValueKind != JsonValueKind.Undefined && parsed.Error.Value.ValueKind != JsonValueKind.Null)
-        {
-            var errMsg = parsed.Error.Value.ToString();
-            throw new HttpRequestException($"OpenRouter returned API error: {errMsg}");
-        }
-
-        return parsed;
+        // Fallback to standard CompleteAsync if stream attempts exhausted
+        return await CompleteAsync(request, apiKey, cancellationToken);
     }
 }
 

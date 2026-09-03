@@ -3,6 +3,7 @@
 @inject ITicketStore TicketStore
 @inject IHandoffRouter HandoffRouter
 @inject IGraphWorkflowExecutor GraphExecutor
+@inject IActiveProjectContext ActiveProjectContext
 
 <div class="page-header">
     <div>
@@ -10,31 +11,42 @@
         <p style="color: var(--text-muted); font-size: 0.9rem;">Track autonomous ticket lifecycle states, inspect backlog hierarchy, and monitor inter-agent handoff contracts.</p>
     </div>
 
-    <div class="page-header-actions">
-        <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"' style="white-space: nowrap;">
-            📊 Kanban of Doom
-        </button>
-        <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"' style="white-space: nowrap;">
-            🌳 Decomposition Tree
-        </button>
-        <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"' style="white-space: nowrap;">
-            📦 Handoff Logs (@TicketStore.GetAllHandoffs().Count)
-        </button>
-        <button class="btn btn-warning" @onclick="UnleashReadyAgents" disabled="@(TicketStore.GetReadyTickets().Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done) == 0 || isRunningCircus)" style="white-space: nowrap; font-weight: 700;">
-            @(isRunningCircus ? "⏳ Agents Executing..." : $"🚀 Unleash Ready Agents ({TicketStore.GetReadyTickets().Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)})")
-        </button>
-        <button class="btn btn-success" @onclick="() => showCreateModal = true" style="white-space: nowrap;">
-            ➕ New Ticket
-        </button>
-    </div>
+    @if (ActiveProjectContext.HasActiveProject)
+    {
+        <div class="page-header-actions">
+            <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"' style="white-space: nowrap;">
+                📊 Kanban of Doom
+            </button>
+            <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"' style="white-space: nowrap;">
+                🌳 Decomposition Tree
+            </button>
+            <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"' style="white-space: nowrap;">
+                📦 Handoff Logs (@ScopedHandoffs.Count)
+            </button>
+            <button class="btn btn-warning" @onclick="UnleashReadyAgents" disabled="@(ScopedReadyTickets.Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done) == 0 || isRunningCircus)" style="white-space: nowrap; font-weight: 700;">
+                @(isRunningCircus ? "⏳ Agents Executing..." : $"🚀 Unleash Ready Agents ({ScopedReadyTickets.Count(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)})")
+            </button>
+            <button class="btn btn-success" @onclick="() => showCreateModal = true" style="white-space: nowrap;">
+                ➕ New Ticket
+            </button>
+        </div>
+    }
 </div>
 
-@if (activeTab == "kanban")
+@if (!ActiveProjectContext.HasActiveProject)
+{
+    <div class="glass-card" style="text-align: center; padding: 48px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">📁</div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">Select a project to view tickets</h3>
+        <p style="color: var(--text-muted);">Tickets are scoped to a project. Choose or create an active project from the sidebar switcher.</p>
+    </div>
+}
+else if (activeTab == "kanban")
 {
     <div class="kanban-board">
         @foreach (var status in Enum.GetValues<TicketStatus>())
         {
-            var ticketsInCol = TicketStore.GetTicketsByStatus(status);
+            var ticketsInCol = ScopedTickets.Where(t => t.Status == status).ToList();
             var statusSubtitle = status switch
             {
                 TicketStatus.Backlog => "Where Dreams Go to Die ('Our pets' heads are falling off!')",
@@ -76,7 +88,7 @@ else if (activeTab == "dag")
     <div class="glass-card">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Hierarchical Backlog Decomposition Tree</h3>
         @{
-            var epics = TicketStore.GetAllTickets().Where(t => t.Type == TicketType.Epic).ToList();
+            var epics = ScopedTickets.Where(t => t.Type == TicketType.Epic).ToList();
         }
         @if (epics.Count == 0)
         {
@@ -125,7 +137,7 @@ else if (activeTab == "handoffs")
     <div class="glass-card">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Formal Inter-Agent Handoff Chain</h3>
         <div style="display: flex; flex-direction: column; gap: 12px;">
-            @foreach (var handoff in TicketStore.GetAllHandoffs())
+            @foreach (var handoff in ScopedHandoffs)
             {
                 <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 8px;">
@@ -164,7 +176,7 @@ else if (activeTab == "handoffs")
                     }
                 </div>
             }
-            @if (TicketStore.GetAllHandoffs().Count == 0)
+            @if (ScopedHandoffs.Count == 0)
             {
                 <p style="color: var(--text-muted); text-align: center; padding: 30px;">No handoff transfers registered yet.</p>
             }
@@ -234,9 +246,25 @@ else if (activeTab == "handoffs")
     private AgentRole newAssignee = AgentRole.SoftwareDeveloper;
     private TicketType newType = TicketType.Subtask;
 
+    private IReadOnlyList<TicketItem> ScopedTickets =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetByProject(projectId)
+            : Array.Empty<TicketItem>();
+
+    private IReadOnlyList<TicketItem> ScopedReadyTickets =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetReadyTickets().Where(t => string.Equals(t.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).ToList()
+            : Array.Empty<TicketItem>();
+
+    private IReadOnlyList<HandoffPacket> ScopedHandoffs =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetAllHandoffs().Where(h => string.Equals(h.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).ToList()
+            : Array.Empty<HandoffPacket>();
+
     protected override void OnInitialized()
     {
         TicketStore.OnTicketChanged += HandleTicketChanged;
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
     }
 
     private void HandleTicketChanged(TicketItem _)
@@ -244,9 +272,15 @@ else if (activeTab == "handoffs")
         InvokeAsync(StateHasChanged);
     }
 
+    private void HandleActiveProjectChanged(Project? _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     public void Dispose()
     {
         TicketStore.OnTicketChanged -= HandleTicketChanged;
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
     }
 
     private void SelectTicket(TicketItem ticket)
@@ -270,11 +304,12 @@ else if (activeTab == "handoffs")
 
     private void CreateTicketManual()
     {
-        if (string.IsNullOrWhiteSpace(newTitle)) return;
+        if (string.IsNullOrWhiteSpace(newTitle) || !ActiveProjectContext.HasActiveProject) return;
 
         var id = $"TCK-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var ticket = new TicketItem(
             Id: id,
+            ProjectId: ActiveProjectContext.CurrentProjectId,
             ParentEpicId: null,
             Title: newTitle,
             Description: newDesc,

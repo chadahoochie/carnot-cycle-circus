@@ -23,6 +23,7 @@ public record AgentMessage(
     MessageType Type,
     DateTimeOffset Timestamp,
     string? TicketId = null,
+    string? ProjectId = null,
     IReadOnlyDictionary<string, string>? Metadata = null
 )
 {
@@ -32,6 +33,7 @@ public record AgentMessage(
         string content,
         MessageType type = MessageType.Chat,
         string? ticketId = null,
+        string? projectId = null,
         IReadOnlyDictionary<string, string>? metadata = null) =>
         new(
             Id: Guid.NewGuid().ToString("N")[..8],
@@ -41,6 +43,7 @@ public record AgentMessage(
             Type: type,
             Timestamp: DateTimeOffset.UtcNow,
             TicketId: ticketId,
+            ProjectId: projectId,
             Metadata: metadata
         );
 }
@@ -49,6 +52,7 @@ public interface IAgentEventStream
 {
     void Publish(AgentMessage message);
     IReadOnlyList<AgentMessage> GetHistory();
+    IReadOnlyList<AgentMessage> GetRecentMessages(string? projectId = null, int count = 100);
     void Clear();
     event Action<AgentMessage>? OnMessagePublished;
 }
@@ -79,6 +83,16 @@ public class AgentEventStream : IAgentEventStream
     }
 
     public IReadOnlyList<AgentMessage> GetHistory() => _messages.ToArray();
+
+    public IReadOnlyList<AgentMessage> GetRecentMessages(string? projectId = null, int count = 100)
+    {
+        var messages = _messages.AsEnumerable();
+        if (!string.IsNullOrEmpty(projectId))
+        {
+            messages = messages.Where(m => string.Equals(m.ProjectId, projectId, StringComparison.OrdinalIgnoreCase));
+        }
+        return messages.TakeLast(count).ToList();
+    }
 
     public void Clear()
     {

@@ -1,0 +1,140 @@
+@inject IProjectManager ProjectManager
+@inject IActiveProjectContext ActiveProjectContext
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<div class="project-switcher" style="position: relative; margin: 10px 12px 14px 12px;">
+    <button class="project-switcher-btn" @onclick="ToggleDropdown" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); cursor: pointer; text-align: left; font-size: 0.82rem; transition: border-color 0.2s;">
+        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+            @if (CurrentProject != null)
+            {
+                <span class="status-dot" style="width: 8px; height: 8px; border-radius: 50%; background: @GetStatusColor(CurrentProject.Status); flex-shrink: 0;"></span>
+                <span style="font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@CurrentProject.Name">
+                    @CurrentProject.Name
+                </span>
+            }
+            else
+            {
+                <span style="font-size: 0.9rem;">📂</span>
+                <span style="color: var(--text-muted); font-style: italic;">No Project Selected</span>
+            }
+        </div>
+        <span style="font-size: 0.65rem; color: var(--text-muted); margin-left: 6px;">@(isOpen ? "▲" : "▼")</span>
+    </button>
+
+    @if (isOpen)
+    {
+        <div class="project-switcher-dropdown" style="position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #0f172a; border: 1px solid #334155; border-radius: 6px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); z-index: 1000; max-height: 280px; overflow-y: auto; padding: 4px;">
+            <div style="padding: 6px 8px; font-size: 0.7rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                Projects (@_projects.Count)
+            </div>
+
+            @if (_projects.Count == 0)
+            {
+                <div style="padding: 10px 8px; font-size: 0.78rem; color: var(--text-muted); text-align: center;">
+                    No projects found.
+                </div>
+            }
+            else
+            {
+                @foreach (var proj in _projects)
+                {
+                    var isSelected = CurrentProject?.Id == proj.Id;
+                    <div class="project-item" @onclick="() => SelectProject(proj)" style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 4px; cursor: pointer; background: @(isSelected ? "rgba(56, 189, 248, 0.15)" : "transparent"); margin-bottom: 2px;">
+                        <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+                            <span style="width: 7px; height: 7px; border-radius: 50%; background: @GetStatusColor(proj.Status); flex-shrink: 0;"></span>
+                            <span style="font-size: 0.8rem; font-weight: @(isSelected ? "600" : "400"); color: @(isSelected ? "#38bdf8" : "var(--text-primary)"); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @proj.Name
+                            </span>
+                        </div>
+                        @if (isSelected)
+                        {
+                            <span style="color: #38bdf8; font-size: 0.75rem;">✓</span>
+                        }
+                    </div>
+                }
+            }
+
+            <div style="border-top: 1px solid #334155; margin: 4px 0; padding-top: 4px;">
+                @if (CurrentProject != null)
+                {
+                    <div class="dropdown-action" @onclick="ClearActiveProject" style="padding: 6px 8px; font-size: 0.76rem; color: #f87171; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px;">
+                        <span>✕</span> Deselect Active Project
+                    </div>
+                }
+                <div class="dropdown-action" @onclick="NavigateToProjectsHub" style="padding: 6px 8px; font-size: 0.76rem; color: #38bdf8; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 6px;">
+                    <span>🚀</span> All Projects / Hub
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isOpen = false;
+    private IReadOnlyList<Project> _projects = Array.Empty<Project>();
+    private Project? CurrentProject => ActiveProjectContext.CurrentProject;
+
+    protected override void OnInitialized()
+    {
+        _projects = ProjectManager.GetAll();
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
+        ProjectManager.OnProjectCreated += HandleProjectChanged;
+        ProjectManager.OnProjectUpdated += HandleProjectChanged;
+        ProjectManager.OnProjectDeleted += HandleProjectDeleted;
+    }
+
+    private void ToggleDropdown() => isOpen = !isOpen;
+
+    private void SelectProject(Project project)
+    {
+        ActiveProjectContext.SetActiveProject(project);
+        isOpen = false;
+    }
+
+    private void ClearActiveProject()
+    {
+        ActiveProjectContext.SetActiveProject(null);
+        isOpen = false;
+    }
+
+    private void NavigateToProjectsHub()
+    {
+        isOpen = false;
+        Navigation.NavigateTo("projects");
+    }
+
+    private static string GetStatusColor(ProjectStatus status) => status switch
+    {
+        ProjectStatus.Active => "#22c55e",
+        ProjectStatus.Paused => "#f59e0b",
+        ProjectStatus.Completed => "#3b82f6",
+        ProjectStatus.Archived => "#64748b",
+        _ => "#94a3b8"
+    };
+
+    private void HandleActiveProjectChanged(Project? project)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleProjectChanged(Project project)
+    {
+        _projects = ProjectManager.GetAll();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleProjectDeleted(string projectId)
+    {
+        _projects = ProjectManager.GetAll();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
+        ProjectManager.OnProjectCreated -= HandleProjectChanged;
+        ProjectManager.OnProjectUpdated -= HandleProjectChanged;
+        ProjectManager.OnProjectDeleted -= HandleProjectDeleted;
+    }
+}

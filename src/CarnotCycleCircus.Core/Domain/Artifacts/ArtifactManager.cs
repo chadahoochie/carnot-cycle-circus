@@ -160,6 +160,7 @@ public class ArtifactManager : IArtifactManager
             ContentType: deliverable.ContentType,
             Description: deliverable.Description ?? $"Deliverable for {ticket.Id}",
             Content: deliverable.Content,
+            ProjectId: ticket.ProjectId,
             TicketId: ticket.Id,
             TicketTitle: ticket.Title,
             Role: ticket.AssigneeRole,
@@ -212,6 +213,7 @@ public class ArtifactManager : IArtifactManager
                     ContentType: del.ContentType,
                     Description: del.Description ?? $"Deliverable for {t.Id}",
                     Content: del.Content,
+                    ProjectId: t.ProjectId,
                     TicketId: t.Id,
                     TicketTitle: t.Title,
                     Role: t.AssigneeRole,
@@ -224,6 +226,9 @@ public class ArtifactManager : IArtifactManager
 
         return list.OrderByDescending(a => a.Timestamp).ToList();
     }
+
+    public IReadOnlyList<ArtifactDescriptor> GetByProject(string projectId) =>
+        GetAllArtifacts().Where(a => string.Equals(a.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).ToList();
 
     public IReadOnlyList<ArtifactDescriptor> GetArtifactsByTicket(string ticketId) =>
         GetAllArtifacts().Where(a => string.Equals(a.TicketId, ticketId, StringComparison.OrdinalIgnoreCase)).ToList();
