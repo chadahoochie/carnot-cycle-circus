@@ -48,6 +48,20 @@ public sealed class MockOpenRouterClient : IOpenRouterClient
         return Task.FromResult(response);
     }
 
+    public Task<OpenRouterChatResponse> CompleteStreamAsync(
+        OpenRouterChatRequest request,
+        string apiKey,
+        Action<string>? onChunk = null,
+        CancellationToken cancellationToken = default)
+    {
+        var response = CompleteAsync(request, apiKey, cancellationToken).GetAwaiter().GetResult();
+        if (onChunk != null && !string.IsNullOrEmpty(response.FirstContent))
+        {
+            onChunk(response.FirstContent);
+        }
+        return Task.FromResult(response);
+    }
+
     public Task<IReadOnlyList<OpenRouterRawModelDto>> FetchModelsAsync(
         string? apiKey = null,
         CancellationToken cancellationToken = default)

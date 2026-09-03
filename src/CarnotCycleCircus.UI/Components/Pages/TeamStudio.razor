@@ -919,20 +919,27 @@
         statusMessage = "🚀 Unleashing autonomous engineering pipeline for active squad...";
         GraphExecutor.LoadTeam(currentTeam);
         
-        var readyTickets = TicketStore.GetReadyTickets();
+        var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
+        if (activeEpic != null)
+        {
+            await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
+            statusMessage = "Full epic workflow orchestration executed successfully!";
+            return;
+        }
+
+        var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
         if (readyTickets.Count > 0)
         {
             await GraphExecutor.ExecuteReadyTicketsAsync();
             statusMessage = "Workflow finished executing ready tickets!";
+            return;
         }
-        else
-        {
-            await GraphExecutor.ExecuteWorkflowAsync(
-                $"{currentTeam.Name} Initiative",
-                $"Execute autonomous engineering pipeline with {currentTeam.Name} topology."
-            );
-            statusMessage = "Full epic workflow orchestration executed successfully!";
-        }
+
+        await GraphExecutor.ExecuteWorkflowAsync(
+            $"{currentTeam.Name} Initiative",
+            $"Execute autonomous engineering pipeline with {currentTeam.Name} topology."
+        );
+        statusMessage = "Full epic workflow orchestration executed successfully!";
     }
 
     private async Task StepNext()

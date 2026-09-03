@@ -1134,4 +1134,17 @@ public class RealExecutionEngineTests
         deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineModels.cs");
         deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineServiceCollectionExtensions.cs");
     }
+
+    [Theory]
+    [InlineData("deepseek/deepseek-v4-pro-0813", AgentRole.LeadArchitect, 16384)]
+    [InlineData("deepseek/deepseek-r1", AgentRole.SecurityEngineer, 16384)]
+    [InlineData("openai/o3-mini", AgentRole.OptimizationEngineer, 16384)]
+    [InlineData("anthropic/claude-3.7-sonnet", AgentRole.LeadArchitect, 16384)]
+    [InlineData("meta-llama/llama-3.3-70b-instruct", AgentRole.LeadArchitect, 16384)]
+    [InlineData("meta-llama/llama-3.3-70b-instruct", AgentRole.SecurityEngineer, 8192)]
+    public void DetermineMaxTokensForModel_ShouldAllocateAppropriateTokenHeadroom(string model, AgentRole role, int expectedTokens)
+    {
+        var tokens = AgentExecutionEngine.DetermineMaxTokensForModel(model, role);
+        tokens.Should().Be(expectedTokens);
+    }
 }

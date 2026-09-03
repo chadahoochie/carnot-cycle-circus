@@ -369,4 +369,194 @@ public class WorkflowGraphTests
         allDeliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
         allDeliverables.Should().Contain(d => d.Name.EndsWith("_ADR.md"));
     }
+
+    [Fact]
+    public async Task ExecuteWorkflowAsync_WithMultiStoryDecomposition_ShouldDrainAllSubtasksAcrossAllStoriesToCompletion()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var handoffRouter = new HandoffRouter(ticketStore, eventStream);
+        var decompEngine = new WorkDecompositionEngine(ticketStore);
+        var memoryStore = new EmbeddedVectorMemoryStore();
+        var consolidationEngine = new MemoryConsolidationEngine(memoryStore);
+
+        var mockOpenRouter = new MockOpenRouterClient();
+        mockOpenRouter.ResponseFactory = req =>
+        {
+            var content = req.Messages.LastOrDefault()?.Content ?? "";
+            if (content.Contains("Product Requirements Document (PRD)"))
+            {
+                return """
+                # Product Requirements Document (PRD): Multi-Feature System
+                ## 1. Executive Summary
+                Synthesized brief.
+                ## 4. User Stories & Functional Acceptance Criteria
+                ```json:user_stories
+                [
+                  {
+                    "title": "Ingestion Channel",
+                    "description": "Channel ingestion pipeline",
+                    "acceptanceCriteria": ["Criterion 1"]
+                  },
+                  {
+                    "title": "Storage Layer",
+                    "description": "Outbox storage engine",
+                    "acceptanceCriteria": ["Criterion 2"]
+                  }
+                ]
+                ```
+                """;
+            }
+            return "# Deliverable\n```csharp\npublic class SystemArtifact { }\n```";
+        };
+
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore);
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decompEngine,
+            handoffRouter,
+            executionEngine,
+            eventStream,
+            consolidationEngine
+        );
+
+        var success = await executor.ExecuteWorkflowAsync("Multi-Feature System", "System with multiple stories");
+
+        success.Should().BeTrue();
+
+        var epic = ticketStore.GetAllTickets().First(t => t.Type == TicketType.Epic);
+        epic.Status.Should().Be(TicketStatus.Done);
+
+        var stories = ticketStore.GetTicketsByEpic(epic.Id).Where(t => t.Type == TicketType.Feature).ToList();
+        stories.Should().HaveCount(2);
+        stories.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+
+        var subtasks = ticketStore.GetTicketsByEpic(epic.Id).Where(t => t.Type == TicketType.Subtask).ToList();
+        subtasks.Should().HaveCount(12); // 6 subtasks per story * 2 stories
+        subtasks.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+    }
+
+    [Fact]
+    public async Task ExecuteWorkflowAsync_WhenReRunningExistingCompletedEpic_ShouldReactivateAndStartAtResearchAndTpm()
+    {
+        var ticketStore = new TicketStore();
+        var eventStream = new AgentEventStream();
+        var handoffRouter = new HandoffRouter(ticketStore, eventStream);
+        var decompEngine = new WorkDecompositionEngine(ticketStore);
+        var memoryStore = new EmbeddedVectorMemoryStore();
+        var consolidationEngine = new MemoryConsolidationEngine(memoryStore);
+
+        var executedRoles = new List<AgentRole>();
+        var mockOpenRouter = new MockOpenRouterClient();
+        mockOpenRouter.ResponseFactory = req =>
+        {
+            var sys = req.Messages.FirstOrDefault(m => m.Role == "system")?.Content ?? "";
+            if (sys.Contains("Requirements Researcher"))
+            {
+                executedRoles.Add(AgentRole.RequirementsResearcher);
+                return "# Requirements Research Brief\nDomain specifications verified.";
+            }
+            if (sys.Contains("Technical Product Manager"))
+            {
+                executedRoles.Add(AgentRole.TechnicalProductManager);
+                return "# Product Requirements Document (PRD)\nPRD specifications.";
+            }
+            return "# Deliverable\n```csharp\npublic class Impl { }\n```";
+        };
+
+        var resolver = new StaticInferenceResolver();
+        var executionEngine = new AgentExecutionEngine(mockOpenRouter, resolver, ticketStore: ticketStore);
+
+        var executor = new GraphWorkflowExecutor(
+            ticketStore,
+            decompEngine,
+            handoffRouter,
+            executionEngine,
+            eventStream,
+            consolidationEngine
+        );
+
+        // Pre-create an Epic that was previously marked Done with existing subtasks
+        var existingEpic = new TicketItem(
+            Id: "EPIC-DONE-01",
+            ParentEpicId: null,
+            Title: "Existing Pipeline",
+            Description: "A pipeline previously completed",
+            Type: TicketType.Epic,
+            Status: TicketStatus.Done,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["Old AC"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow.AddDays(-1)
+        );
+        ticketStore.CreateTicket(existingEpic);
+
+        // Also pre-create an old done story and research ticket
+        var oldRes = new TicketItem(
+            Id: "RES-OLD-01",
+            ParentEpicId: existingEpic.Id,
+            Title: "Requirements Research: Existing Pipeline",
+            Description: "Old research",
+            Type: TicketType.ResearchSpike,
+            Status: TicketStatus.Done,
+            AssigneeRole: AgentRole.RequirementsResearcher,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: Array.Empty<string>(),
+            AcceptanceCriteria: ["AC"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow.AddDays(-1)
+        );
+        ticketStore.CreateTicket(oldRes);
+
+        var oldStory = new TicketItem(
+            Id: "STORY-OLD-01",
+            ParentEpicId: existingEpic.Id,
+            Title: "Existing Pipeline: Core Engine",
+            Description: "Old story",
+            Type: TicketType.Feature,
+            Status: TicketStatus.Done,
+            AssigneeRole: AgentRole.TechnicalProductManager,
+            CreatedByRole: AgentRole.TechnicalProductManager,
+            Priority: TicketPriority.High,
+            DependsOnTicketIds: [oldRes.Id],
+            AcceptanceCriteria: ["AC"],
+            Deliverables: Array.Empty<ArtifactItem>(),
+            Metadata: new Dictionary<string, string>(),
+            CreatedAt: DateTimeOffset.UtcNow.AddDays(-1)
+        );
+        ticketStore.CreateTicket(oldStory);
+
+        var success = await executor.ExecuteWorkflowAsync("Existing Pipeline", "A pipeline previously completed");
+
+        success.Should().BeTrue();
+        executedRoles.Should().Contain(AgentRole.RequirementsResearcher);
+        executedRoles.Should().Contain(AgentRole.TechnicalProductManager);
+    }
+
+    [Fact]
+    public void WorkDecompositionEngine_DeconstructEpic_WhenReDeconstructing_ShouldKeepOnlyResearchReadyAndSubtasksInBacklog()
+    {
+        var store = new TicketStore();
+        var decomp = new WorkDecompositionEngine(store);
+
+        // First deconstruct
+        var tickets = decomp.DeconstructEpic("Resilient Ingestion", "Ingestion pipeline");
+        var readyInitial = store.GetReadyTickets();
+        readyInitial.Should().ContainSingle(t => t.AssigneeRole == AgentRole.RequirementsResearcher);
+
+        // Second deconstruct (e.g. user re-ignites or triggers)
+        var ticketsPass2 = decomp.DeconstructEpic("Resilient Ingestion", "Ingestion pipeline");
+        var readyPass2 = store.GetReadyTickets();
+
+        // Must STILL only have RequirementsResearcher ready! Architect must NOT be ready!
+        readyPass2.Should().ContainSingle(t => t.AssigneeRole == AgentRole.RequirementsResearcher);
+    }
 }
