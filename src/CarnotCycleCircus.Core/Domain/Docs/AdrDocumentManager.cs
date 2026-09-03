@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 using CarnotCycleCircus.Core.Domain.Storage;
 
 namespace CarnotCycleCircus.Core.Domain.Docs;
@@ -13,8 +14,10 @@ public enum AdrStatus
     Superseded
 }
 
+[method: JsonConstructor]
 public record ArchitecturalDecisionRecord(
     string Id,
+    string? ProjectId,
     string Title,
     AdrStatus Status,
     string Context,
@@ -26,6 +29,21 @@ public record ArchitecturalDecisionRecord(
     DateTimeOffset UpdatedAt
 )
 {
+    public ArchitecturalDecisionRecord(
+        string Id,
+        string Title,
+        AdrStatus Status,
+        string Context,
+        string Decision,
+        IReadOnlyList<string> AlternativesConsidered,
+        IReadOnlyList<string> ConsequencesPositive,
+        IReadOnlyList<string> ConsequencesNegative,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset UpdatedAt)
+        : this(Id, null, Title, Status, Context, Decision, AlternativesConsidered, ConsequencesPositive, ConsequencesNegative, CreatedAt, UpdatedAt)
+    {
+    }
+
     public string ToMarkdown() => $"""
     # {Id}: {Title}
 
@@ -50,22 +68,37 @@ public record ArchitecturalDecisionRecord(
     """;
 }
 
+[method: JsonConstructor]
 public record ProjectDocument(
     string Id,
+    string? ProjectId,
     string Title,
     string Category, // C4Diagram, ApiSpec, StrideThreatModel, PerformanceBudget, QaTestPlan
     string ContentMarkdown,
     DateTimeOffset UpdatedAt
-);
+)
+{
+    public ProjectDocument(
+        string Id,
+        string Title,
+        string Category,
+        string ContentMarkdown,
+        DateTimeOffset UpdatedAt)
+        : this(Id, null, Title, Category, ContentMarkdown, UpdatedAt)
+    {
+    }
+}
 
 public interface IAdrDocumentManager
 {
     IReadOnlyList<ArchitecturalDecisionRecord> GetAllAdrs();
+    IReadOnlyList<ArchitecturalDecisionRecord> GetByProject(string projectId);
     ArchitecturalDecisionRecord? GetAdr(string id);
     ArchitecturalDecisionRecord SaveAdr(ArchitecturalDecisionRecord adr);
     bool DeleteAdr(string id);
 
     IReadOnlyList<ProjectDocument> GetAllDocs();
+    IReadOnlyList<ProjectDocument> GetDocsByProject(string projectId);
     ProjectDocument? GetDoc(string id);
     ProjectDocument SaveDoc(ProjectDocument doc);
     bool DeleteDoc(string id);
@@ -489,6 +522,9 @@ public class AdrDocumentManager : IAdrDocumentManager
     public IReadOnlyList<ArchitecturalDecisionRecord> GetAllAdrs() =>
         _adrs.Values.OrderBy(a => a.Id).ToList();
 
+    public IReadOnlyList<ArchitecturalDecisionRecord> GetByProject(string projectId) =>
+        _adrs.Values.Where(a => string.Equals(a.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).OrderBy(a => a.Id).ToList();
+
     public ArchitecturalDecisionRecord? GetAdr(string id) =>
         _adrs.TryGetValue(id, out var adr) ? adr : null;
 
@@ -508,6 +544,9 @@ public class AdrDocumentManager : IAdrDocumentManager
 
     public IReadOnlyList<ProjectDocument> GetAllDocs() =>
         _docs.Values.OrderBy(d => d.Title).ToList();
+
+    public IReadOnlyList<ProjectDocument> GetDocsByProject(string projectId) =>
+        _docs.Values.Where(d => string.Equals(d.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).OrderBy(d => d.Title).ToList();
 
     public ProjectDocument? GetDoc(string id) =>
         _docs.TryGetValue(id, out var doc) ? doc : null;

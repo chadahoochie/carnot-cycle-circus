@@ -7,6 +7,8 @@ namespace CarnotCycleCircus.Core.Domain.Tickets;
 public interface ITicketStore
 {
     IReadOnlyList<TicketItem> GetAllTickets();
+    IReadOnlyList<TicketItem> GetByProject(string projectId);
+    IReadOnlyList<TicketItem> GetEpicsByProject(string projectId);
     TicketItem? GetTicketById(string id);
     IReadOnlyList<TicketItem> GetTicketsByEpic(string parentEpicId);
     IReadOnlyList<TicketItem> GetTicketsByStatus(TicketStatus status);
@@ -131,6 +133,12 @@ public class TicketStore : ITicketStore
 
     public IReadOnlyList<TicketItem> GetAllTickets() =>
         _tickets.Values.OrderBy(t => t.CreatedAt).ToList();
+
+    public IReadOnlyList<TicketItem> GetByProject(string projectId) =>
+        _tickets.Values.Where(t => string.Equals(t.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).OrderBy(t => t.CreatedAt).ToList();
+
+    public IReadOnlyList<TicketItem> GetEpicsByProject(string projectId) =>
+        _tickets.Values.Where(t => t.Type == TicketType.Epic && string.Equals(t.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).OrderBy(t => t.CreatedAt).ToList();
 
     public TicketItem? GetTicketById(string id) =>
         _tickets.TryGetValue(id, out var ticket) ? ticket : null;

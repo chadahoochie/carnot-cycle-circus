@@ -7,7 +7,41 @@
         </div>
     </div>
 
+    <ProjectSwitcher />
+
     <ul class="nav-list">
+        <li style="padding: 10px 16px 4px 16px; font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px;">
+            Project Work
+        </li>
+        <li class="nav-item">
+            <NavLink href="projects" @onclick="HandleNavigate">
+                <span>🚀</span> Projects
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="tickets" @onclick="HandleNavigate">
+                <span>📋</span> The Jira Graveyard
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="dashboard" @onclick="HandleNavigate">
+                <span>⚡</span> Panic & Telemetry
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="artifacts" @onclick="HandleNavigate">
+                <span>📦</span> Repo Deliverables
+            </NavLink>
+        </li>
+        <li class="nav-item">
+            <NavLink href="docs" @onclick="HandleNavigate">
+                <span>🏛️</span> Ivory Tower & ADRs
+            </NavLink>
+        </li>
+
+        <li style="padding: 16px 16px 4px 16px; font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 6px;">
+            Administration
+        </li>
         <li class="nav-item">
             <NavLink href="agents" @onclick="HandleNavigate">
                 <span>🤖</span> Agent Studio
@@ -19,28 +53,8 @@
             </NavLink>
         </li>
         <li class="nav-item">
-            <NavLink href="dashboard" @onclick="HandleNavigate">
-                <span>⚡</span> Panic & Telemetry
-            </NavLink>
-        </li>
-        <li class="nav-item">
-            <NavLink href="tickets" @onclick="HandleNavigate">
-                <span>📋</span> The Jira Graveyard
-            </NavLink>
-        </li>
-        <li class="nav-item">
-            <NavLink href="artifacts" @onclick="HandleNavigate">
-                <span>📦</span> Repo Deliverables
-            </NavLink>
-        </li>
-        <li class="nav-item">
             <NavLink href="memory" @onclick="HandleNavigate">
                 <span>🧠</span> Existential Brain Scan
-            </NavLink>
-        </li>
-        <li class="nav-item">
-            <NavLink href="docs" @onclick="HandleNavigate">
-                <span>🏛️</span> Ivory Tower & ADRs
             </NavLink>
         </li>
         <li class="nav-item">

@@ -1,10 +1,13 @@
+using System.Text.Json.Serialization;
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 
 namespace CarnotCycleCircus.Core.Domain.Tickets;
 
+[method: JsonConstructor]
 public record TicketItem(
     string Id,
+    string? ProjectId,
     string? ParentEpicId,
     string Title,
     string Description,
@@ -21,9 +24,32 @@ public record TicketItem(
     DateTimeOffset? CompletedAt = null
 )
 {
+    public TicketItem(
+        string Id,
+        string? ParentEpicId,
+        string Title,
+        string Description,
+        TicketType Type,
+        TicketStatus Status,
+        AgentRole AssigneeRole,
+        AgentRole CreatedByRole,
+        TicketPriority Priority,
+        IReadOnlyList<string> DependsOnTicketIds,
+        IReadOnlyList<string> AcceptanceCriteria,
+        IReadOnlyList<ArtifactItem> Deliverables,
+        IReadOnlyDictionary<string, string> Metadata,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset? CompletedAt = null)
+        : this(Id, null, ParentEpicId, Title, Description, Type, Status, AssigneeRole, CreatedByRole, Priority, DependsOnTicketIds, AcceptanceCriteria, Deliverables, Metadata, CreatedAt, CompletedAt)
+    {
+    }
+
     public bool IsTerminal => Status is TicketStatus.Done;
 
     public bool HasDependencies => DependsOnTicketIds.Count > 0;
+
+    public TicketItem WithProject(string? projectId) =>
+        this with { ProjectId = projectId };
 
     public TicketItem WithStatus(TicketStatus newStatus, DateTimeOffset? completedAt = null) =>
         this with
@@ -42,9 +68,11 @@ public record TicketItem(
         this with { AssigneeRole = role };
 }
 
+[method: JsonConstructor]
 public record HandoffPacket(
     string HandoffId,
     string TicketId,
+    string? ProjectId,
     AgentRole FromAgentRole,
     AgentRole ToAgentRole,
     IReadOnlyList<ArtifactItem> Artifacts,
@@ -55,6 +83,21 @@ public record HandoffPacket(
     DateTimeOffset Timestamp
 )
 {
+    public HandoffPacket(
+        string HandoffId,
+        string TicketId,
+        AgentRole FromAgentRole,
+        AgentRole ToAgentRole,
+        IReadOnlyList<ArtifactItem> Artifacts,
+        string ContextSummary,
+        string ActionRequested,
+        IReadOnlyList<string> ReviewChecklist,
+        string? RemediationNotes,
+        DateTimeOffset Timestamp)
+        : this(HandoffId, TicketId, null, FromAgentRole, ToAgentRole, Artifacts, ContextSummary, ActionRequested, ReviewChecklist, RemediationNotes, Timestamp)
+    {
+    }
+
     public static HandoffPacket Create(
         string ticketId,
         AgentRole fromRole,
@@ -63,10 +106,12 @@ public record HandoffPacket(
         string actionRequested,
         IReadOnlyList<ArtifactItem>? artifacts = null,
         IReadOnlyList<string>? reviewChecklist = null,
-        string? remediationNotes = null) =>
+        string? remediationNotes = null,
+        string? projectId = null) =>
         new(
             HandoffId: $"HO-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}",
             TicketId: ticketId,
+            ProjectId: projectId,
             FromAgentRole: fromRole,
             ToAgentRole: toRole,
             Artifacts: artifacts ?? Array.Empty<ArtifactItem>(),

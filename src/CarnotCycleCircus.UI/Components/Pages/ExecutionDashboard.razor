@@ -1,11 +1,13 @@
 @page "/dashboard"
 @implements IDisposable
+@using CarnotCycleCircus.Core.Domain.Approvals
 @inject IGraphWorkflowExecutor GraphExecutor
 @inject ITeamDefinitionManager TeamManager
 @inject IAgentDefinitionManager AgentManager
 @inject IAgentEventStream EventStream
 @inject IApiKeyVaultService KeyVaultService
 @inject ITicketStore TicketStore
+@inject IWorkflowApprovalService ApprovalService
 
 <div class="page-header">
     <div>
@@ -35,6 +37,13 @@
         <button class="btn btn-success" @onclick="ExportReport" style="white-space: nowrap;">
             📄 CYA Session Report
         </button>
+
+        <div style="display: flex; align-items: center; gap: 6px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;">
+            <input type="checkbox" id="requireApprovalToggle" checked="@ApprovalService.RequireUserApproval" @onchange="OnToggleApproval" />
+            <label for="requireApprovalToggle" style="margin: 0; cursor: pointer; color: #f8fafc; font-weight: 600;">
+                🔒 Human Gates (@(ApprovalService.RequireUserApproval ? "Active" : "Auto-Pass"))
+            </label>
+        </div>
     </div>
 </div>
 
@@ -81,17 +90,18 @@ else if (selectedTeam != null)
             var isRemediating = node.State == NodeExecutionState.Remediating;
             var isCompleted = node.State == NodeExecutionState.Completed;
             var isFailed = node.State == NodeExecutionState.Failed;
+            var isWaitingForApproval = node.State == NodeExecutionState.WaitingForApproval;
             var assignedAgent = !string.IsNullOrEmpty(node.AgentId) ? AgentManager.GetAgent(node.AgentId) : null;
             var displayName = assignedAgent?.Persona.Name ?? node.Name;
 
-            var borderCol = isRunning ? "#38bdf8" : isRemediating ? "#ef4444" : isCompleted ? "#22c55e" : "var(--border-color)";
-            var pulseClass = isRunning ? "pulse-running" : isRemediating ? "pulse-remediating" : "";
+            var borderCol = isRunning ? "#38bdf8" : isRemediating ? "#ef4444" : isCompleted ? "#22c55e" : isWaitingForApproval ? "#f59e0b" : "var(--border-color)";
+            var pulseClass = isRunning ? "pulse-running" : isRemediating ? "pulse-remediating" : isWaitingForApproval ? "pulse-waiting" : "";
 
             <div style="background: var(--bg-primary); border: 2px solid @borderCol; border-radius: 8px; padding: 10px; text-align: center; position: relative;" class="@pulseClass" title="@(isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary) ? node.LastOutputSummary : displayName)">
                 <div style="font-size: 1.4rem;">@node.Role.ToEmoji()</div>
                 <div style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@displayName</div>
-                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isRunning ? "#38bdf8" : "var(--text-muted)"); font-weight: @(isFailed ? "700" : "normal");">
-                    @(isFailed ? "⚠️ FAILED" : node.State.ToString())
+                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isWaitingForApproval ? "#f59e0b" : isRunning ? "#38bdf8" : "var(--text-muted)"); font-weight: @(isFailed || isWaitingForApproval ? "700" : "normal");">
+                    @(isFailed ? "⚠️ FAILED" : isWaitingForApproval ? "⏳ APPROVAL NEEDED" : node.State.ToString())
                 </div>
                 @if (isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary))
                 {
@@ -103,6 +113,43 @@ else if (selectedTeam != null)
         }
     </div>
 </div>
+
+<!-- Active Human Approval Gate Spotlight Banner -->
+@if (ApprovalService.CurrentPendingRequest != null)
+{
+    var pending = ApprovalService.CurrentPendingRequest;
+    <div class="glass-card pulse-waiting" style="margin-bottom: 20px; padding: 18px 22px; border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%); box-shadow: 0 0 30px rgba(245, 158, 11, 0.35); border-radius: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <div style="font-size: 2.4rem; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.7));">
+                    ✋
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge" style="background: #f59e0b; color: #000; font-weight: 800; font-size: 0.75rem; padding: 3px 10px;">
+                            USER INTERACTION REQUIRED
+                        </span>
+                        <h3 style="font-weight: 800; font-size: 1.2rem; color: #f8fafc; margin: 0;">
+                            @pending.GateTitle
+                        </h3>
+                    </div>
+                    <p style="font-size: 0.88rem; color: #fde047; margin-top: 5px; margin-bottom: 0; line-height: 1.4;">
+                        @pending.GateDescription
+                    </p>
+                    <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">
+                        ⚡ <strong>Next Step:</strong> @pending.NextStepDescription
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button class="btn btn-warning" style="background: #f59e0b; color: #000; font-weight: 700; padding: 10px 20px; font-size: 0.95rem; border: none; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);" @onclick="() => showApprovalModal = true">
+                    📋 Review &amp; Approve Gate (@pending.ItemsToApprove.Count item@(pending.ItemsToApprove.Count == 1 ? "" : "s"))
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Active Execution Spotlight & Live Telemetry HUD -->
 @if (GraphExecutor.IsRunning || GraphExecutor.CurrentActiveExecution != null)
@@ -314,16 +361,28 @@ else if (selectedTeam != null)
     </div>
 }
 
+<!-- Human Approval Gate Modal -->
+@if (showApprovalModal && ApprovalService.CurrentPendingRequest != null)
+{
+    <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
+}
+
 @code {
     private string selectedTeamId = "";
     private TeamDefinition? selectedTeam => !string.IsNullOrEmpty(selectedTeamId) ? TeamManager.GetTeam(selectedTeamId) : null;
     private bool HasSelectedTeam => !string.IsNullOrWhiteSpace(selectedTeamId);
 
     private bool showReportModal;
+    private bool showApprovalModal;
     private string sessionReportMarkdown = "";
 
     private System.Threading.Timer? _uiTimer;
     private DateTimeOffset? _workflowStartedAt;
+
+    private void OnToggleApproval(ChangeEventArgs e)
+    {
+        ApprovalService.RequireUserApproval = (bool)(e.Value ?? true);
+    }
 
     private string GetElapsedTime(DateTimeOffset? startedAt)
     {
@@ -346,6 +405,13 @@ else if (selectedTeam != null)
         GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
         GraphExecutor.OnActiveExecutionChanged += HandleActiveExecutionChanged;
         TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
+        ApprovalService.OnApprovalRequested += HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved += HandleApprovalResolved;
+
+        if (ApprovalService.CurrentPendingRequest != null)
+        {
+            showApprovalModal = true;
+        }
 
         _uiTimer = new System.Threading.Timer(_ =>
         {
@@ -354,6 +420,18 @@ else if (selectedTeam != null)
                 InvokeAsync(StateHasChanged);
             }
         }, null, 1000, 1000);
+    }
+
+    private void HandleApprovalRequested(WorkflowApprovalRequest _)
+    {
+        showApprovalModal = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleApprovalResolved(WorkflowApprovalRequest _)
+    {
+        showApprovalModal = false;
+        InvokeAsync(StateHasChanged);
     }
 
     private void HandleActiveExecutionChanged(ActiveExecutionStatus? _) => InvokeAsync(StateHasChanged);
@@ -388,6 +466,8 @@ else if (selectedTeam != null)
         GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
         GraphExecutor.OnActiveExecutionChanged -= HandleActiveExecutionChanged;
         TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
+        ApprovalService.OnApprovalRequested -= HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved -= HandleApprovalResolved;
     }
 
     private async Task RunFullWorkflow()

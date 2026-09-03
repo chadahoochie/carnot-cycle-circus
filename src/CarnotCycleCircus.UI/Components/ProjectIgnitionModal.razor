@@ -30,7 +30,14 @@
                     @generationResult.Summary
                 </p>
 
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; text-align: left;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; text-align: left;">
+                    @if (!string.IsNullOrEmpty(generationResult.ProjectId))
+                    {
+                        <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid #22c55e;">
+                            <div style="font-size: 0.72rem; color: #22c55e; text-transform: uppercase; font-weight: 600;">Active Project</div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: #22c55e; font-family: monospace; overflow: hidden; text-overflow: ellipsis;" title="@generationResult.ProjectId">@generationResult.ProjectId</div>
+                        </div>
+                    }
                     <div style="background: var(--bg-primary); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
                         <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">Generated Epic</div>
                         <div style="font-size: 1rem; font-weight: 700; color: #38bdf8; font-family: monospace;">@generationResult.EpicId</div>
@@ -46,6 +53,9 @@
                 </div>
 
                 <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" @onclick='() => NavigateTo("/projects")'>
+                        🚀 View in Project Hub
+                    </button>
                     <button class="btn btn-primary" @onclick='() => NavigateTo("/tickets")'>
                         📋 Open Jira Graveyard
                     </button>

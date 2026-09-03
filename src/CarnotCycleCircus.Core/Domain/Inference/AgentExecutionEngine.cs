@@ -8,9 +8,11 @@ using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 using CarnotCycleCircus.Core.Domain.Tools;
 
+using CarnotCycleCircus.Core.Domain.Projects;
+
 namespace CarnotCycleCircus.Core.Domain.Inference;
 
-public record StreamingChunkEvent(AgentRole Role, string TicketId, string Chunk);
+public record StreamingChunkEvent(AgentRole Role, string TicketId, string Chunk, string? ProjectId = null);
 
 public interface IAgentExecutionEngine
 {
@@ -35,6 +37,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
     private readonly IPersistentMemoryStore? _memoryStore;
     private readonly ICodebaseHarvesterService? _harvester;
     private readonly ITicketStore? _ticketStore;
+    private readonly IActiveProjectContext? _activeProjectContext;
 
     public AgentExecutionEngine(
         IOpenRouterClient openRouterClient,
@@ -45,7 +48,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         IKnowledgeMapService? knowledgeMap = null,
         IPersistentMemoryStore? memoryStore = null,
         ICodebaseHarvesterService? harvester = null,
-        ITicketStore? ticketStore = null)
+        ITicketStore? ticketStore = null,
+        IActiveProjectContext? activeProjectContext = null)
     {
         _openRouterClient = openRouterClient ?? throw new ArgumentNullException(nameof(openRouterClient));
         _inferenceResolver = inferenceResolver ?? throw new ArgumentNullException(nameof(inferenceResolver));
@@ -56,6 +60,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         _memoryStore = memoryStore;
         _harvester = harvester;
         _ticketStore = ticketStore;
+        _activeProjectContext = activeProjectContext;
     }
 
     public async Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(
@@ -382,7 +387,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
         var response = await _openRouterClient.CompleteStreamAsync(request, apiKey, chunk =>
         {
-            OnStreamingChunk?.Invoke(new StreamingChunkEvent(role, ticket.Id, chunk));
+            OnStreamingChunk?.Invoke(new StreamingChunkEvent(role, ticket.Id, chunk, ticket.ProjectId ?? _activeProjectContext?.CurrentProjectId));
         }, cancellationToken);
         var rawContent = response.FirstContent;
         var finishReason = response.FirstFinishReason;

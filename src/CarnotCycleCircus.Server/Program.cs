@@ -8,6 +8,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Models;
+using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
@@ -68,11 +69,50 @@ app.MapGet("/api/storage/health", async (IPersistentStorageService storage) =>
 });
 
 // -----------------------------------------------------------------------------
+// Project Management & Active Context Endpoints
+// -----------------------------------------------------------------------------
+app.MapGet("/api/projects", (IProjectManager mgr) => Results.Ok(mgr.GetAll()));
+
+app.MapGet("/api/projects/{id}", (string id, IProjectManager mgr) =>
+    mgr.GetById(id) is { } p ? Results.Ok(p) : Results.NotFound());
+
+app.MapPost("/api/projects", async (ProjectCreateRequest req, IProjectManager mgr, CancellationToken ct) =>
+{
+    var project = await mgr.CreateAsync(req.Name, req.Description, req.TeamId,
+        req.WorkspaceDirectory, cancellationToken: ct);
+    return Results.Created($"/api/projects/{project.Id}", project);
+});
+
+app.MapPut("/api/projects/{id}", async (string id, Project project, IProjectManager mgr, CancellationToken ct) =>
+{
+    if (!string.Equals(project.Id, id, StringComparison.OrdinalIgnoreCase))
+        return Results.BadRequest("ID mismatch");
+    return Results.Ok(await mgr.UpdateAsync(project, ct));
+});
+
+app.MapDelete("/api/projects/{id}", async (string id, IProjectManager mgr, CancellationToken ct) =>
+{
+    await mgr.DeleteAsync(id, ct);
+    return Results.NoContent();
+});
+
+app.MapGet("/api/projects/active", (IActiveProjectContext ctx) =>
+    ctx.CurrentProject is { } p ? Results.Ok(p) : Results.NoContent());
+
+app.MapPut("/api/projects/active/{id}", (string id, IProjectManager mgr, IActiveProjectContext ctx) =>
+{
+    var project = mgr.GetById(id);
+    if (project is null) return Results.NotFound();
+    ctx.SetActiveProject(project);
+    return Results.Ok(project);
+});
+
+// -----------------------------------------------------------------------------
 // Tickets & Work Decomposition Endpoints
 // -----------------------------------------------------------------------------
-app.MapGet("/api/tickets", (ITicketStore ticketStore) =>
+app.MapGet("/api/tickets", (ITicketStore ticketStore, string? projectId) =>
 {
-    return Results.Ok(ticketStore.GetAllTickets());
+    return Results.Ok(projectId is not null ? ticketStore.GetByProject(projectId) : ticketStore.GetAllTickets());
 });
 
 app.MapPost("/api/tickets/create", (ITicketStore ticketStore, TicketItem ticket) =>
@@ -157,3 +197,8 @@ app.Run();
 
 public record HarvestRequest(string DirectoryPath, bool AutoGenerateBacklog = true);
 public record StoreKeyRequest(string KeyName, string ApiKey);
+public record ProjectCreateRequest(
+    string Name,
+    string Description,
+    string? TeamId = null,
+    string? WorkspaceDirectory = null);

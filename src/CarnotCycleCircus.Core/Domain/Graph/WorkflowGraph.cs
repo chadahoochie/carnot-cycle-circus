@@ -8,7 +8,8 @@ public enum NodeExecutionState
     Running,
     Completed,
     Failed,
-    Remediating
+    Remediating,
+    WaitingForApproval
 }
 
 public enum PortType

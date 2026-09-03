@@ -2,6 +2,7 @@
 @page "/teams"
 @page "/canvas"
 @implements IDisposable
+@using CarnotCycleCircus.Core.Domain.Approvals
 @inject ITeamDefinitionManager TeamManager
 @inject IAgentDefinitionManager AgentManager
 @inject IGraphWorkflowExecutor GraphExecutor
@@ -9,6 +10,7 @@
 @inject IAgentEventStream EventStream
 @inject IApiKeyVaultService KeyVaultService
 @inject IModelCatalogService CatalogService
+@inject IWorkflowApprovalService ApprovalService
 
 <QuickstartRingmasterBanner />
 
@@ -69,6 +71,28 @@
     <div style="padding: 10px 14px; border-radius: 8px; margin-bottom: 20px; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center;">
         <span>@statusMessage</span>
         <button style="background: transparent; border: none; color: #38bdf8; cursor: pointer; font-weight: bold;" @onclick="() => statusMessage = null">✕</button>
+    </div>
+}
+
+@if (ApprovalService.CurrentPendingRequest != null)
+{
+    var pending = ApprovalService.CurrentPendingRequest;
+    <div class="glass-card pulse-waiting" style="margin-bottom: 20px; padding: 14px 18px; border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 1.8rem;">✋</span>
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="badge" style="background: #f59e0b; color: #000; font-weight: 700; font-size: 0.72rem;">USER INTERACTION REQUIRED</span>
+                    <strong style="color: #f8fafc; font-size: 0.95rem;">@pending.GateTitle</strong>
+                </div>
+                <div style="font-size: 0.82rem; color: #fde047; margin-top: 2px;">
+                    @pending.GateDescription
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-warning" style="background: #f59e0b; color: #000; font-weight: 700; padding: 8px 16px; font-size: 0.88rem; border: none;" @onclick="() => showApprovalModal = true">
+            📋 Review &amp; Approve Gate (@pending.ItemsToApprove.Count items)
+        </button>
     </div>
 }
 
@@ -196,7 +220,7 @@
         {
             var isSelected = _selectedNodeId == node.Id;
             var selectedClass = isSelected ? "node-selected" : "";
-            var pulseClass = node.State == NodeExecutionState.Running ? "node-running" : (node.State == NodeExecutionState.Failed ? "node-failed" : (node.State == NodeExecutionState.Completed ? "node-completed" : ""));
+            var pulseClass = node.State == NodeExecutionState.Running ? "node-running" : (node.State == NodeExecutionState.Failed ? "node-failed" : (node.State == NodeExecutionState.Completed ? "node-completed" : (node.State == NodeExecutionState.WaitingForApproval ? "node-waiting" : "")));
             var assignedAgent = !string.IsNullOrEmpty(node.AgentId) ? AgentManager.GetAgent(node.AgentId) : null;
             var displayName = assignedAgent?.Persona.Name ?? node.Name;
 
@@ -643,6 +667,12 @@
     </div>
 }
 
+<!-- Human Approval Gate Modal -->
+@if (showApprovalModal && ApprovalService.CurrentPendingRequest != null)
+{
+    <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
+}
+
 @code {
     private EngineeringTeam currentTeam = default!;
     private string? statusMessage;
@@ -684,6 +714,7 @@
 
     private bool showDeleteConfirmModal;
     private bool showSquadRosterModal;
+    private bool showApprovalModal;
     private string? teamToDeleteId;
     private string? teamToDeleteName;
 
@@ -695,8 +726,27 @@
         TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
         GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
         GraphExecutor.OnNodeStateChanged += HandleNodeStateChanged;
+        ApprovalService.OnApprovalRequested += HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved += HandleApprovalResolved;
         GraphExecutor.LoadTeam(currentTeam);
         availableCatalogModels = await CatalogService.GetModelsAsync();
+
+        if (ApprovalService.CurrentPendingRequest != null)
+        {
+            showApprovalModal = true;
+        }
+    }
+
+    private void HandleApprovalRequested(WorkflowApprovalRequest _)
+    {
+        showApprovalModal = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleApprovalResolved(WorkflowApprovalRequest _)
+    {
+        showApprovalModal = false;
+        InvokeAsync(StateHasChanged);
     }
 
     private void HandleGraphUpdated(WorkflowGraph _)
@@ -1130,6 +1180,7 @@
         NodeExecutionState.Completed => "rgba(34, 197, 94, 0.2)",
         NodeExecutionState.Failed => "rgba(239, 68, 68, 0.2)",
         NodeExecutionState.Remediating => "rgba(234, 179, 8, 0.2)",
+        NodeExecutionState.WaitingForApproval => "rgba(245, 158, 11, 0.25)",
         _ => "rgba(255, 255, 255, 0.05)"
     };
 
@@ -1138,5 +1189,7 @@
         TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
         GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
         GraphExecutor.OnNodeStateChanged -= HandleNodeStateChanged;
+        ApprovalService.OnApprovalRequested -= HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved -= HandleApprovalResolved;
     }
 }

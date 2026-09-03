@@ -1,0 +1,244 @@
+@using CarnotCycleCircus.Core.Domain.Agents
+@using CarnotCycleCircus.Core.Domain.Approvals
+@inject IWorkflowApprovalService ApprovalService
+@inject IAgentEventStream EventStream
+@implements IDisposable
+
+@if (activeRequest != null)
+{
+    <div class="modal-backdrop" @onclick="HandleBackdropClick">
+        <div class="modal-dialog" style="max-width: 860px; max-height: 92vh; overflow-y: auto;" @onclick:stopPropagation="true">
+            <div class="modal-header" style="border-bottom: 2px solid #f59e0b;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.6rem;">✋</span>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin: 0;">
+                                User Interaction Required: Approval Gate
+                            </h3>
+                            <span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem; font-weight: 700;">
+                                AWAITING SIGN-OFF
+                            </span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">
+                            @if (activeRequest.Stage == ApprovalGateStage.TpmToArchitect)
+                            {
+                                <span>🎯 Step 1 of 2: Technical Product Manager ➔ Lead Architect (PRD &amp; Story Scope)</span>
+                            }
+                            else
+                            {
+                                <span>🏛️ Step 2 of 2: Lead Architect ➔ Coder / Software Developer (Architecture &amp; Technical Plan)</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-secondary" @onclick="CloseModal" style="padding: 4px 8px;" title="Minimize modal">✕</button>
+            </div>
+
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Gate Description Callout -->
+                <div style="background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; font-size: 0.88rem; color: #fde047;">
+                    <div style="font-weight: 700; margin-bottom: 4px; color: #fbbf24;">
+                        📢 @activeRequest.GateTitle
+                    </div>
+                    <div style="color: #cbd5e1; line-height: 1.5;">
+                        @activeRequest.GateDescription
+                    </div>
+                </div>
+
+                <!-- Summary of Things to Approve Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+                        <span>📋</span> Summary of Things to Approve (@activeRequest.ItemsToApprove.Count items)
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Initiative Epic: <strong style="color: #f8fafc; font-family: monospace;">@activeRequest.EpicId</strong>
+                    </div>
+                </div>
+
+                <!-- Deliverables Carousel / Preview -->
+                @if (activeRequest.Deliverables.Count > 0)
+                {
+                    <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                        <div style="font-size: 0.78rem; font-weight: 700; color: #22c55e; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                            <span>📄</span> Produced Deliverables for Sign-Off (@activeRequest.Deliverables.Count)
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            @foreach (var artifact in activeRequest.Deliverables)
+                            {
+                                <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-size: 1.1rem;">@(artifact.Name.EndsWith(".md") ? "📝" : "💻")</span>
+                                            <strong style="color: #f8fafc; font-size: 0.85rem; font-family: monospace;">@artifact.Name</strong>
+                                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; font-size: 0.68rem;">@artifact.ContentType</span>
+                                        </div>
+                                        <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.72rem;" @onclick="() => ToggleArtifactPreview(artifact.Name)">
+                                            @(expandedArtifacts.Contains(artifact.Name) ? "▲ Hide Content" : "▼ Preview Content")
+                                        </button>
+                                    </div>
+                                    @if (expandedArtifacts.Contains(artifact.Name))
+                                    {
+                                        <div style="margin-top: 8px; background: #030712; border: 1px solid var(--border-color); border-radius: 4px; padding: 10px; max-height: 240px; overflow-y: auto; font-family: monospace; font-size: 0.75rem; color: #e2e8f0; white-space: pre-wrap;">
+                                            @artifact.Content
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Items Breakdown List -->
+                <div style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                    @foreach (var item in activeRequest.ItemsToApprove)
+                    {
+                        var isPrdOrAdr = item.Category.Contains("PRD") || item.Category.Contains("ADR");
+                        var borderCol = isPrdOrAdr ? "#a855f7" : item.Category.Contains("Subtask") ? "#10b981" : "#38bdf8";
+
+                        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-left: 3px solid @borderCol; border-radius: 6px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px;">
+                                <div>
+                                    <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #cbd5e1; font-size: 0.68rem; margin-bottom: 4px;">
+                                        @item.Category
+                                    </span>
+                                    <h4 style="font-size: 0.9rem; font-weight: 700; color: #f8fafc; margin: 0;">
+                                        @item.Title
+                                    </h4>
+                                </div>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(item.Details))
+                            {
+                                <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45; margin-bottom: 8px; white-space: pre-line;">
+                                    @item.Details
+                                </p>
+                            }
+
+                            @if (item.KeyPoints != null && item.KeyPoints.Count > 0)
+                            {
+                                <div style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.05);">
+                                    <div style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px;">
+                                        Key Acceptance &amp; Technical Criteria:
+                                    </div>
+                                    <ul style="margin: 0; padding-left: 18px; font-size: 0.78rem; color: #e2e8f0;">
+                                        @foreach (var kp in item.KeyPoints)
+                                        {
+                                            <li style="margin-bottom: 2px;">@kp</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <!-- Next Step Warning / Notice -->
+                <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; color: #38bdf8; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.3rem;">⚡</span>
+                    <div>
+                        <strong>What happens upon approval:</strong> @activeRequest.NextStepDescription
+                    </div>
+                </div>
+
+                <!-- Optional User Feedback & Revision Instructions -->
+                <div class="form-group" style="margin-top: 4px;">
+                    <label class="form-label" style="font-size: 0.82rem; font-weight: 600; color: #f8fafc; display: flex; justify-content: space-between;">
+                        <span>💬 Reviewer Directives &amp; Feedback</span>
+                        <span style="font-weight: normal; color: var(--text-muted); font-size: 0.75rem;">(Optional for approval; required if rejecting)</span>
+                    </label>
+                    <textarea class="form-control" rows="2" style="font-size: 0.82rem;" placeholder="e.g. Approved. Ensure zero allocations on hot paths and strict error handling in service contracts." @bind="userFeedback"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px;">
+                <button type="button" class="btn btn-secondary" @onclick="CloseModal">
+                    Dismiss View (Keep Pending)
+                </button>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-danger" @onclick="RejectGate">
+                        🛑 Reject &amp; Request Revision
+                    </button>
+                    <button type="button" class="btn btn-success" @onclick="ApproveGate" style="font-weight: 700;">
+                        ✅ Approve &amp; Unleash Next Stage
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public WorkflowApprovalRequest? Request { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private WorkflowApprovalRequest? activeRequest => Request ?? ApprovalService.CurrentPendingRequest;
+    private string userFeedback = "";
+    private HashSet<string> expandedArtifacts = new();
+
+    protected override void OnInitialized()
+    {
+        ApprovalService.OnApprovalRequested += HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved += HandleApprovalResolved;
+    }
+
+    private void HandleApprovalRequested(WorkflowApprovalRequest req)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleApprovalResolved(WorkflowApprovalRequest req)
+    {
+        expandedArtifacts.Clear();
+        userFeedback = "";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleArtifactPreview(string artifactName)
+    {
+        if (expandedArtifacts.Contains(artifactName))
+        {
+            expandedArtifacts.Remove(artifactName);
+        }
+        else
+        {
+            expandedArtifacts.Add(artifactName);
+        }
+    }
+
+    private void ApproveGate()
+    {
+        if (activeRequest != null)
+        {
+            ApprovalService.Approve(activeRequest.Id, string.IsNullOrWhiteSpace(userFeedback) ? null : userFeedback);
+            CloseModal();
+        }
+    }
+
+    private void RejectGate()
+    {
+        if (activeRequest != null)
+        {
+            var feedback = !string.IsNullOrWhiteSpace(userFeedback) ? userFeedback : "Rejected by user at approval gate.";
+            ApprovalService.Reject(activeRequest.Id, feedback);
+            CloseModal();
+        }
+    }
+
+    private void CloseModal()
+    {
+        OnClose.InvokeAsync();
+    }
+
+    private void HandleBackdropClick()
+    {
+        CloseModal();
+    }
+
+    public void Dispose()
+    {
+        ApprovalService.OnApprovalRequested -= HandleApprovalRequested;
+        ApprovalService.OnApprovalResolved -= HandleApprovalResolved;
+    }
+}

@@ -3,6 +3,7 @@ using CarnotCycleCircus.Core.Domain.Docs;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Memory;
+using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
 
@@ -34,11 +35,22 @@ public record ProjectIgnitionRequest(
 );
 
 public record BlueprintGenerationResult(
+    string ProjectId,
     string EpicId,
     string AdrId,
     IReadOnlyList<TicketItem> CreatedTickets,
     string Summary
-);
+)
+{
+    public BlueprintGenerationResult(
+        string EpicId,
+        string AdrId,
+        IReadOnlyList<TicketItem> CreatedTickets,
+        string Summary)
+        : this(string.Empty, EpicId, AdrId, CreatedTickets, Summary)
+    {
+    }
+}
 
 public interface IProjectBlueprintService
 {
@@ -59,6 +71,8 @@ public class ProjectBlueprintService : IProjectBlueprintService
     private readonly IPersistentMemoryStore _memoryStore;
     private readonly ITeamDefinitionManager _teamManager;
     private readonly IAgentEventStream _eventStream;
+    private readonly IProjectManager? _projectManager;
+    private readonly IActiveProjectContext? _activeProjectContext;
 
     public ProjectBlueprintService(
         IWorkDecompositionEngine decompositionEngine,
@@ -67,7 +81,9 @@ public class ProjectBlueprintService : IProjectBlueprintService
         IKnowledgeMapService knowledgeMap,
         IPersistentMemoryStore memoryStore,
         ITeamDefinitionManager teamManager,
-        IAgentEventStream eventStream)
+        IAgentEventStream eventStream,
+        IProjectManager? projectManager = null,
+        IActiveProjectContext? activeProjectContext = null)
     {
         _decompositionEngine = decompositionEngine;
         _ticketStore = ticketStore;
@@ -76,6 +92,8 @@ public class ProjectBlueprintService : IProjectBlueprintService
         _memoryStore = memoryStore;
         _teamManager = teamManager;
         _eventStream = eventStream;
+        _projectManager = projectManager;
+        _activeProjectContext = activeProjectContext;
     }
 
     private static readonly IReadOnlyList<ProjectBlueprint> StarterSuggestions =
@@ -229,12 +247,48 @@ public class ProjectBlueprintService : IProjectBlueprintService
         }
         var teamName = teamToUse?.Name ?? "Circus Troupe";
 
+        // 1b. Create and set active project
+        Project? project = null;
+        if (_projectManager != null)
+        {
+            project = await _projectManager.CreateAsync(
+                name: title,
+                description: description,
+                teamId: teamToUse?.Id,
+                workspaceDirectory: null,
+                metadata: new Dictionary<string, string> { ["TargetStack"] = targetStack },
+                cancellationToken: cancellationToken
+            );
+            _activeProjectContext?.SetActiveProject(project);
+        }
+        var projectId = project?.Id ?? _activeProjectContext?.CurrentProjectId;
+
         // 2. Deconstruct Epic and generate DAG subtasks
         var createdTickets = _decompositionEngine.DeconstructEpic(
             title,
             $"{description} (Target Stack: {targetStack})",
             request.Priority
         );
+
+        if (!string.IsNullOrEmpty(projectId))
+        {
+            var updatedTickets = new List<TicketItem>();
+            foreach (var t in createdTickets)
+            {
+                if (t.ProjectId != projectId)
+                {
+                    var updated = t.WithProject(projectId);
+                    _ticketStore.UpdateTicket(updated);
+                    updatedTickets.Add(updated);
+                }
+                else
+                {
+                    updatedTickets.Add(t);
+                }
+            }
+            createdTickets = updatedTickets;
+        }
+
         var epicTicket = createdTickets.First(t => t.Type == TicketType.Epic);
 
         // 3. Register initial Architectural Decision Record (ADR)
@@ -284,6 +338,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
 
         _adrManager.SaveAdr(new ArchitecturalDecisionRecord(
             Id: adrId,
+            ProjectId: projectId,
             Title: $"{title} Blueprint & Topology",
             Status: AdrStatus.Accepted,
             Context: $"The engineering troupe has initiated development for {title}. Target Stack: {targetStack}. Assigned Squad: {teamName}. Goals: {string.Join("; ", keyGoals)}",
@@ -370,10 +425,12 @@ public class ProjectBlueprintService : IProjectBlueprintService
             senderName: "🎪 Ringmaster",
             content: $"Launched initiative '{title}'! Epic {epicTicket.Id} generated with {createdTickets.Count - 1} subtasks across 6 roles, ADR {adrId} established, and squad assigned to '{teamName}'.",
             type: MessageType.StateChange,
-            ticketId: epicTicket.Id
+            ticketId: epicTicket.Id,
+            projectId: projectId
         ));
 
         return new BlueprintGenerationResult(
+            ProjectId: projectId ?? string.Empty,
             EpicId: epicTicket.Id,
             AdrId: adrId,
             CreatedTickets: createdTickets,

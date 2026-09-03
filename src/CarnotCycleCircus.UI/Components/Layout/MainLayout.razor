@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject IApiKeyVaultService KeyVaultService
+@inject IActiveProjectContext ActiveProjectContext
 
 <div class="app-container">
     @if (isMobileMenuOpen)
@@ -54,7 +55,9 @@
         </header>
 
         <main class="content-viewport">
-            @Body
+            <CascadingValue Value="ActiveProjectContext.CurrentProject">
+                @Body
+            </CascadingValue>
         </main>
     </div>
 </div>
@@ -95,9 +98,15 @@
     protected override void OnInitialized()
     {
         KeyVaultService.OnKeyUpdated += OnKeyUpdated;
+        ActiveProjectContext.OnActiveProjectChanged += OnProjectChanged;
     }
 
     private void OnKeyUpdated(ApiKeyVaultEntry entry)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnProjectChanged(Project? project)
     {
         InvokeAsync(StateHasChanged);
     }
@@ -118,6 +127,7 @@
     public void Dispose()
     {
         KeyVaultService.OnKeyUpdated -= OnKeyUpdated;
+        ActiveProjectContext.OnActiveProjectChanged -= OnProjectChanged;
     }
 }
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
+using CarnotCycleCircus.Core.Domain.Projects;
 
 namespace CarnotCycleCircus.Core.Domain.Tickets;
 
@@ -54,10 +55,12 @@ public interface IWorkDecompositionEngine
 public class WorkDecompositionEngine : IWorkDecompositionEngine
 {
     private readonly ITicketStore _ticketStore;
+    private readonly IActiveProjectContext? _activeProjectContext;
 
-    public WorkDecompositionEngine(ITicketStore ticketStore)
+    public WorkDecompositionEngine(ITicketStore ticketStore, IActiveProjectContext? activeProjectContext = null)
     {
         _ticketStore = ticketStore;
+        _activeProjectContext = activeProjectContext;
     }
 
     public IReadOnlyList<TicketItem> DeconstructEpicIntoUserStories(
@@ -68,11 +71,13 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
     {
         var existingEpic = _ticketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && string.Equals(t.Title, epicTitle, StringComparison.OrdinalIgnoreCase));
         var epicId = existingEpic?.Id ?? $"EPIC-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
+        var projectId = existingEpic?.ProjectId ?? _activeProjectContext?.CurrentProjectId;
         var createdTickets = new List<TicketItem>();
 
         // 1. Create or update the Epic ticket
         var epicTicket = existingEpic ?? new TicketItem(
             Id: epicId,
+            ProjectId: projectId,
             ParentEpicId: null,
             Title: epicTitle,
             Description: epicDescription,
@@ -112,6 +117,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var resTicketId = existingResearchTicket?.Id ?? $"RES-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var resTicket = existingResearchTicket ?? new TicketItem(
             Id: resTicketId,
+            ProjectId: projectId,
             ParentEpicId: epicId,
             Title: $"Requirements Research & Feasibility: {epicTitle}",
             Description: $"Requirements Researcher investigates domain concepts, specifications (RFCs/standards), modern .NET 10 / C# 13 ecosystem libraries, codebase boundaries, failure modes, and technical feasibility for {epicTitle}.",
@@ -185,6 +191,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var story1Id = $"STORY-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var story1 = new TicketItem(
             Id: story1Id,
+            ProjectId: projectId,
             ParentEpicId: epicId,
             Title: $"{epicTitle}: Core Engine & Protocols",
             Description: $"TPM Requirement: Synthesize Research Brief into formal PRD and establish foundational capabilities, domain models, interfaces, and state lifecycle for {epicTitle}.",
@@ -235,6 +242,8 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         IReadOnlyList<ArtifactItem>? upstreamContext = null)
     {
         var parentEpicId = userStory.ParentEpicId ?? userStory.Id;
+        var parentEpic = _ticketStore.GetTicketById(parentEpicId);
+        var projectId = userStory.ProjectId ?? parentEpic?.ProjectId ?? _activeProjectContext?.CurrentProjectId;
 
         // Reuse existing subtasks for this story if already present, preventing ticket duplication
         var existingStorySubtasks = _ticketStore.GetTicketsByEpic(parentEpicId)
@@ -268,6 +277,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var adrSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var adrSubtask = new TicketItem(
             Id: adrSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[Arch] Design ADR & Scaffold Clean Architecture for {userStory.Title}",
             Description: $"Lead Architect produces Nygard Architectural Decision Record, defining domain boundaries, zero-allocation protocols, and scaffolds the Clean Architecture solution (Domain, Contracts, DI extensions) for {userStory.Title}.",
@@ -293,6 +303,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var devSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var devSubtask = new TicketItem(
             Id: devSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[Dev] Implement Domain Models, Service & Tests for {userStory.Title}",
             Description: $"Senior Developer writes C# 13 / .NET 10 multi-file implementation bundle (Models, Interfaces, Services, DI extensions, and Unit Tests) matching Lead Architect's ADR for {userStory.Title}.",
@@ -318,6 +329,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var secSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var secSubtask = new TicketItem(
             Id: secSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[Security] STRIDE Threat Model & Code Audit for {userStory.Title}",
             Description: $"Security Engineer audits delivered C# source code for secret exposure, permission boundaries, buffer slices, input sanitization, and STRIDE threats for {userStory.Title}.",
@@ -343,6 +355,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var optSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var optSubtask = new TicketItem(
             Id: optSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[Opt] Latency Bottleneck & Allocation Audit for {userStory.Title}",
             Description: $"Optimization Engineer benchmarks delivered service methods, auditing heap allocations, memory spans, ValueTask state machines, and asymptotic time complexity for {userStory.Title}.",
@@ -368,6 +381,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var qaSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var qaSubtask = new TicketItem(
             Id: qaSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[QA] Test Strategy & Final Acceptance Validation for {userStory.Title}",
             Description: $"Principal QA Analyst validates all acceptance criteria against delivered code and unit tests, confirms test execution pass rate, and certifies release readiness for {userStory.Title}.",
@@ -393,6 +407,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         var intSubtaskId = $"SUB-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
         var intSubtask = new TicketItem(
             Id: intSubtaskId,
+            ProjectId: projectId,
             ParentEpicId: parentEpicId,
             Title: $"[Integration] Solution Packaging & Repository Integration for {userStory.Title}",
             Description: $"Integration & Release Engineer packages multi-file deliverables into Clean Architecture project folders, updates .csproj and .slnx solution files, wires DI into Program.cs, and publishes Release Manifest for {userStory.Title}.",
@@ -434,6 +449,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
         }
 
         var existingEpic = _ticketStore.GetTicketById(epicId);
+        var projectId = existingEpic?.ProjectId ?? _activeProjectContext?.CurrentProjectId;
         var existingFeatures = _ticketStore.GetTicketsByEpic(epicId)
             .Where(t => t.Type == TicketType.Feature)
             .OrderBy(t => t.CreatedAt)
@@ -477,6 +493,7 @@ public class WorkDecompositionEngine : IWorkDecompositionEngine
                 var newStoryId = $"STORY-{Guid.NewGuid().ToString("N")[..6].ToUpperInvariant()}";
                 var newStory = new TicketItem(
                     Id: newStoryId,
+                    ProjectId: projectId,
                     ParentEpicId: epicId,
                     Title: storyTitle,
                     Description: storyDto.Description,
