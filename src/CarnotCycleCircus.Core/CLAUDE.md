@@ -4,6 +4,7 @@ Core domain library and agent orchestration engine for Carnot Cycle Circus.
 
 ## Architecture & Responsibilities
 - **Domain/Tickets**: `TicketItem`, `HandoffPacket`, `ITicketStore`, `WorkDecompositionEngine`, `HandoffRouter`. Implements hierarchical ticket management, DAG dependency resolution, and inter-agent handoff contracts.
+- **Domain/Projects**: `Project`, `IProjectManager`, `IActiveProjectContext` (ADR-0018). First-class project container that scopes tickets, artifacts, telemetry, and approvals via `ProjectId`; separate from application-level concerns (agents, teams, skills, memory, models, standards).
 - **Domain/Memory**: Multi-tier persistent memory (Working, Episodic, Semantic, Procedural) with embedded vector similarity and consolidation.
 - **Domain/Inference**: Dynamic multi-key OpenRouter inference router, API Key Vault, and offline scenario simulator.
 - **Domain/Tools**: Agent tool execution sandbox (`WebSearchTool`, `CSharpSyntaxCheckTool`, `TestRunnerTool`, `MemoryLookupTool`, `AdrWriterTool`).

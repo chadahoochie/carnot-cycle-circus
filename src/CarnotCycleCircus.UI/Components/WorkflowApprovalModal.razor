@@ -2,6 +2,7 @@
 @using CarnotCycleCircus.Core.Domain.Approvals
 @inject IWorkflowApprovalService ApprovalService
 @inject IAgentEventStream EventStream
+@inject IProjectManager ProjectManager
 @implements IDisposable
 
 @if (activeRequest != null)
@@ -19,6 +20,12 @@
                             <span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem; font-weight: 700;">
                                 AWAITING SIGN-OFF
                             </span>
+                            @if (activeRequest.ProjectId is { } projectId && ProjectManager.GetById(projectId) is { } project)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.72rem; font-weight: 600;" title="Project">
+                                    📁 @project.Name
+                                </span>
+                            }
                         </div>
                         <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">
                             @if (activeRequest.Stage == ApprovalGateStage.TpmToArchitect)

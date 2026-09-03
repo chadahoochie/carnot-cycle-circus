@@ -145,7 +145,7 @@
                             </div>
                             <div>
                                 <span style="color: var(--text-muted);">Updated:</span>
-                                <span style="color: #94a3b8; margin-left: 4px;">@proj.UpdatedAt.ToString("MMM d")</span>
+                                <span style="color: #94a3b8; margin-left: 4px;">@((proj.LastActivityAt ?? proj.CreatedAt).ToString("MMM d"))</span>
                             </div>
                         </div>
                     </div>
@@ -292,7 +292,7 @@
                 );
             }
 
-            return list.OrderByDescending(p => p.UpdatedAt).ToList();
+            return list.OrderByDescending(p => p.LastActivityAt ?? p.CreatedAt).ToList();
         }
     }
 
@@ -322,7 +322,7 @@
 
     private void ClearActiveProject()
     {
-        ActiveProjectContext.ClearActiveProject();
+        ActiveProjectContext.SetActiveProject(null);
     }
 
     private void OpenCreateModal()
@@ -379,8 +379,7 @@
                         Description = modalFormDescription.Trim(),
                         TeamId = string.IsNullOrWhiteSpace(modalFormTeamId) ? null : modalFormTeamId,
                         WorkspaceDirectory = string.IsNullOrWhiteSpace(modalFormWorkspace) ? null : modalFormWorkspace.Trim(),
-                        Status = modalFormStatus,
-                        UpdatedAt = DateTimeOffset.UtcNow
+                        Status = modalFormStatus
                     };
                     await ProjectManager.UpdateAsync(updated);
 

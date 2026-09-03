@@ -120,6 +120,13 @@
 - `ICodebaseHarvesterService`: Scans local solutions/directories, discovers project boundaries, extracts dependencies, detects architecture patterns, audits tech debt, and generates prioritized improvement tickets.
 - `IShowcaseDemoService`: Zero-setup 1-click interactive demo runner for live swarm execution, failure remediation loopbacks, and nanosecond optimization benchmarking without API keys.
 
+### 4.13 Project Scoping (`CarnotCycleCircus.Core.Domain.Projects`, ADR-0018)
+- `IProjectManager` / `ProjectManager`: CRUD lifecycle for `Project` (`Id`, `Name`, `Description`, `Status`: Active/Paused/Completed/Archived, optional `TeamId`, `WorkspaceDirectory`), backed by `projects.json`.
+- `IActiveProjectContext` / `ActiveProjectContext`: Tracks the session's active project, persists selection to `active-project.json`, raises `OnActiveProjectChanged`.
+- **Application-level** (no project required): Agent Studio, Team Management, Skills Hub/Matrix, Model Catalog, Self-Improvement, Memory Inspector, Standards Manager, Knowledge Map Explorer, Key Vault.
+- **Project-scoped** (requires an active project): Ticket Manager, Panic & Telemetry Dashboard, Artifacts Hub, Docs & ADR Hub, workflow execution, approval gates.
+- `ProjectId` (nullable) added to `TicketItem`, `HandoffPacket`, `AgentMessage`, `ArtifactDescriptor`, `WorkflowApprovalRequest`, `ArchitecturalDecisionRecord`, `ProjectDocument`; stamped automatically by `WorkDecompositionEngine`, `HandoffRouter`, `ArtifactManager`, `WorkflowApprovalService`, `AdrDocumentManager`, `GraphWorkflowExecutor`, `AgentExecutionEngine`, `ProjectBlueprintService`, and `CodebaseHarvesterService`, falling back to `IActiveProjectContext.CurrentProjectId`.
+
 ### 4.7 Multi-Host Decoupled Architecture & Storage (ADR-0016)
 - **`CarnotCycleCircus.UI`**: Reusable Razor Class Library containing all views, modals, and `INativeFolderPicker` abstraction.
 - **`CarnotCycleCircus.Desktop`**: Native cross-platform desktop application using **Photino.Blazor** (WebKitGTK on Linux, WKWebView on macOS, WebView2 on Windows) consuming ~40MB RAM.
