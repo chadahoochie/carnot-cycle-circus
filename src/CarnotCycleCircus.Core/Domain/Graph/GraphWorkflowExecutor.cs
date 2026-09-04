@@ -28,6 +28,7 @@ public interface IGraphWorkflowExecutor
     WorkflowGraph CurrentGraph { get; }
     bool IsRunning { get; }
     ActiveExecutionStatus? CurrentActiveExecution { get; }
+    IAgentExecutionTracker? Tracker { get; }
     IWorkflowApprovalService ApprovalService { get; }
     event Action<ActiveExecutionStatus?>? OnActiveExecutionChanged;
 
@@ -78,6 +79,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     public WorkflowGraph CurrentGraph => _graph;
     public bool IsRunning => _isRunning;
     public ActiveExecutionStatus? CurrentActiveExecution => _currentActiveExecution;
+    public IAgentExecutionTracker? Tracker => _executionEngine.Tracker;
     public IWorkflowApprovalService ApprovalService => _approvalService;
 
     public event Action<WorkflowGraph>? OnGraphUpdated;
@@ -384,7 +386,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 type: MessageType.Alert,
                 ticketId: ticket.Id
             ));
-            _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Ready));
+            _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Blocked));
             return false;
         }
     }
@@ -396,11 +398,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         {
             int maxIterations = 100;
             int count = 0;
+            var failedTicketIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             while (count < maxIterations && !cancellationToken.IsCancellationRequested)
             {
                 var readyTickets = _ticketStore.GetReadyTickets()
-                    .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
+                    .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done && !failedTicketIds.Contains(t.Id))
                     .ToList();
 
                 if (readyTickets.Count == 0)
@@ -427,7 +430,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
                 if (!executed)
                 {
-                    var otherReady = readyTickets.Where(t => t.Id != nextTicket.Id).ToList();
+                    failedTicketIds.Add(nextTicket.Id);
+                    var otherReady = readyTickets.Where(t => t.Id != nextTicket.Id && !failedTicketIds.Contains(t.Id)).ToList();
                     if (otherReady.Count == 0)
                     {
                         _eventStream.Publish(AgentMessage.Create(

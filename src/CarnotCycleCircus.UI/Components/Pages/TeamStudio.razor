@@ -391,6 +391,22 @@
                         <div style="color: var(--text-main);">@_selectedNode.LastOutputSummary</div>
                     </div>
                 }
+
+                @{
+                    var nodeAgent = !string.IsNullOrEmpty(_selectedNode.AgentId) ? AgentManager.GetAgent(_selectedNode.AgentId) : AgentManager.GetAgentForRole(_selectedNode.Role);
+                }
+                @if (nodeAgent != null)
+                {
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; font-size: 0.76rem; display: flex; flex-direction: column; gap: 4px;">
+                        <div><span style="color: var(--text-muted);">Primary Model:</span> <code style="color: #22c55e;">@(nodeAgent.EffectiveModel ?? "None")</code></div>
+                        <div><span style="color: var(--text-muted);">Fallback Model:</span> <code style="color: #f59e0b;">@(string.IsNullOrEmpty(nodeAgent.Persona.FallbackModel) ? "None" : nodeAgent.Persona.FallbackModel)</code></div>
+                    </div>
+                }
+
+                <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;"
+                        @onclick="() => showActivityModal = true">
+                    🔬 Inspect Agent Activity
+                </button>
             </div>
         }
         else
@@ -673,9 +689,16 @@
     <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
 }
 
+<!-- Agent Activity Detailed Inspector Modal -->
+@if (showActivityModal)
+{
+    <AgentActivityModal OnClose="() => showActivityModal = false" />
+}
+
 @code {
     private EngineeringTeam currentTeam = default!;
     private string? statusMessage;
+    private bool showActivityModal;
 
     // Node Selection & Canvas Dragging State
     private string? _selectedNodeId;

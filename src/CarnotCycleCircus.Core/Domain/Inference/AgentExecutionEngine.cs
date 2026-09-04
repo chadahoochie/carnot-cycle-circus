@@ -17,6 +17,7 @@ public record StreamingChunkEvent(AgentRole Role, string TicketId, string Chunk,
 public interface IAgentExecutionEngine
 {
     event Action<StreamingChunkEvent>? OnStreamingChunk;
+    IAgentExecutionTracker? Tracker { get; }
 
     Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(
         AgentRole role,
@@ -38,6 +39,9 @@ public class AgentExecutionEngine : IAgentExecutionEngine
     private readonly ICodebaseHarvesterService? _harvester;
     private readonly ITicketStore? _ticketStore;
     private readonly IActiveProjectContext? _activeProjectContext;
+    private readonly IAgentExecutionTracker? _tracker;
+
+    public IAgentExecutionTracker? Tracker => _tracker;
 
     public AgentExecutionEngine(
         IOpenRouterClient openRouterClient,
@@ -49,7 +53,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         IPersistentMemoryStore? memoryStore = null,
         ICodebaseHarvesterService? harvester = null,
         ITicketStore? ticketStore = null,
-        IActiveProjectContext? activeProjectContext = null)
+        IActiveProjectContext? activeProjectContext = null,
+        IAgentExecutionTracker? tracker = null)
     {
         _openRouterClient = openRouterClient ?? throw new ArgumentNullException(nameof(openRouterClient));
         _inferenceResolver = inferenceResolver ?? throw new ArgumentNullException(nameof(inferenceResolver));
@@ -61,6 +66,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         _harvester = harvester;
         _ticketStore = ticketStore;
         _activeProjectContext = activeProjectContext;
+        _tracker = tracker;
     }
 
     public async Task<IReadOnlyList<ArtifactItem>> ExecuteRoleTaskAsync(
@@ -139,6 +145,21 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         // 4. Gather upstream context from parent epic and dependent tickets
         var upstreamDeliverables = GatherUpstreamDeliverables(ticket);
         var harvestReport = _harvester?.GetLatestReport();
+        var (systemPrompt, userPrompt, defaultArtifactName, contentType, description) =
+            BuildPromptsForRole(member, role, ticket, upstreamDeliverables, harvestReport);
+        var upstreamDeliverableNames = upstreamDeliverables.Select(d => d.Name).ToList();
+
+        _tracker?.StartExecution(
+            role: role,
+            roleName: member.Persona.Name,
+            ticketId: ticket.Id,
+            ticketTitle: ticket.Title,
+            primaryModel: model,
+            fallbackModel: fallbackModel,
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            upstreamDeliverables: upstreamDeliverableNames
+        );
 
         _eventStream?.Publish(AgentMessage.Create(
             role: role,
@@ -150,9 +171,11 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
         try
         {
-            var (artifacts, finishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, model, apiKey, cancellationToken);
+            var (artifacts, finishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, systemPrompt, userPrompt, defaultArtifactName, contentType, description, model, apiKey, cancellationToken);
             if (artifacts.Count > 0)
             {
+                _tracker?.CompleteExecution(ticket.Id, true);
+
                 var names = string.Join(", ", artifacts.Select(a => $"'{a.Name}'"));
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
@@ -180,6 +203,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             var emptyReason = finishReason != null ? $"FinishReason: {finishReason}" : "Empty payload returned";
             if (!string.IsNullOrWhiteSpace(fallbackModel) && !string.Equals(fallbackModel, model, StringComparison.OrdinalIgnoreCase))
             {
+                _tracker?.RecordFailover(ticket.Id, fallbackModel, emptyReason);
+
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
                     senderName: member.Persona.Name,
@@ -188,9 +213,11 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                     ticketId: ticket.Id
                 ));
 
-                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, fallbackModel, apiKey, cancellationToken);
+                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, systemPrompt, userPrompt, defaultArtifactName, contentType, description, fallbackModel, apiKey, cancellationToken);
                 if (fallbackArtifacts.Count > 0)
                 {
+                    _tracker?.CompleteExecution(ticket.Id, true);
+
                     var fbNames = string.Join(", ", fallbackArtifacts.Select(a => $"'{a.Name}'"));
                     _eventStream?.Publish(AgentMessage.Create(
                         role: role,
@@ -214,15 +241,21 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                     return fallbackArtifacts;
                 }
 
-                throw new InvalidOperationException($"Both primary model [{model}] ({emptyReason}) and fallback model [{fallbackModel}] (FinishReason: {fallbackFinishReason ?? "empty"}) produced empty deliverable content for [{ticket.Id}].");
+                var doubleEmptyMsg = $"Both primary model [{model}] ({emptyReason}) and fallback model [{fallbackModel}] (FinishReason: {fallbackFinishReason ?? "empty"}) produced empty deliverable content for [{ticket.Id}].";
+                _tracker?.CompleteExecution(ticket.Id, false, doubleEmptyMsg);
+                throw new InvalidOperationException(doubleEmptyMsg);
             }
 
-            throw new InvalidOperationException($"Model [{model}] produced empty deliverable content for [{ticket.Id}] ({emptyReason}).");
+            var singleEmptyMsg = $"Model [{model}] produced empty deliverable content for [{ticket.Id}] ({emptyReason}).";
+            _tracker?.CompleteExecution(ticket.Id, false, singleEmptyMsg);
+            throw new InvalidOperationException(singleEmptyMsg);
         }
         catch (Exception ex) when (!string.IsNullOrWhiteSpace(fallbackModel) &&
                                   !string.Equals(fallbackModel, model, StringComparison.OrdinalIgnoreCase) &&
                                   !(ex is OperationCanceledException && cancellationToken.IsCancellationRequested))
         {
+            _tracker?.RecordFailover(ticket.Id, fallbackModel, ex.Message);
+
             _eventStream?.Publish(AgentMessage.Create(
                 role: role,
                 senderName: member.Persona.Name,
@@ -233,9 +266,11 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
             try
             {
-                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, upstreamDeliverables, harvestReport, fallbackModel, apiKey, cancellationToken);
+                var (fallbackArtifacts, fallbackFinishReason) = await GenerateViaOpenRouterAsync(member, role, ticket, systemPrompt, userPrompt, defaultArtifactName, contentType, description, fallbackModel, apiKey, cancellationToken);
                 if (fallbackArtifacts.Count > 0)
                 {
+                    _tracker?.CompleteExecution(ticket.Id, true);
+
                     var fbNames = string.Join(", ", fallbackArtifacts.Select(a => $"'{a.Name}'"));
                     _eventStream?.Publish(AgentMessage.Create(
                         role: role,
@@ -248,10 +283,13 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                     return fallbackArtifacts;
                 }
 
-                throw new InvalidOperationException($"Primary model [{model}] failed ({ex.Message}) and fallback model [{fallbackModel}] produced empty deliverable content for [{ticket.Id}] (FinishReason: {fallbackFinishReason ?? "empty"}).");
+                var emptyFallbackMsg = $"Primary model [{model}] failed ({ex.Message}) and fallback model [{fallbackModel}] produced empty deliverable content for [{ticket.Id}] (FinishReason: {fallbackFinishReason ?? "empty"}).";
+                _tracker?.CompleteExecution(ticket.Id, false, emptyFallbackMsg);
+                throw new InvalidOperationException(emptyFallbackMsg);
             }
             catch (Exception fallbackEx) when (!(fallbackEx is OperationCanceledException && cancellationToken.IsCancellationRequested))
             {
+                _tracker?.CompleteExecution(ticket.Id, false, fallbackEx.Message);
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
                     senderName: member.Persona.Name,
@@ -264,6 +302,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         }
         catch (Exception ex)
         {
+            _tracker?.CompleteExecution(ticket.Id, false, ex.Message);
             _eventStream?.Publish(AgentMessage.Create(
                 role: role,
                 senderName: member.Persona.Name,
@@ -361,15 +400,15 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         AgentMember member,
         AgentRole role,
         TicketItem ticket,
-        IReadOnlyList<ArtifactItem> upstreamDeliverables,
-        CodebaseHarvestReport? harvestReport,
+        string systemPrompt,
+        string userPrompt,
+        string defaultArtifactName,
+        string contentType,
+        string description,
         string model,
         string apiKey,
         CancellationToken cancellationToken)
     {
-        var (systemPrompt, userPrompt, defaultArtifactName, contentType, description) =
-            BuildPromptsForRole(member, role, ticket, upstreamDeliverables, harvestReport);
-
         var messages = new List<OpenRouterMessage>
         {
             new("system", systemPrompt),
@@ -385,8 +424,11 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             MaxTokens: maxTokens
         );
 
+        _tracker?.SetCurrentPhase(ticket.Id, $"Streaming inference on [{model}]...");
+
         var response = await _openRouterClient.CompleteStreamAsync(request, apiKey, chunk =>
         {
+            _tracker?.AppendChunk(ticket.Id, chunk);
             OnStreamingChunk?.Invoke(new StreamingChunkEvent(role, ticket.Id, chunk, ticket.ProjectId ?? _activeProjectContext?.CurrentProjectId));
         }, cancellationToken);
         var rawContent = response.FirstContent;
@@ -404,6 +446,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         {
             var syntaxTool = new CSharpSyntaxCheckTool();
             var syntaxErrors = new List<string>();
+
+            _tracker?.SetCurrentPhase(ticket.Id, "Roslyn AST syntax validation...");
 
             _eventStream?.Publish(AgentMessage.Create(
                 role: role,
@@ -424,6 +468,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
             if (syntaxErrors.Count == 0)
             {
+                _tracker?.SetCurrentPhase(ticket.Id, "Roslyn syntax validation passed");
+
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
                     senderName: member.Persona.Name,
@@ -434,6 +480,8 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             }
             else
             {
+                _tracker?.SetCurrentPhase(ticket.Id, "Self-healing C# syntax remediation...");
+
                 _eventStream?.Publish(AgentMessage.Create(
                     role: role,
                     senderName: member.Persona.Name,

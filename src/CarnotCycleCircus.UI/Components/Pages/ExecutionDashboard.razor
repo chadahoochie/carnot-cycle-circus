@@ -9,6 +9,7 @@
 @inject ITicketStore TicketStore
 @inject IWorkflowApprovalService ApprovalService
 @inject IActiveProjectContext ActiveProjectContext
+@inject IAgentExecutionTracker ExecutionTracker
 
 <div class="page-header">
     <div>
@@ -197,6 +198,10 @@ else if (selectedTeam != null)
                 <div style="background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; color: #a855f7; font-weight: 600;">
                     ⚡ @(exec?.ChunksReceived ?? 0) token chunk(s)
                 </div>
+                <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 6px 12px; display: flex; align-items: center; gap: 6px; font-weight: 600;"
+                        @onclick="() => { activityModalTicketId = exec?.TicketId; showActivityModal = true; }">
+                    🔬 Detailed Inspector
+                </button>
             </div>
         </div>
 
@@ -215,6 +220,29 @@ else if (selectedTeam != null)
                 @(string.IsNullOrWhiteSpace(exec?.LastSnippet) ? "Awaiting first token chunk from model inference engine..." : exec.LastSnippet)<span style="display: inline-block; width: 8px; height: 14px; background: #38bdf8; margin-left: 2px; vertical-align: middle;"></span>
             </div>
         </div>
+    </div>
+}
+
+@if (GraphExecutor.CurrentActiveExecution == null && ExecutionTracker.LastExecution is { } lastExec)
+{
+    <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 0.82rem;">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span style="color: var(--text-muted);">📋 Last Completed Task:</span>
+            <span style="color: @lastExec.Role.ToColorHex(); font-weight: 700;">@lastExec.Role.ToEmoji() @lastExec.Role.ToDisplayName()</span>
+            <span style="color: #f8fafc; font-weight: 600;">[@lastExec.TicketId]</span>
+            <span style="color: var(--text-muted); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@lastExec.TicketTitle</span>
+            <span class="badge" style="background: @(lastExec.IsSuccess ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"); color: @(lastExec.IsSuccess ? "#22c55e" : "#ef4444"); border: 1px solid @(lastExec.IsSuccess ? "#22c55e" : "#ef4444"); font-size: 0.7rem;">
+                @(lastExec.IsSuccess ? "✔ Succeeded" : "✖ Failed")
+            </span>
+            @if (lastExec.IsFallbackActive)
+            {
+                <span class="badge" style="background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.7rem;">⚠️ Fallback Used</span>
+            }
+        </div>
+        <button class="btn btn-secondary" style="font-size: 0.76rem; padding: 4px 10px; display: flex; align-items: center; gap: 6px;"
+                @onclick="() => { activityModalTicketId = lastExec.TicketId; showActivityModal = true; }">
+            🔬 View Agent Activity Trace
+        </button>
     </div>
 }
 
@@ -379,6 +407,12 @@ else if (selectedTeam != null)
     <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
 }
 
+<!-- Agent Activity Detailed Inspector Modal -->
+@if (showActivityModal)
+{
+    <AgentActivityModal TicketId="@activityModalTicketId" OnClose="() => { showActivityModal = false; activityModalTicketId = null; }" />
+}
+
 @code {
     private string selectedTeamId = "";
     private TeamDefinition? selectedTeam => !string.IsNullOrEmpty(selectedTeamId) ? TeamManager.GetTeam(selectedTeamId) : null;
@@ -386,6 +420,8 @@ else if (selectedTeam != null)
 
     private bool showReportModal;
     private bool showApprovalModal;
+    private bool showActivityModal;
+    private string? activityModalTicketId;
     private string sessionReportMarkdown = "";
 
     private System.Threading.Timer? _uiTimer;

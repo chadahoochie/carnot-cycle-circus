@@ -1,0 +1,344 @@
+@using CarnotCycleCircus.Core.Domain.Agents
+@using CarnotCycleCircus.Core.Domain.Inference
+@inject IAgentExecutionTracker ExecutionTracker
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="modal-backdrop" @onclick="Close">
+    <div class="modal-dialog" style="max-width: 960px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;" @onclick:stopPropagation="true">
+        <div class="modal-header" style="flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <span style="font-size: 1.4rem;">🔬</span>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <h3 style="font-size: 1.15rem; font-weight: 700; margin: 0;">Agent Activity & Execution Inspector</h3>
+                        @if (CurrentTrace != null)
+                        {
+                            @if (CurrentTrace.IsRunning)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.72rem; animation: pulse 2s infinite;">
+                                    ● RUNNING
+                                </span>
+                            }
+                            else if (CurrentTrace.IsSuccess)
+                            {
+                                <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; font-size: 0.72rem;">
+                                    ✔ COMPLETED
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-size: 0.72rem;">
+                                    ✖ FAILED
+                                </span>
+                            }
+
+                            @if (CurrentTrace.IsFallbackActive)
+                            {
+                                <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem;">
+                                    ⚠️ FALLBACK ACTIVE
+                                </span>
+                            }
+                        }
+                    </div>
+                    @if (CurrentTrace != null)
+                    {
+                        <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                            <span style="color: @CurrentTrace.Role.ToColorHex(); font-weight: 600;">@CurrentTrace.Role.ToEmoji() @CurrentTrace.RoleName (@CurrentTrace.Role.ToDisplayName())</span>
+                            <span style="margin: 0 6px;">•</span>
+                            <span style="color: #f8fafc; font-weight: 600;">[@CurrentTrace.TicketId]</span> @CurrentTrace.TicketTitle
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                @if (AllTraces.Count > 1)
+                {
+                    <select class="form-control" style="font-size: 0.75rem; padding: 3px 8px; max-width: 220px;"
+                            value="@activeTicketId"
+                            @onchange="OnTicketSelectionChanged">
+                        @foreach (var trace in AllTraces)
+                        {
+                            <option value="@trace.TicketId">
+                                @(trace.IsRunning ? "⏳" : trace.IsSuccess ? "✅" : "🛑") [@trace.TicketId] @trace.Role.ToDisplayName()
+                            </option>
+                        }
+                    </select>
+                }
+                <button class="btn btn-secondary" @onclick="Close" style="padding: 4px 8px;">✕</button>
+            </div>
+        </div>
+
+        @if (CurrentTrace == null)
+        {
+            <div class="modal-body" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <div style="font-size: 2.5rem; margin-bottom: 12px;">💤</div>
+                <h4>No Agent Execution Traces Available</h4>
+                <p style="font-size: 0.85rem; max-width: 480px; margin: 0 auto;">
+                    Launch an agent task from the Kanban board, Team Ring, or Workflow Engine to observe live streaming, prompt synthesis, and failover diagnostics.
+                </p>
+            </div>
+        }
+        else
+        {
+            <!-- Navigation Tabs -->
+            <div style="display: flex; gap: 4px; padding: 8px 16px 0; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color); flex-shrink: 0;">
+                <button class="btn @(activeTab == "stream" ? "btn-primary" : "btn-secondary")"
+                        style="padding: 6px 14px; font-size: 0.8rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                        @onclick="@(() => activeTab = "stream")">
+                    ⚡ Live Output Stream
+                    @if (CurrentTrace.ChunksReceived > 0)
+                    {
+                        <span style="font-size: 0.7rem; opacity: 0.85; margin-left: 4px;">(@CurrentTrace.ChunksReceived chunks)</span>
+                    }
+                </button>
+                <button class="btn @(activeTab == "prompts" ? "btn-primary" : "btn-secondary")"
+                        style="padding: 6px 14px; font-size: 0.8rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                        @onclick="@(() => activeTab = "prompts")">
+                    📋 Prompts & Context
+                </button>
+                <button class="btn @(activeTab == "diagnostics" ? "btn-primary" : "btn-secondary")"
+                        style="padding: 6px 14px; font-size: 0.8rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                        @onclick="@(() => activeTab = "diagnostics")">
+                    🩺 Diagnostics & Models
+                    @if (CurrentTrace.IsFallbackActive || !string.IsNullOrEmpty(CurrentTrace.ErrorMessage))
+                    {
+                        <span style="color: #f59e0b; margin-left: 4px;">●</span>
+                    }
+                </button>
+            </div>
+
+            <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 16px;">
+                <!-- Phase & Model Quick Status Bar -->
+                <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(15, 23, 42, 0.6); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px; font-size: 0.8rem; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--text-muted);">Phase:</span>
+                        <span style="color: #38bdf8; font-weight: 600;">@CurrentTrace.CurrentPhase</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        <div>
+                            <span style="color: var(--text-muted);">Active Model:</span>
+                            <code style="color: @(CurrentTrace.IsFallbackActive ? "#f59e0b" : "#22c55e"); font-weight: 700; margin-left: 4px;">@CurrentTrace.ActiveModel</code>
+                        </div>
+                        @if (CurrentTrace.FallbackModel != null)
+                        {
+                            <div>
+                                <span style="color: var(--text-muted);">Fallback:</span>
+                                <code style="color: #94a3b8; margin-left: 4px;">@CurrentTrace.FallbackModel</code>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (activeTab == "stream")
+                {
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                <span>Output: <strong>@CurrentTrace.FullStreamOutput.Length</strong> characters</span>
+                                <span style="margin: 0 8px;">•</span>
+                                <span>Chunks: <strong>@CurrentTrace.ChunksReceived</strong></span>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                <button class="btn btn-secondary" style="font-size: 0.75rem; padding: 3px 10px;" @onclick="CopyStream">
+                                    📋 Copy Stream
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (string.IsNullOrEmpty(CurrentTrace.FullStreamOutput))
+                        {
+                            <div style="background: #020617; border: 1px solid #1e293b; border-radius: 8px; padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                                @if (CurrentTrace.IsRunning)
+                                {
+                                    <div style="animation: pulse 1.5s infinite; color: #38bdf8; font-weight: 600;">
+                                        ⏳ Waiting for first streaming token chunk from [@CurrentTrace.ActiveModel]...
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div>No stream output recorded for this task.</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <pre style="background: #020617; border: 1px solid #1e293b; color: #e2e8f0; font-family: 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.5; padding: 14px; border-radius: 8px; max-height: 460px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin: 0;">@CurrentTrace.FullStreamOutput</pre>
+                        }
+                    </div>
+                }
+                else if (activeTab == "prompts")
+                {
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        @if (CurrentTrace.UpstreamDeliverableNames.Count > 0)
+                        {
+                            <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                <h4 style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 8px;">
+                                    Upstream Deliverables Provided to Agent (@CurrentTrace.UpstreamDeliverableNames.Count)
+                                </h4>
+                                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                    @foreach (var name in CurrentTrace.UpstreamDeliverableNames)
+                                    {
+                                        <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.75rem;">
+                                            📄 @name
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+
+                        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin: 0;">System Prompt (Role Directives & ADRs)</h4>
+                                <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 8px;" @onclick="@(() => CopyText(CurrentTrace.SystemPrompt ?? ""))">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <pre style="background: #090d16; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; font-size: 0.78rem; font-family: monospace; max-height: 220px; overflow-y: auto; white-space: pre-wrap; margin: 0;">@(CurrentTrace.SystemPrompt ?? "Default system prompt applied")</pre>
+                        </div>
+
+                        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <h4 style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin: 0;">User Prompt (Task, Acceptance Criteria & Context)</h4>
+                                <button class="btn btn-secondary" style="font-size: 0.7rem; padding: 2px 8px;" @onclick="@(() => CopyText(CurrentTrace.UserPrompt ?? ""))">
+                                    📋 Copy
+                                </button>
+                            </div>
+                            <pre style="background: #090d16; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; font-size: 0.78rem; font-family: monospace; max-height: 260px; overflow-y: auto; white-space: pre-wrap; margin: 0;">@(CurrentTrace.UserPrompt ?? "Task details")</pre>
+                        </div>
+                    </div>
+                }
+                else if (activeTab == "diagnostics")
+                {
+                    <div style="display: flex; flex-direction: column; gap: 14px;">
+                        @if (CurrentTrace.IsFallbackActive)
+                        {
+                            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px;">
+                                <div style="display: align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="font-size: 1.1rem;">⚠️</span>
+                                    <strong style="color: #f59e0b; font-size: 0.9rem;">Autonomous Failover Triggered</strong>
+                                </div>
+                                <p style="font-size: 0.82rem; margin: 0 0 6px 0; color: #f8fafc;">
+                                    Primary model <code style="color: #ef4444;">[@CurrentTrace.PrimaryModel]</code> encountered an issue. Execution seamlessly transitioned to fallback model <code style="color: #22c55e;">[@CurrentTrace.ActiveModel]</code>.
+                                </p>
+                                @if (!string.IsNullOrEmpty(CurrentTrace.FailoverReason))
+                                {
+                                    <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 0.75rem; color: #f59e0b;">
+                                        Reason: @CurrentTrace.FailoverReason
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(CurrentTrace.ErrorMessage))
+                        {
+                            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px;">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                    <span style="font-size: 1.1rem;">🛑</span>
+                                    <strong style="color: #ef4444; font-size: 0.9rem;">Execution Error</strong>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.3); border-radius: 4px; padding: 8px; font-family: monospace; font-size: 0.78rem; color: #fca5a5; white-space: pre-wrap;">
+                                    @CurrentTrace.ErrorMessage
+                                </div>
+                            </div>
+                        }
+
+                        <div style="background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px;">
+                            <h4 style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; margin-bottom: 12px;">Execution Metadata & Timing</h4>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 0.8rem;">
+                                <div><span style="color: var(--text-muted);">Primary Model:</span> <code>@CurrentTrace.PrimaryModel</code></div>
+                                <div><span style="color: var(--text-muted);">Fallback Model:</span> <code>@(CurrentTrace.FallbackModel ?? "None configured")</code></div>
+                                <div><span style="color: var(--text-muted);">Started At:</span> @CurrentTrace.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                <div>
+                                    <span style="color: var(--text-muted);">Completed At:</span>
+                                    @(CurrentTrace.CompletedAt.HasValue ? CurrentTrace.CompletedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") : "In progress...")
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted);">Duration:</span>
+                                    @{
+                                        var elapsed = (CurrentTrace.CompletedAt ?? DateTimeOffset.UtcNow) - CurrentTrace.StartedAt;
+                                    }
+                                    @($"{elapsed.TotalSeconds:F1}s")
+                                </div>
+                                <div><span style="color: var(--text-muted);">Total Chunks Received:</span> @CurrentTrace.ChunksReceived</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="modal-footer" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                Carnot Cycle Circus • Zero-Entropy Autonomous Agent Observability
+            </div>
+            <button class="btn btn-secondary" @onclick="Close">Close</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? TicketId { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string activeTab = "stream";
+    private string? activeTicketId;
+
+    private IReadOnlyList<AgentExecutionTrace> AllTraces => ExecutionTracker.GetAllTraces();
+
+    private AgentExecutionTrace? CurrentTrace =>
+        !string.IsNullOrEmpty(activeTicketId)
+            ? ExecutionTracker.GetExecutionForTicket(activeTicketId)
+            : (!string.IsNullOrEmpty(TicketId)
+                ? ExecutionTracker.GetExecutionForTicket(TicketId)
+                : (ExecutionTracker.CurrentExecution ?? ExecutionTracker.LastExecution));
+
+    protected override void OnInitialized()
+    {
+        activeTicketId = TicketId ?? ExecutionTracker.CurrentExecution?.TicketId ?? ExecutionTracker.LastExecution?.TicketId;
+        ExecutionTracker.OnExecutionUpdated += HandleExecutionUpdated;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(TicketId) && activeTicketId != TicketId)
+        {
+            activeTicketId = TicketId;
+        }
+    }
+
+    private void HandleExecutionUpdated(AgentExecutionTrace? trace)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnTicketSelectionChanged(ChangeEventArgs e)
+    {
+        activeTicketId = e.Value?.ToString();
+    }
+
+    private async Task Close() => await OnClose.InvokeAsync();
+
+    private async Task CopyStream()
+    {
+        if (CurrentTrace != null)
+        {
+            await CopyText(CurrentTrace.FullStreamOutput);
+        }
+    }
+
+    private async Task CopyText(string text)
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch { }
+    }
+
+    public void Dispose()
+    {
+        ExecutionTracker.OnExecutionUpdated -= HandleExecutionUpdated;
+    }
+}

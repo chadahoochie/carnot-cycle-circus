@@ -48,8 +48,8 @@ public class OpenRouterClientTests
     }
 
     [Fact]
-    public void OpenRouterClient_DefaultTimeout_ShouldBeTenMinutes()
+    public void OpenRouterClient_DefaultTimeout_ShouldBeNinetySeconds()
     {
-        OpenRouterClient.DefaultTimeout.Should().Be(TimeSpan.FromMinutes(10));
+        OpenRouterClient.DefaultTimeout.Should().Be(TimeSpan.FromSeconds(90));
     }
 }

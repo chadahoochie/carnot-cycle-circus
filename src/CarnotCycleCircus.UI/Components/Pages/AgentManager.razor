@@ -1,6 +1,7 @@
 @page "/agents"
 @implements IDisposable
 @inject IAgentDefinitionManager AgentDefManager
+@inject ITeamDefinitionManager TeamDefManager
 @inject ISkillRegistry SkillRegistry
 @inject IAgentNameGenerator NameGenerator
 @inject IModelCatalogService CatalogService
@@ -140,6 +141,66 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.7rem; color: var(--text-muted);">
                             <span>💰 @currentSelectedModel.FormattedPricing</span>
                             <span>📏 @(currentSelectedModel.ContextLength / 1000)k ctx</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="form-group">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <label class="form-label" style="margin-bottom: 0;">Fallback Inference Model</label>
+                        @if (!string.IsNullOrEmpty(agent.Persona.FallbackModel))
+                        {
+                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid #22c55e; font-size: 0.68rem;">Active Failover Target</span>
+                        }
+                        else
+                        {
+                            <span style="font-size: 0.7rem; color: var(--text-muted);">None (Failover Off)</span>
+                        }
+                    </div>
+                    <select class="form-control" value="@(agent.Persona.FallbackModel ?? "")" @onchange="(e) => UpdateFallbackModel(agent, e)">
+                        <option value="">-- No Fallback Model (Disabled) --</option>
+                        @if (favorites.Count > 0)
+                        {
+                            <optgroup label="⭐ Starred Favorites">
+                                @foreach (var m in favorites)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (recommended.Count > 0)
+                        {
+                            <optgroup label="🎪 Recommended for @memberRole.ToDisplayName()">
+                                @foreach (var m in recommended)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (others.Count > 0)
+                        {
+                            <optgroup label="🌐 Other Available Models">
+                                @foreach (var m in others)
+                                {
+                                    <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                }
+                            </optgroup>
+                        }
+                        @if (!string.IsNullOrEmpty(agent.Persona.FallbackModel) && !availableCatalogModels.Any(m => m.Id == agent.Persona.FallbackModel))
+                        {
+                            <optgroup label="📌 Custom Fallback Model">
+                                <option value="@agent.Persona.FallbackModel">@agent.Persona.FallbackModel</option>
+                            </optgroup>
+                        }
+                    </select>
+                    @{
+                        var currentFallbackModel = availableCatalogModels.FirstOrDefault(m => m.Id == agent.Persona.FallbackModel);
+                    }
+                    @if (currentFallbackModel != null)
+                    {
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px; font-size: 0.7rem; color: var(--text-muted);">
+                            <span>💰 @currentFallbackModel.FormattedPricing</span>
+                            <span>📏 @(currentFallbackModel.ContextLength / 1000)k ctx</span>
                         </div>
                     }
                 </div>
@@ -302,9 +363,38 @@
                         <label class="form-label">Fallback Model</label>
                         <select class="form-control" @bind="modalAgentFallbackModel">
                             <option value="">-- Select Fallback Model (Optional) --</option>
-                            @foreach (var m in availableCatalogModels)
+                            @if (favs.Count > 0)
                             {
-                                <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                <optgroup label="⭐ Starred Favorites">
+                                    @foreach (var m in favs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (recs.Count > 0)
+                            {
+                                <optgroup label="🎪 Recommended for @modalAgentRole.ToDisplayName()">
+                                    @foreach (var m in recs)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (others.Count > 0)
+                            {
+                                <optgroup label="🌐 Other Available Models">
+                                    @foreach (var m in others)
+                                    {
+                                        <option value="@m.Id">@m.Name (@m.FormattedPricing)</option>
+                                    }
+                                </optgroup>
+                            }
+                            @if (!string.IsNullOrEmpty(modalAgentFallbackModel) && !availableCatalogModels.Any(m => m.Id == modalAgentFallbackModel))
+                            {
+                                <optgroup label="📌 Custom Fallback Model">
+                                    <option value="@modalAgentFallbackModel">@modalAgentFallbackModel</option>
+                                </optgroup>
                             }
                         </select>
                     </div>
@@ -461,7 +551,21 @@
             Persona = member.Persona with { DefaultModel = overrideModel ?? string.Empty }
         };
         AgentDefManager.SaveAgent(updated);
-        statusMessage = $"Updated model for {updated.Persona.Name}.";
+        TeamDefManager.UpdateMemberInCurrentTeam(updated);
+        statusMessage = $"Updated primary model for {updated.Persona.Name}.";
+    }
+
+    private void UpdateFallbackModel(AgentMember member, ChangeEventArgs e)
+    {
+        var model = e.Value?.ToString();
+        var fallback = string.IsNullOrWhiteSpace(model) ? string.Empty : model;
+        var updated = member with
+        {
+            Persona = member.Persona with { FallbackModel = fallback }
+        };
+        AgentDefManager.SaveAgent(updated);
+        TeamDefManager.UpdateMemberInCurrentTeam(updated);
+        statusMessage = $"Updated fallback model for {updated.Persona.Name} to [{(string.IsNullOrEmpty(fallback) ? "Disabled" : fallback)}].";
     }
 
     private void UpdateKey(AgentMember member, ChangeEventArgs e)
@@ -658,6 +762,7 @@
                 )
             };
             AgentDefManager.SaveAgent(updated);
+            TeamDefManager.UpdateMemberInCurrentTeam(updated);
             statusMessage = $"Saved changes for '{updated.Persona.Name}'.";
         }
         else
@@ -672,6 +777,7 @@
                 allowedTools: toolsList,
                 assignedSkillIds: modalSelectedSkillIds.ToList()
             );
+            TeamDefManager.AddMemberToCurrentTeam(created);
             statusMessage = $"Enlisted new agent '{created.Persona.Name}' into the circus roster!";
         }
 

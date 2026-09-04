@@ -60,6 +60,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISecureKeyEncryptor, AesGcmKeyEncryptor>();
 
         // Inference & Key Vault
+        services.AddSingleton<IAgentExecutionTracker, AgentExecutionTracker>();
         services.AddSingleton<IApiKeyVaultService, ApiKeyVaultService>();
         services.AddSingleton<IOpenRouterClient, OpenRouterClient>();
         services.AddSingleton<IModelCatalogService, OpenRouterModelCatalogService>();
