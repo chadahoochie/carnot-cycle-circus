@@ -10,7 +10,7 @@ Build an **Autonomous Engineering Agent Orchestration Application** in **.NET 10
 6. **Principal QA Analyst**: Test strategy formulation, edge-case analysis, regression testing, acceptance criteria validation, quality scorecards.
 
 The platform provides:
-- **Embedded Ticket Management & Work Decomposition Engine**: Hierarchical ticket system (Epics $\to$ Features/Bugs/Spikes $\to$ Subtasks), DAG dependency scheduling, automated role/skill-based work splitting by the TPM and Lead Architect, structured inter-agent handoff packets, and an interactive Blazor Kanban / Ticket Studio.
+- **Embedded Ticket Management & Work Decomposition Engine**: Hierarchical ticket system (Epics $\to$ Features/Bugs/Spikes $\to$ Subtasks), CLAW dependency scheduling, automated role/skill-based work splitting by the TPM and Lead Architect, structured inter-agent handoff packets, and an interactive Blazor Kanban / Ticket Studio.
 - **Hierarchical Persistent Memory Layer (OpenViking / Mem0 Style)**: Multi-tier memory architecture (Working, Episodic, Semantic, Procedural) with embedded local vector/document storage, pluggable external memory connectors (OpenViking/Mem0/Qdrant REST endpoints), automated post-task memory consolidation, and a Blazor Memory Inspector & Pruner.
 - **Agent Tool Execution Sandbox**: Executable tools (`web_search`, `csharp_syntax_check`, `test_runner`, `memory_lookup`, `adr_writer`).
 - **Interactive UI Key Swapping & Key Vault**: Store and manage multiple named OpenRouter API keys in a client-side Key Vault, with one-click key swapping per agent or across the whole team, plus live mid-workflow key swapping directly from the execution dashboard.
@@ -31,7 +31,7 @@ The platform provides:
 > - **Hierarchical Breakdown**: Epics $\to$ User Stories/Features/Bugs $\to$ Executable Subtasks.
 > - **Automated Work Splitting**: TPM and Lead Architect automatically deconstruct project objectives into granular subtasks with explicit dependencies (`DependsOn`).
 > - **Structured Inter-Agent Handoffs**: Work passes between agents via formal `HandoffPacket` payloads containing deliverables, context summaries, review criteria, and failure remediation instructions.
-> - **Interactive Ticket Studio in Blazor**: Interactive Kanban board, backlog manager, ticket dependency DAG visualizer, and manual ticket creation/assignment controls.
+> - **Interactive Ticket Studio in Blazor**: Interactive Kanban board, backlog manager, ticket dependency CLAW visualizer, and manual ticket creation/assignment controls.
 
 ---
 
@@ -41,7 +41,7 @@ The platform provides:
 flowchart TB
     subgraph Frontend ["Blazor UI (CarnotCycleCircus.Web)"]
         TF["Team Definition Studio"]
-        TicketUI["Ticket Management Studio<br/>(Backlog, Kanban, Dependency DAG, Handoff Logs)"]
+        TicketUI["Ticket Management Studio<br/>(Backlog, Kanban, Dependency CLAW, Handoff Logs)"]
         KeyVaultUI["Key Vault & Quick-Swap Bar"]
         MemoryUI["Memory Inspector & Pruner"]
         DocsUI["Docs & ADR Hub"]
@@ -59,7 +59,7 @@ flowchart TB
         subgraph TicketEngine ["Embedded Ticket & Work Routing Engine"]
             TicketStore["Ticket Store & State Machine"]
             WorkSplitter["TPM/Architect Work Decomposition Engine"]
-            HandoffRouter["Inter-Agent Handoff & DAG Scheduler"]
+            HandoffRouter["Inter-Agent Handoff & CLAW Scheduler"]
         end
 
         AdrManager["ADR & Documentation Engine"]
@@ -154,7 +154,7 @@ Preserve the exact engineering and architecture skills utilized to design, struc
 - `ITicketStore.cs` & `TicketStore.cs`: In-memory & persistent ticket ledger, state machine transitions, dependency validation, and search/filter.
 - `WorkDecompositionEngine.cs`:
   - TPM splits incoming feature/epic requirements into user stories and acceptance criteria.
-  - Lead Architect breaks user stories into technical subtasks (architecture ADR, implementation, threat modeling, performance profiling, QA verification) with DAG dependencies.
+  - Lead Architect breaks user stories into technical subtasks (architecture ADR, implementation, threat modeling, performance profiling, QA verification) with CLAW dependencies.
 - `HandoffRouter.cs`: Automatically routes next ready subtasks to assigned agent roles upon upstream completion, packaging context and deliverables.
 
 #### [NEW] Agent Tool Execution Sandbox (`Domain/Tools/`)
@@ -202,7 +202,7 @@ Preserve the exact engineering and architecture skills utilized to design, struc
 
 #### [NEW] Embedded Ticket Studio (`Pages/TicketManager.razor`, `Components/TicketCard.razor`, `Components/TicketModal.razor`)
 - **Interactive Kanban Board**: Swimlanes for Backlog, Ready, In Progress, Review, Remediation, and Done.
-- **Decomposition Tree & DAG View**: Visual representation of Epics $\to$ Subtasks and dependency flow.
+- **Decomposition Tree & CLAW View**: Visual representation of Epics $\to$ Subtasks and dependency flow.
 - **Handoff History Drawer**: Chronological log of work handoffs between agents with attached deliverables and review notes.
 - **Manual Ticket Actions**: Create tickets, edit acceptance criteria, manually assign/reassign to agent roles, or change status.
 
@@ -240,7 +240,7 @@ Preserve the exact engineering and architecture skills utilized to design, struc
 #### [NEW] Unit & Integration Tests
 - `TicketStoreTests.cs`: Ticket CRUD, state transitions, dependency ordering, and validation.
 - `WorkDecompositionTests.cs`: TPM & Architect task decomposition, subtask generation, and role assignment.
-- `HandoffRouterTests.cs`: Inter-agent handoff packet generation, DAG progression, and failure loop routing.
+- `HandoffRouterTests.cs`: Inter-agent handoff packet generation, CLAW progression, and failure loop routing.
 - `ToolSandboxTests.cs`: WebSearch, CSharpSyntaxCheck, TestRunner, and MemoryLookup execution.
 - `PersistentMemoryTests.cs`: Memory storage, cosine similarity vector search, consolidation, and pruning.
 - `ApiKeyVaultTests.cs`: Key swapping, team assignment, rate-limit fallback.
