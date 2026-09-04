@@ -8,6 +8,7 @@
 @inject IApiKeyVaultService KeyVaultService
 @inject ITicketStore TicketStore
 @inject IWorkflowApprovalService ApprovalService
+@inject IActiveProjectContext ActiveProjectContext
 @inject IAgentExecutionTracker ExecutionTracker
 
 <div class="page-header">
@@ -26,10 +27,10 @@
             }
         </select>
 
-        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@(!HasSelectedTeam || GraphExecutor.IsRunning)" style="white-space: nowrap;">
+        <button class="btn btn-primary" @onclick="RunFullWorkflow" disabled="@(!HasSelectedTeam || !ActiveProjectContext.HasActiveProject || GraphExecutor.IsRunning)" style="white-space: nowrap;">
             🚀 Unleash the Circus
         </button>
-        <button class="btn btn-secondary" @onclick="StepNext" disabled="@(!HasSelectedTeam || GraphExecutor.IsRunning)" style="white-space: nowrap;">
+        <button class="btn btn-secondary" @onclick="StepNext" disabled="@(!HasSelectedTeam || !ActiveProjectContext.HasActiveProject || GraphExecutor.IsRunning)" style="white-space: nowrap;">
             ⏭️ Poke Next Agent
         </button>
         <button class="btn btn-secondary" @onclick="Reset" style="white-space: nowrap;">
@@ -48,6 +49,16 @@
     </div>
 </div>
 
+@if (!ActiveProjectContext.HasActiveProject)
+{
+    <div class="glass-card" style="text-align: center; padding: 48px;">
+        <div style="font-size: 2rem; margin-bottom: 12px;">📁</div>
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;">Select a project to view telemetry</h3>
+        <p style="color: var(--text-muted);">Execution telemetry and workflow runs are scoped to a project. Choose or create an active project from the sidebar switcher.</p>
+    </div>
+}
+else
+{
 @if (!HasSelectedTeam)
 {
     <div style="padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047; font-size: 0.92rem; display: flex; align-items: center; gap: 12px;">
@@ -101,8 +112,8 @@ else if (selectedTeam != null)
             <div style="background: var(--bg-primary); border: 2px solid @borderCol; border-radius: 8px; padding: 10px; text-align: center; position: relative;" class="@pulseClass" title="@(isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary) ? node.LastOutputSummary : displayName)">
                 <div style="font-size: 1.4rem;">@node.Role.ToEmoji()</div>
                 <div style="font-weight: 700; font-size: 0.8rem; color: #f8fafc; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@displayName</div>
-                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isWaitingForApproval ? "#f59e0b" : isRunning ? "#38bdf8" : "var(--text-muted)"); font-weight: @(isFailed || isWaitingForApproval ? "700" : "normal");">
-                    @(isFailed ? "⚠️ FAILED" : isWaitingForApproval ? "⏳ APPROVAL NEEDED" : node.State.ToString())
+                <div style="font-size: 0.68rem; margin-top: 2px; color: @(isCompleted ? "#22c55e" : isFailed ? "#ef4444" : isWaitingForApproval ? "#f59e0b" : isRunning ? "#38bdf8" : "var(--text-muted)"); font-weight: @(isFailed || isWaitingForApproval || isRunning ? "700" : "normal");">
+                    @(isFailed ? "⚠️ FAILED" : isWaitingForApproval ? "⏳ APPROVAL NEEDED" : isRunning ? (ExecutionTracker.CurrentExecution?.Role == node.Role && !string.IsNullOrWhiteSpace(ExecutionTracker.CurrentExecution.CurrentPhase) ? $"⚡ {ExecutionTracker.CurrentExecution.CurrentPhase}" : "⏳ LLM Inference...") : node.State.ToString())
                 </div>
                 @if (isFailed && !string.IsNullOrWhiteSpace(node.LastOutputSummary))
                 {
@@ -116,36 +127,53 @@ else if (selectedTeam != null)
 </div>
 
 <!-- Active Human Approval Gate Spotlight Banner -->
-@if (ApprovalService.CurrentPendingRequest != null)
+@if (ActiveApproval is { } activeApproval)
 {
-    var pending = ApprovalService.CurrentPendingRequest;
-    <div class="glass-card pulse-waiting" style="margin-bottom: 20px; padding: 18px 22px; border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%); box-shadow: 0 0 30px rgba(245, 158, 11, 0.35); border-radius: 10px;">
+    var isRejected = activeApproval.Status == ApprovalStatus.Rejected;
+    var bannerBorder = isRejected ? "#ef4444" : "#f59e0b";
+    var bannerBg = isRejected 
+        ? "linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)" 
+        : "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%)";
+    var bannerShadow = isRejected 
+        ? "0 0 30px rgba(239, 68, 68, 0.35)" 
+        : "0 0 30px rgba(245, 158, 11, 0.35)";
+    var badgeBg = isRejected ? "#ef4444" : "#f59e0b";
+    var badgeText = isRejected ? "REVISION REQUESTED" : "USER INTERACTION REQUIRED";
+    var btnClass = isRejected ? "btn btn-danger" : "btn btn-warning";
+    var btnShadow = isRejected 
+        ? "0 0 15px rgba(239, 68, 68, 0.5)" 
+        : "0 0 15px rgba(245, 158, 11, 0.5)";
+    var btnText = isRejected
+        ? $"📋 Review & Revise Approval Gate ({activeApproval.ItemsToApprove.Count} item{(activeApproval.ItemsToApprove.Count == 1 ? "" : "s")})"
+        : $"📋 Review & Approve Gate ({activeApproval.ItemsToApprove.Count} item{(activeApproval.ItemsToApprove.Count == 1 ? "" : "s")})";
+
+    <div class="glass-card @(isRejected ? "" : "pulse-waiting")" style="margin-bottom: 20px; padding: 18px 22px; border: 2px solid @bannerBorder; background: @bannerBg; box-shadow: @bannerShadow; border-radius: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div style="display: flex; align-items: center; gap: 16px;">
-                <div style="font-size: 2.4rem; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.7));">
-                    ✋
+                <div style="font-size: 2.4rem; filter: drop-shadow(0 0 10px @(isRejected ? "rgba(239, 68, 68, 0.7)" : "rgba(245, 158, 11, 0.7)"));">
+                    @(isRejected ? "🛑" : "✋")
                 </div>
                 <div>
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span class="badge" style="background: #f59e0b; color: #000; font-weight: 800; font-size: 0.75rem; padding: 3px 10px;">
-                            USER INTERACTION REQUIRED
+                        <span class="badge" style="background: @badgeBg; color: #000; font-weight: 800; font-size: 0.75rem; padding: 3px 10px;">
+                            @badgeText
                         </span>
                         <h3 style="font-weight: 800; font-size: 1.2rem; color: #f8fafc; margin: 0;">
-                            @pending.GateTitle
+                            @activeApproval.GateTitle
                         </h3>
                     </div>
-                    <p style="font-size: 0.88rem; color: #fde047; margin-top: 5px; margin-bottom: 0; line-height: 1.4;">
-                        @pending.GateDescription
+                    <p style="font-size: 0.88rem; color: @(isRejected ? "#fca5a5" : "#fde047"); margin-top: 5px; margin-bottom: 0; line-height: 1.4;">
+                        @(isRejected && !string.IsNullOrWhiteSpace(activeApproval.UserFeedback) ? $"Revision Directive: {activeApproval.UserFeedback}" : activeApproval.GateDescription)
                     </p>
                     <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">
-                        ⚡ <strong>Next Step:</strong> @pending.NextStepDescription
+                        ⚡ <strong>Next Step:</strong> @activeApproval.NextStepDescription
                     </div>
                 </div>
             </div>
 
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-warning" style="background: #f59e0b; color: #000; font-weight: 700; padding: 10px 20px; font-size: 0.95rem; border: none; box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);" @onclick="() => showApprovalModal = true">
-                    📋 Review &amp; Approve Gate (@pending.ItemsToApprove.Count item@(pending.ItemsToApprove.Count == 1 ? "" : "s"))
+                <button class="@btnClass" style="font-weight: 700; padding: 10px 20px; font-size: 0.95rem; border: none; box-shadow: @btnShadow;" @onclick="() => OpenApprovalModal(activeApproval)">
+                    @btnText
                 </button>
             </div>
         </div>
@@ -242,13 +270,13 @@ else if (selectedTeam != null)
     <div class="glass-card" style="display: flex; flex-direction: column; height: 520px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
             <div style="font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
-                <span>📡</span> Live Agent Event Stream (@EventStream.GetHistory().Count messages)
+                <span>📡</span> Live Agent Event Stream (@ScopedMessages.Count messages)
             </div>
             <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" @onclick="ClearStream">Clear</button>
         </div>
 
         <div style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 6px;">
-            @foreach (var msg in EventStream.GetHistory())
+            @foreach (var msg in ScopedMessages)
             {
                 var bg = msg.Type switch
                 {
@@ -296,7 +324,7 @@ else if (selectedTeam != null)
                     }
                 </div>
             }
-            @if (EventStream.GetHistory().Count == 0)
+            @if (ScopedMessages.Count == 0)
             {
                 <div style="text-align: center; color: var(--text-muted); padding: 40px 10px;">
                     <div style="font-size: 1.8rem; margin-bottom: 6px;">🦗</div>
@@ -340,19 +368,19 @@ else if (selectedTeam != null)
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Ready Tickets</div>
                     <div style="font-size: 1.4rem; font-weight: 800; color: #38bdf8;">
-                        @TicketStore.GetReadyTickets().Count
+                        @ScopedReadyTicketCount
                     </div>
                 </div>
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Done Tickets</div>
                     <div style="font-size: 1.4rem; font-weight: 800; color: #22c55e;">
-                        @TicketStore.GetAllTickets().Count(t => t.Status == TicketStatus.Done)
+                        @ScopedTickets.Count(t => t.Status == TicketStatus.Done)
                     </div>
                 </div>
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
                     <div style="font-size: 0.75rem; color: var(--text-muted);">Total Handoffs</div>
                     <div style="font-size: 1.4rem; font-weight: 800; color: #a855f7;">
-                        @TicketStore.GetAllHandoffs().Count
+                        @ScopedHandoffs.Count
                     </div>
                 </div>
                 <div style="background: var(--bg-primary); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -366,6 +394,7 @@ else if (selectedTeam != null)
 
     </div>
 </div>
+}
 
 <!-- CYA Report Modal -->
 @if (showReportModal)
@@ -390,9 +419,13 @@ else if (selectedTeam != null)
 }
 
 <!-- Human Approval Gate Modal -->
-@if (showApprovalModal && ApprovalService.CurrentPendingRequest != null)
+@if (showApprovalModal)
 {
-    <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
+    var modalRequest = selectedApprovalRequest ?? ActiveApproval;
+    @if (modalRequest != null)
+    {
+        <WorkflowApprovalModal Request="@modalRequest" OnClose="HandleCloseApprovalModal" />
+    }
 }
 
 <!-- Agent Activity Detailed Inspector Modal -->
@@ -406,14 +439,37 @@ else if (selectedTeam != null)
     private TeamDefinition? selectedTeam => !string.IsNullOrEmpty(selectedTeamId) ? TeamManager.GetTeam(selectedTeamId) : null;
     private bool HasSelectedTeam => !string.IsNullOrWhiteSpace(selectedTeamId);
 
+    private WorkflowApprovalRequest? ActiveApproval =>
+        ApprovalService.CurrentPendingRequest 
+        ?? ApprovalService.GetLatestPendingOrRejectedRequestForProject(ActiveProjectContext.CurrentProjectId);
+
     private bool showReportModal;
     private bool showApprovalModal;
+    private WorkflowApprovalRequest? selectedApprovalRequest;
     private bool showActivityModal;
     private string? activityModalTicketId;
     private string sessionReportMarkdown = "";
 
     private System.Threading.Timer? _uiTimer;
     private DateTimeOffset? _workflowStartedAt;
+
+    private IReadOnlyList<AgentMessage> ScopedMessages =>
+        EventStream.GetRecentMessages(ActiveProjectContext.CurrentProjectId, 1000);
+
+    private IReadOnlyList<TicketItem> ScopedTickets =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetByProject(projectId)
+            : Array.Empty<TicketItem>();
+
+    private int ScopedReadyTicketCount =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetReadyTickets().Count(t => string.Equals(t.ProjectId, projectId, StringComparison.OrdinalIgnoreCase))
+            : 0;
+
+    private IReadOnlyList<HandoffPacket> ScopedHandoffs =>
+        ActiveProjectContext.CurrentProjectId is { } projectId
+            ? TicketStore.GetAllHandoffs().Where(h => string.Equals(h.ProjectId, projectId, StringComparison.OrdinalIgnoreCase)).ToList()
+            : Array.Empty<HandoffPacket>();
 
     private void OnToggleApproval(ChangeEventArgs e)
     {
@@ -440,12 +496,16 @@ else if (selectedTeam != null)
         EventStream.OnMessagePublished += HandleMessagePublished;
         GraphExecutor.OnGraphUpdated += HandleGraphUpdated;
         GraphExecutor.OnActiveExecutionChanged += HandleActiveExecutionChanged;
+        ExecutionTracker.OnExecutionUpdated += HandleExecutionTrackerUpdated;
         TeamManager.OnCurrentTeamChanged += HandleTeamChanged;
         ApprovalService.OnApprovalRequested += HandleApprovalRequested;
         ApprovalService.OnApprovalResolved += HandleApprovalResolved;
+        ActiveProjectContext.OnActiveProjectChanged += HandleActiveProjectChanged;
 
-        if (ApprovalService.CurrentPendingRequest != null)
+        var activeApproval = ActiveApproval;
+        if (activeApproval != null && activeApproval.Status == ApprovalStatus.Pending)
         {
+            selectedApprovalRequest = activeApproval;
             showApprovalModal = true;
         }
 
@@ -458,8 +518,9 @@ else if (selectedTeam != null)
         }, null, 1000, 1000);
     }
 
-    private void HandleApprovalRequested(WorkflowApprovalRequest _)
+    private void HandleApprovalRequested(WorkflowApprovalRequest req)
     {
+        selectedApprovalRequest = req;
         showApprovalModal = true;
         InvokeAsync(StateHasChanged);
     }
@@ -467,9 +528,24 @@ else if (selectedTeam != null)
     private void HandleApprovalResolved(WorkflowApprovalRequest _)
     {
         showApprovalModal = false;
+        selectedApprovalRequest = null;
         InvokeAsync(StateHasChanged);
     }
 
+    private void OpenApprovalModal(WorkflowApprovalRequest req)
+    {
+        selectedApprovalRequest = req;
+        showApprovalModal = true;
+    }
+
+    private void HandleCloseApprovalModal()
+    {
+        showApprovalModal = false;
+        selectedApprovalRequest = null;
+    }
+
+    private void HandleExecutionTrackerUpdated(AgentExecutionTrace? _) => InvokeAsync(StateHasChanged);
+    private void HandleActiveProjectChanged(Project? _) => InvokeAsync(StateHasChanged);
     private void HandleActiveExecutionChanged(ActiveExecutionStatus? _) => InvokeAsync(StateHasChanged);
     private void HandleMessagePublished(AgentMessage _) => InvokeAsync(StateHasChanged);
     private void HandleGraphUpdated(WorkflowGraph _) => InvokeAsync(StateHasChanged);
@@ -501,26 +577,31 @@ else if (selectedTeam != null)
         EventStream.OnMessagePublished -= HandleMessagePublished;
         GraphExecutor.OnGraphUpdated -= HandleGraphUpdated;
         GraphExecutor.OnActiveExecutionChanged -= HandleActiveExecutionChanged;
+        ExecutionTracker.OnExecutionUpdated -= HandleExecutionTrackerUpdated;
         TeamManager.OnCurrentTeamChanged -= HandleTeamChanged;
         ApprovalService.OnApprovalRequested -= HandleApprovalRequested;
         ApprovalService.OnApprovalResolved -= HandleApprovalResolved;
+        ActiveProjectContext.OnActiveProjectChanged -= HandleActiveProjectChanged;
     }
 
     private async Task RunFullWorkflow()
     {
-        if (!HasSelectedTeam) return;
+        if (!HasSelectedTeam || !ActiveProjectContext.HasActiveProject) return;
         _workflowStartedAt = DateTimeOffset.UtcNow;
 
         try
         {
-            var activeEpic = TicketStore.GetAllTickets().FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
+            var activeEpic = ScopedTickets.FirstOrDefault(t => t.Type == TicketType.Epic && t.Status != TicketStatus.Done);
             if (activeEpic != null)
             {
                 await GraphExecutor.ExecuteWorkflowAsync(activeEpic.Title, activeEpic.Description);
                 return;
             }
 
-            var readyTickets = TicketStore.GetReadyTickets().Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done).ToList();
+            var readyTickets = TicketStore.GetReadyTickets()
+                .Where(t => string.Equals(t.ProjectId, ActiveProjectContext.CurrentProjectId, StringComparison.OrdinalIgnoreCase))
+                .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
+                .ToList();
             if (readyTickets.Count > 0)
             {
                 await GraphExecutor.ExecuteReadyTicketsAsync();
@@ -567,7 +648,7 @@ else if (selectedTeam != null)
     private void Reset()
     {
         GraphExecutor.ResetGraph();
-        var inProgressTickets = TicketStore.GetAllTickets().Where(t => t.Status == TicketStatus.InProgress).ToList();
+        var inProgressTickets = ScopedTickets.Where(t => t.Status == TicketStatus.InProgress).ToList();
         foreach (var t in inProgressTickets)
         {
             TicketStore.UpdateTicket(t.WithStatus(TicketStatus.Ready));
@@ -595,7 +676,7 @@ else if (selectedTeam != null)
         sb.AppendLine($"Generated at: {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss} UTC\n");
         sb.AppendLine($"## Active Squad: {(selectedTeam?.Name ?? "None")}\n");
         sb.AppendLine("## Summary of Delivered Tickets");
-        foreach (var t in TicketStore.GetAllTickets())
+        foreach (var t in ScopedTickets)
         {
             sb.AppendLine($"- [{t.Status}] **{t.Id}** ({t.AssigneeRole.ToDisplayName()}): {t.Title}");
             foreach (var d in t.Deliverables)
@@ -604,7 +685,7 @@ else if (selectedTeam != null)
             }
         }
         sb.AppendLine("\n## Inter-Agent Handoff Chain");
-        foreach (var ho in TicketStore.GetAllHandoffs())
+        foreach (var ho in ScopedHandoffs)
         {
             sb.AppendLine($"- [{ho.Timestamp:HH:mm:ss}] {ho.FromAgentRole.ToDisplayName()} ➔ {ho.ToAgentRole.ToDisplayName()} (Ticket {ho.TicketId}): {ho.ContextSummary}");
         }

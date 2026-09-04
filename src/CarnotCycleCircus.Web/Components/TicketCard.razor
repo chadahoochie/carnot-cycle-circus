@@ -9,12 +9,18 @@
     </div>
 
     <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
-        <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px;" title="@(Ticket.AssigneeRole == AgentRole.EndUser ? "Major Korben \"Meat-Popsicle\" Dallas (End User)" : Ticket.AssigneeRole.ToDisplayName())">
             <span>@Ticket.AssigneeRole.ToEmoji()</span>
-            <span style="color: @Ticket.AssigneeRole.ToColorHex(); font-weight: 600;">@Ticket.AssigneeRole.ToDisplayName().Split(' ')[0]</span>
+            <span style="color: @Ticket.AssigneeRole.ToColorHex(); font-weight: 600;">
+                @(Ticket.AssigneeRole == AgentRole.EndUser ? "Meat Popsicle" : Ticket.AssigneeRole.ToDisplayName().Split(' ')[0])
+            </span>
         </div>
 
         <div style="display: flex; gap: 6px; align-items: center;">
+            @if (Ticket.Metadata.ContainsKey("RejectionReason"))
+            {
+                <span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; font-size: 0.62rem;" title="@Ticket.Metadata["RejectionReason"]">⚠️ Revision Req</span>
+            }
             @if (Ticket.DependsOnTicketIds.Count > 0)
             {
                 <span title="Dependencies: @string.Join(", ", Ticket.DependsOnTicketIds)" style="color: #eab308; font-size: 0.72rem;">🔗 @Ticket.DependsOnTicketIds.Count</span>

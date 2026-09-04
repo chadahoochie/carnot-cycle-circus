@@ -2,6 +2,7 @@
 @using CarnotCycleCircus.Core.Domain.Approvals
 @inject IWorkflowApprovalService ApprovalService
 @inject IAgentEventStream EventStream
+@inject IProjectManager ProjectManager
 @implements IDisposable
 
 @if (activeRequest != null)
@@ -16,9 +17,24 @@
                             <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc; margin: 0;">
                                 User Interaction Required: Approval Gate
                             </h3>
-                            <span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem; font-weight: 700;">
-                                AWAITING SIGN-OFF
-                            </span>
+                            @if (activeRequest.Status == ApprovalStatus.Rejected)
+                            {
+                                <span class="badge" style="background: rgba(239, 68, 68, 0.25); color: #ef4444; border: 1px solid #ef4444; font-size: 0.72rem; font-weight: 700;">
+                                    REVISION REQUESTED
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge" style="background: rgba(245, 158, 11, 0.25); color: #f59e0b; border: 1px solid #f59e0b; font-size: 0.72rem; font-weight: 700;">
+                                    AWAITING SIGN-OFF
+                                </span>
+                            }
+                            @if (activeRequest.ProjectId is { } projectId && ProjectManager.GetById(projectId) is { } project)
+                            {
+                                <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.72rem; font-weight: 600;" title="Project">
+                                    📁 @project.Name
+                                </span>
+                            }
                         </div>
                         <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">
                             @if (activeRequest.Stage == ApprovalGateStage.TpmToArchitect)
@@ -45,6 +61,18 @@
                         @activeRequest.GateDescription
                     </div>
                 </div>
+
+                @if (activeRequest.Status == ApprovalStatus.Rejected && !string.IsNullOrWhiteSpace(activeRequest.UserFeedback))
+                {
+                    <div style="background: rgba(239, 68, 68, 0.15); border-left: 4px solid #ef4444; padding: 12px 16px; border-radius: 4px; font-size: 0.88rem; color: #fca5a5;">
+                        <div style="font-weight: 700; margin-bottom: 4px; color: #ef4444;">
+                            🛑 Previous Reviewer Revision Directive:
+                        </div>
+                        <div style="color: #f1f5f9; line-height: 1.5; white-space: pre-wrap;">
+                            @activeRequest.UserFeedback
+                        </div>
+                    </div>
+                }
 
                 <!-- Summary of Things to Approve Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
@@ -181,6 +209,14 @@
     {
         ApprovalService.OnApprovalRequested += HandleApprovalRequested;
         ApprovalService.OnApprovalResolved += HandleApprovalResolved;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (string.IsNullOrWhiteSpace(userFeedback) && activeRequest?.UserFeedback != null)
+        {
+            userFeedback = activeRequest.UserFeedback;
+        }
     }
 
     private void HandleApprovalRequested(WorkflowApprovalRequest req)

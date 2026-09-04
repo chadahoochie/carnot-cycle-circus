@@ -11,6 +11,7 @@
 @inject IApiKeyVaultService KeyVaultService
 @inject IModelCatalogService CatalogService
 @inject IWorkflowApprovalService ApprovalService
+@inject IActiveProjectContext ActiveProjectContext
 
 <QuickstartRingmasterBanner />
 
@@ -74,24 +75,35 @@
     </div>
 }
 
-@if (ApprovalService.CurrentPendingRequest != null)
+@if (ActiveApproval is { } activeApproval)
 {
-    var pending = ApprovalService.CurrentPendingRequest;
-    <div class="glass-card pulse-waiting" style="margin-bottom: 20px; padding: 14px 18px; border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    var isRejected = activeApproval.Status == ApprovalStatus.Rejected;
+    var bannerBorder = isRejected ? "#ef4444" : "#f59e0b";
+    var bannerBg = isRejected 
+        ? "linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)" 
+        : "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%)";
+    var badgeBg = isRejected ? "#ef4444" : "#f59e0b";
+    var badgeText = isRejected ? "REVISION REQUESTED" : "USER INTERACTION REQUIRED";
+    var buttonClass = isRejected ? "btn btn-danger" : "btn btn-warning";
+    var buttonText = isRejected 
+        ? $"📋 Review & Revise Approval Gate ({activeApproval.ItemsToApprove.Count} items)" 
+        : $"📋 Review & Approve Gate ({activeApproval.ItemsToApprove.Count} items)";
+
+    <div class="glass-card @(isRejected ? "" : "pulse-waiting")" style="margin-bottom: 20px; padding: 14px 18px; border: 2px solid @bannerBorder; background: @bannerBg; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 1.8rem;">✋</span>
+            <span style="font-size: 1.8rem;">@(isRejected ? "🛑" : "✋")</span>
             <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="badge" style="background: #f59e0b; color: #000; font-weight: 700; font-size: 0.72rem;">USER INTERACTION REQUIRED</span>
-                    <strong style="color: #f8fafc; font-size: 0.95rem;">@pending.GateTitle</strong>
+                    <span class="badge" style="background: @badgeBg; color: #000; font-weight: 700; font-size: 0.72rem;">@badgeText</span>
+                    <strong style="color: #f8fafc; font-size: 0.95rem;">@activeApproval.GateTitle</strong>
                 </div>
-                <div style="font-size: 0.82rem; color: #fde047; margin-top: 2px;">
-                    @pending.GateDescription
+                <div style="font-size: 0.82rem; color: @(isRejected ? "#fca5a5" : "#fde047"); margin-top: 2px;">
+                    @(isRejected && !string.IsNullOrWhiteSpace(activeApproval.UserFeedback) ? $"Revision Directive: {activeApproval.UserFeedback}" : activeApproval.GateDescription)
                 </div>
             </div>
         </div>
-        <button class="btn btn-warning" style="background: #f59e0b; color: #000; font-weight: 700; padding: 8px 16px; font-size: 0.88rem; border: none;" @onclick="() => showApprovalModal = true">
-            📋 Review &amp; Approve Gate (@pending.ItemsToApprove.Count items)
+        <button class="@buttonClass" style="font-weight: 700; padding: 8px 16px; font-size: 0.88rem; border: none;" @onclick="() => OpenApprovalModal(activeApproval)">
+            @buttonText
         </button>
     </div>
 }
@@ -216,8 +228,9 @@
         </svg>
 
         <!-- Visual Draggable Nodes -->
-        @foreach (var node in currentTeam.Graph.Nodes)
+        @foreach (var baseNode in currentTeam.Graph.Nodes)
         {
+            var node = GraphExecutor.CurrentGraph?.Nodes.FirstOrDefault(n => n.Id == baseNode.Id) ?? baseNode;
             var isSelected = _selectedNodeId == node.Id;
             var selectedClass = isSelected ? "node-selected" : "";
             var pulseClass = node.State == NodeExecutionState.Running ? "node-running" : (node.State == NodeExecutionState.Failed ? "node-failed" : (node.State == NodeExecutionState.Completed ? "node-completed" : (node.State == NodeExecutionState.WaitingForApproval ? "node-waiting" : "")));
@@ -684,9 +697,13 @@
 }
 
 <!-- Human Approval Gate Modal -->
-@if (showApprovalModal && ApprovalService.CurrentPendingRequest != null)
+@if (showApprovalModal)
 {
-    <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
+    var modalRequest = selectedApprovalRequest ?? ActiveApproval;
+    @if (modalRequest != null)
+    {
+        <WorkflowApprovalModal Request="@modalRequest" OnClose="HandleCloseApprovalModal" />
+    }
 }
 
 <!-- Agent Activity Detailed Inspector Modal -->
@@ -702,7 +719,7 @@
 
     // Node Selection & Canvas Dragging State
     private string? _selectedNodeId;
-    private GraphNode? _selectedNode => currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId);
+    private GraphNode? _selectedNode => (GraphExecutor.CurrentGraph?.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId)) ?? currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId);
 
     private string? _draggingNodeId;
     private double _dragStartClientX;
@@ -738,8 +755,13 @@
     private bool showDeleteConfirmModal;
     private bool showSquadRosterModal;
     private bool showApprovalModal;
+    private WorkflowApprovalRequest? selectedApprovalRequest;
     private string? teamToDeleteId;
     private string? teamToDeleteName;
+
+    private WorkflowApprovalRequest? ActiveApproval =>
+        ApprovalService.CurrentPendingRequest 
+        ?? ApprovalService.GetLatestPendingOrRejectedRequestForProject(ActiveProjectContext.CurrentProjectId);
 
     private IReadOnlyList<ModelCatalogEntry> availableCatalogModels = [];
 
@@ -754,14 +776,17 @@
         GraphExecutor.LoadTeam(currentTeam);
         availableCatalogModels = await CatalogService.GetModelsAsync();
 
-        if (ApprovalService.CurrentPendingRequest != null)
+        var activeApproval = ActiveApproval;
+        if (activeApproval != null && activeApproval.Status == ApprovalStatus.Pending)
         {
+            selectedApprovalRequest = activeApproval;
             showApprovalModal = true;
         }
     }
 
-    private void HandleApprovalRequested(WorkflowApprovalRequest _)
+    private void HandleApprovalRequested(WorkflowApprovalRequest req)
     {
+        selectedApprovalRequest = req;
         showApprovalModal = true;
         InvokeAsync(StateHasChanged);
     }
@@ -769,18 +794,29 @@
     private void HandleApprovalResolved(WorkflowApprovalRequest _)
     {
         showApprovalModal = false;
+        selectedApprovalRequest = null;
         InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenApprovalModal(WorkflowApprovalRequest req)
+    {
+        selectedApprovalRequest = req;
+        showApprovalModal = true;
+    }
+
+    private void HandleCloseApprovalModal()
+    {
+        showApprovalModal = false;
+        selectedApprovalRequest = null;
     }
 
     private void HandleGraphUpdated(WorkflowGraph _)
     {
-        currentTeam = TeamManager.GetCurrentTeam();
         InvokeAsync(StateHasChanged);
     }
 
     private void HandleNodeStateChanged(string _, NodeExecutionState __)
     {
-        currentTeam = TeamManager.GetCurrentTeam();
         InvokeAsync(StateHasChanged);
     }
 

@@ -9,7 +9,8 @@ public enum AgentRole
     SecurityEngineer,
     OptimizationEngineer,
     PrincipalQAAnalyst,
-    IntegrationEngineer
+    IntegrationEngineer,
+    EndUser
 }
 
 public static class AgentRoleExtensions
@@ -24,6 +25,7 @@ public static class AgentRoleExtensions
         AgentRole.OptimizationEngineer => "Optimization Engineer",
         AgentRole.PrincipalQAAnalyst => "Principal QA Analyst",
         AgentRole.IntegrationEngineer => "Integration Engineer",
+        AgentRole.EndUser => "End User",
         _ => role.ToString()
     };
 
@@ -37,6 +39,7 @@ public static class AgentRoleExtensions
         AgentRole.OptimizationEngineer => "⚡",
         AgentRole.PrincipalQAAnalyst => "🧪",
         AgentRole.IntegrationEngineer => "📦",
+        AgentRole.EndUser => "👤",
         _ => "🤖"
     };
 
@@ -50,6 +53,7 @@ public static class AgentRoleExtensions
         AgentRole.OptimizationEngineer => "#f59e0b",    // Amber
         AgentRole.PrincipalQAAnalyst => "#ec4899",      // Pink
         AgentRole.IntegrationEngineer => "#06b6d4",    // Cyan
+        AgentRole.EndUser => "#f59e0b",                // Amber
         _ => "#94a3b8"
     };
 

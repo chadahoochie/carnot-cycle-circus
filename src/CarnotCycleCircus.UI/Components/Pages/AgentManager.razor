@@ -6,6 +6,8 @@
 @inject IAgentNameGenerator NameGenerator
 @inject IModelCatalogService CatalogService
 @inject IApiKeyVaultService KeyVaultService
+@inject IGraphWorkflowExecutor GraphExecutor
+@inject IAgentExecutionTracker ExecutionTracker
 
 <div class="page-header">
     <div>
@@ -51,6 +53,26 @@
                             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
                                 <span class="badge" style="background: @agent.Persona.Role.ToColorHex(); color: #000; font-size: 0.68rem; font-weight: 700;">@agent.Persona.Role.ToDisplayName()</span>
                                 <span style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">@agent.Id</span>
+                                @{
+                                    var isExecuting = (ExecutionTracker.CurrentExecution != null && ExecutionTracker.CurrentExecution.Role == agent.Persona.Role)
+                                        || (GraphExecutor.CurrentActiveExecution != null && GraphExecutor.CurrentActiveExecution.Role == agent.Persona.Role)
+                                        || (GraphExecutor.CurrentGraph?.Nodes.Any(n => (n.AgentId == agent.Id || n.Role == agent.Persona.Role) && n.State == NodeExecutionState.Running) == true);
+                                }
+                                @if (isExecuting)
+                                {
+                                    var phase = ExecutionTracker.CurrentExecution?.Role == agent.Persona.Role && !string.IsNullOrWhiteSpace(ExecutionTracker.CurrentExecution.CurrentPhase)
+                                        ? ExecutionTracker.CurrentExecution.CurrentPhase
+                                        : "Running...";
+                                    <span class="badge pulse-running" style="background: rgba(56, 189, 248, 0.25); color: #38bdf8; border: 1px solid #38bdf8; font-size: 0.68rem; font-weight: 700;">
+                                        ⚡ @phase
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge" style="background: rgba(148, 163, 184, 0.12); color: #94a3b8; font-size: 0.65rem;">
+                                        Idle
+                                    </span>
+                                }
                             </div>
                         </div>
                     </div>
@@ -481,6 +503,9 @@
     {
         allAgents = AgentDefManager.GetAllAgents();
         AgentDefManager.OnAgentsChanged += HandleAgentsChanged;
+        ExecutionTracker.OnExecutionUpdated += HandleExecutionUpdated;
+        GraphExecutor.OnActiveExecutionChanged += HandleActiveExecutionChanged;
+        GraphExecutor.OnNodeStateChanged += HandleNodeStateChanged;
         availableCatalogModels = await CatalogService.GetModelsAsync();
     }
 
@@ -489,6 +514,10 @@
         allAgents = agents;
         InvokeAsync(StateHasChanged);
     }
+
+    private void HandleExecutionUpdated(AgentExecutionTrace? _) => InvokeAsync(StateHasChanged);
+    private void HandleActiveExecutionChanged(ActiveExecutionStatus? _) => InvokeAsync(StateHasChanged);
+    private void HandleNodeStateChanged(string _, NodeExecutionState __) => InvokeAsync(StateHasChanged);
 
     private IReadOnlyList<AgentMember> FilteredAgents
     {
@@ -538,6 +567,7 @@
         AgentRole.OptimizationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning),
         AgentRole.PrincipalQAAnalyst => model.StrengthAreas.Contains(ModelStrengthArea.DeepReasoning) || model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration),
         AgentRole.IntegrationEngineer => model.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration) || model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
+        AgentRole.EndUser => model.StrengthAreas.Contains(ModelStrengthArea.GeneralOrchestration),
         _ => true
     };
 
@@ -787,5 +817,8 @@
     public void Dispose()
     {
         AgentDefManager.OnAgentsChanged -= HandleAgentsChanged;
+        ExecutionTracker.OnExecutionUpdated -= HandleExecutionUpdated;
+        GraphExecutor.OnActiveExecutionChanged -= HandleActiveExecutionChanged;
+        GraphExecutor.OnNodeStateChanged -= HandleNodeStateChanged;
     }
 }

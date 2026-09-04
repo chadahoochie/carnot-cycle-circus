@@ -3,12 +3,14 @@
 @using CarnotCycleCircus.Core.Domain.Tickets
 @using CarnotCycleCircus.Core.Domain.Projects
 @using CarnotCycleCircus.Core.Domain.Inference
+@using CarnotCycleCircus.Core.Domain.Approvals
 @inject ITicketStore TicketStore
 @inject IHandoffRouter HandoffRouter
 @inject IGraphWorkflowExecutor GraphExecutor
 @inject IArtifactManager ArtifactManager
 @inject IJSRuntime JSRuntime
 @inject IProjectManager ProjectManager
+@inject IWorkflowApprovalService ApprovalService
 
 <div class="modal-backdrop" @onclick="Close">
     <div class="modal-dialog" style="max-width: 860px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;" @onclick:stopPropagation="true">
@@ -94,6 +96,36 @@
                 <!-- Right Sidebar Details -->
                 <div style="display: flex; flex-direction: column; gap: 14px;">
                     <div style="background: var(--bg-primary); padding: 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+                        @if (Ticket.Status == TicketStatus.Review || Ticket.AssigneeRole == AgentRole.EndUser || activeGateRequest != null)
+                        {
+                            var isRejected = activeGateRequest?.Status == ApprovalStatus.Rejected || Ticket.Metadata.ContainsKey("RejectionReason");
+                            var rejReason = Ticket.Metadata.TryGetValue("RejectionReason", out var r) ? r : activeGateRequest?.UserFeedback;
+                            <div style="background: @(isRejected ? "rgba(239, 68, 68, 0.15)" : "rgba(245, 158, 11, 0.15)"); border: 1px solid @(isRejected ? "#ef4444" : "#f59e0b"); border-radius: 6px; padding: 10px; margin-bottom: 12px; font-size: 0.78rem;">
+                                <div style="color: @(isRejected ? "#ef4444" : "#f59e0b"); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                                    <span>@(isRejected ? "🛑" : "✋")</span>
+                                    <span>@(isRejected ? "Revision Requested" : "Awaiting User Sign-Off")</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(rejReason))
+                                {
+                                    <div style="color: #fca5a5; font-size: 0.72rem; margin-bottom: 8px; line-height: 1.4;">
+                                        <strong>Directive:</strong> @rejReason
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="color: #fde047; font-size: 0.72rem; margin-bottom: 8px;">
+                                        This item is awaiting human approval gate sign-off.
+                                    </div>
+                                }
+                                @if (activeGateRequest != null)
+                                {
+                                    <button class="btn @(isRejected ? "btn-danger" : "btn-warning")" style="width: 100%; font-size: 0.75rem; padding: 5px 8px; justify-content: center; font-weight: 700;" @onclick="OpenApprovalGate">
+                                        📋 @(isRejected ? "Review & Revise Approval Gate" : "Review & Approve Gate")
+                                    </button>
+                                }
+                            </div>
+                        }
+
                         @if (Ticket.Status != TicketStatus.Done)
                         {
                             var isReady = TicketStore.AreDependenciesSatisfied(Ticket.Id);
@@ -101,7 +133,7 @@
                                 <button class="btn btn-success" style="width: 100%; justify-content: center; font-weight: 700; padding: 8px 12px;"
                                         @onclick="ExecuteTicketWithAgent"
                                         disabled="@(!isReady || isExecuting)">
-                                    @(isExecuting ? "⏳ Agent Working..." : isReady ? $"🚀 Unleash {Ticket.AssigneeRole.ToDisplayName().Split(' ')[0]}" : "⏳ Dependencies Pending")
+                                    @(isExecuting ? "⏳ Agent Working..." : isReady ? $"🚀 Unleash {(Ticket.AssigneeRole == AgentRole.EndUser ? "Meat Popsicle" : Ticket.AssigneeRole.ToDisplayName().Split(' ')[0])}" : "⏳ Dependencies Pending")
                                 </button>
                                 @if (!isReady && Ticket.DependsOnTicketIds.Count > 0)
                                 {
@@ -155,7 +187,7 @@
                             <select class="form-control" @bind="selectedAssignee">
                                 @foreach (var role in Enum.GetValues<AgentRole>())
                                 {
-                                    <option value="@role">@role.ToEmoji() @role.ToDisplayName()</option>
+                                    <option value="@role">@role.ToEmoji() @(role == AgentRole.EndUser ? "Major Korben \"Meat-Popsicle\" Dallas (End User)" : role.ToDisplayName())</option>
                                 }
                             </select>
                         </div>
@@ -198,6 +230,11 @@
     <AgentActivityModal TicketId="@Ticket.Id" OnClose="() => showActivityModal = false" />
 }
 
+@if (showApprovalModal && activeGateRequest != null)
+{
+    <WorkflowApprovalModal Request="@activeGateRequest" OnClose="HandleApprovalModalClose" />
+}
+
 @code {
     [Parameter, EditorRequired] public TicketItem Ticket { get; set; } = default!;
     [Parameter] public EventCallback OnClose { get; set; }
@@ -211,6 +248,34 @@
     private AgentRole selectedAssignee;
     private bool isExecuting = false;
     private bool showActivityModal = false;
+    private bool showApprovalModal = false;
+
+    private WorkflowApprovalRequest? activeGateRequest =>
+        ApprovalService.GetRequestForTicket(Ticket.Id)
+        ?? (ApprovalService.CurrentPendingRequest?.ItemsToApprove.Any(i => i.Title.Contains(Ticket.Id) || (i.Details != null && i.Details.Contains(Ticket.Id))) == true ? ApprovalService.CurrentPendingRequest : null)
+        ?? ApprovalService.GetLatestPendingOrRejectedRequestForProject(Ticket.ProjectId);
+
+    private void OpenApprovalGate()
+    {
+        showApprovalModal = true;
+    }
+
+    private async Task HandleApprovalModalClose()
+    {
+        showApprovalModal = false;
+        var refreshed = TicketStore.GetTicketById(Ticket.Id);
+        if (refreshed != null)
+        {
+            Ticket = refreshed;
+            editTitle = refreshed.Title;
+            editDescription = refreshed.Description;
+            editCriteriaText = string.Join("\n", refreshed.AcceptanceCriteria);
+            selectedPriority = refreshed.Priority;
+            selectedStatus = refreshed.Status;
+            selectedAssignee = refreshed.AssigneeRole;
+        }
+        await OnUpdated.InvokeAsync();
+    }
 
     protected override void OnParametersSet()
     {
