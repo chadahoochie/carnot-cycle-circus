@@ -38,7 +38,7 @@ Under `CarnotCycleCircus.Core.Domain.Approvals`:
   - Summarizes the PRD content, character counts, and each user story's acceptance criteria.
   - If approved, proceeds to Lead Architect refinement. If rejected, cleanly halts the workflow.
 - **Gate 2 (`ArchitectToCoder`)**:
-  - Executes inside the autonomous DAG loop before any `AgentRole.SoftwareDeveloper` ticket is executed.
+  - Executes inside the autonomous CLAW execution loop before any `AgentRole.SoftwareDeveloper` ticket is executed.
   - Transitions the Developer graph node to `NodeExecutionState.WaitingForApproval`.
   - Summarizes the ADR decision, companion C# scaffold files, and all mapped technical subtasks (`[Arch]`, `[Dev]`, `[Security]`, `[Opt]`, `[QA]`, `[Integration]`).
   - If approved, unleashes the Coder to implement domain logic and unit tests. If rejected, cleanly halts the workflow.

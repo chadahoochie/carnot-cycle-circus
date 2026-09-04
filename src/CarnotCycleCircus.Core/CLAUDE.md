@@ -3,12 +3,12 @@
 Core domain library and agent orchestration engine for Carnot Cycle Circus.
 
 ## Architecture & Responsibilities
-- **Domain/Tickets**: `TicketItem`, `HandoffPacket`, `ITicketStore`, `WorkDecompositionEngine`, `HandoffRouter`. Implements hierarchical ticket management, DAG dependency resolution, and inter-agent handoff contracts.
+- **Domain/Tickets**: `TicketItem`, `HandoffPacket`, `ITicketStore`, `WorkDecompositionEngine`, `HandoffRouter`. Implements hierarchical ticket management, CLAW dependency resolution, and inter-agent handoff contracts.
 - **Domain/Projects**: `Project`, `IProjectManager`, `IActiveProjectContext` (ADR-0018). First-class project container that scopes tickets, artifacts, telemetry, and approvals via `ProjectId`; separate from application-level concerns (agents, teams, skills, memory, models, standards).
 - **Domain/Memory**: Multi-tier persistent memory (Working, Episodic, Semantic, Procedural) with embedded vector similarity and consolidation.
 - **Domain/Inference**: Dynamic multi-key OpenRouter inference router, API Key Vault, and offline scenario simulator.
 - **Domain/Tools**: Agent tool execution sandbox (`WebSearchTool`, `CSharpSyntaxCheckTool`, `TestRunnerTool`, `MemoryLookupTool`, `AdrWriterTool`).
-- **Domain/Graph**: Connectable workflow DAG engine with Input, Output, and Failure/Reject ports, circuit breakers, and loopback remediation.
+- **Domain/Graph**: Connectable Closed-Loop Agent Workflow (CLAW) engine with Input, Output, and Failure/Reject ports, circuit breakers, and loopback remediation.
 - **Domain/Docs**: Architectural Decision Records (ADRs) and project documentation generator.
 - **Domain/Standards**: Configurable engineering standards policies and quality gates.
 - **Domain/Knowledge**: AI knowledge map graph and semantic sub-graph queries.

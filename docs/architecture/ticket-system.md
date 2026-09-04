@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Carnot Cycle Circus incorporates an **Embedded Ticket Management & Work Decomposition Engine** (`CarnotCycleCircus.Core.Domain.Tickets`). Rather than treating agents as uncoordinated chat participants, the platform structures work using an enterprise agile backlog, DAG dependency scheduling, and formal inter-agent handoff contracts (`HandoffPacket`).
+Carnot Cycle Circus incorporates an **Embedded Ticket Management & Work Decomposition Engine** (`CarnotCycleCircus.Core.Domain.Tickets`). Rather than treating agents as uncoordinated chat participants, the platform structures work using an enterprise agile backlog, CLAW dependency scheduling, and formal inter-agent handoff contracts (`HandoffPacket`).
 
 ---
 
@@ -62,7 +62,7 @@ public enum TicketPriority
 ```mermaid
 stateDiagram-v2
     [*] --> Backlog: Created by TPM / Architect
-    Backlog --> Ready: Dependencies Satisfied (DAG Evaluation)
+    Backlog --> Ready: Dependencies Satisfied (CLAW Evaluation)
     Ready --> InProgress: Agent Starts Execution
     InProgress --> InReview: Deliverable Produced & Handoff Dispatched
     InReview --> Done: Review Passed & Standards Verified
@@ -153,12 +153,12 @@ public record HandoffPacket(
 
 ## 5. Automated Work Decomposition (`WorkDecompositionEngine`)
 
-The `WorkDecompositionEngine` automates the conversion of high-level objectives into granular technical DAGs across two explicit phases (ADR-0015):
+The `WorkDecompositionEngine` automates the conversion of high-level objectives into granular technical CLAWs across two explicit phases (ADR-0015):
 
 1. **Stage 1 (Co-Discovery & Story Generation - PM & Research Analyst)**:
    - `DeconstructEpicIntoUserStories`: Converts the business goal into an `Epic` ticket (with attached Feasibility Brief and Product Requirements Document artifacts) and foundational `Feature` user stories with business acceptance criteria, assigned to the Lead Architect for technical refinement.
 2. **Stage 2 (Architectural Backlog Refinement & ADR Design - Lead Architect)**:
-   - `RefineStoryIntoTechnicalSubtasks`: The Lead Architect grooms each User Story into six atomic technical subtasks with exact contracts and DAG dependencies:
+   - `RefineStoryIntoTechnicalSubtasks`: The Lead Architect grooms each User Story into six atomic technical subtasks with exact contracts and CLAW dependencies:
      - `Subtask 1 (Arch)`: ADR and Type Signatures (`[Arch] Design Architecture, C# Contracts & ADR`). Explicitly defines domain records, interface contracts, and DI extensions. Depends on: `[]`.
      - `Subtask 2 (Dev)`: Implementation and Test Suite (`[Dev] Implement Domain Models, Service & Tests`). Produces modular multi-file C# bundle matching Architect ADR. Depends on: `[Subtask 1]`.
      - `Subtask 3 (Security)`: STRIDE Threat Model Audit (`[Security] STRIDE Threat Model & Code Audit`). Evaluates delivered source code methods, buffers, and permissions. Depends on: `[Subtask 2]`.
@@ -168,9 +168,9 @@ The `WorkDecompositionEngine` automates the conversion of high-level objectives 
 
 ---
 
-## 6. DAG Dependency Scheduling & Handoff Routing (`HandoffRouter`)
+## 6. CLAW Dependency Scheduling & Handoff Routing (`HandoffRouter`)
 
-The `HandoffRouter` evaluates DAG state transitions and records audit logs:
+The `HandoffRouter` evaluates CLAW state transitions and records audit logs:
 
 - **`RouteSuccessHandoff`**: Creates a success `HandoffPacket`, attaches artifacts, logs an event to `IAgentEventStream`, and advances downstream tickets.
 - **`RouteFailureRemediation`**: Transitions the ticket to `TicketStatus.Remediating`, reassigns it to the fixing role (e.g. Developer), creates a remediation packet, and broadcasts an alert event.

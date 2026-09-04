@@ -15,9 +15,9 @@ The test project contains 17 specialized test suites covering all core domain se
 
 | Test File | Target Service / Component | Key Verification Scenarios |
 | :--- | :--- | :--- |
-| `TicketStoreTests.cs` | `TicketStore` | Ticket CRUD, state machine transitions, dependency DAG ordering, and query filters. |
-| `WorkDecompositionTests.cs` | `WorkDecompositionEngine` | Automated TPM/Architect deconstruction of Epics into granular technical subtasks with DAG edges and multi-file code expectations. |
-| `HandoffRouterTests.cs` | `HandoffRouter` | Success handoffs, failure remediation loopbacks, and DAG downstream activation. |
+| `TicketStoreTests.cs` | `TicketStore` | Ticket CRUD, state machine transitions, dependency CLAW ordering, and query filters. |
+| `WorkDecompositionTests.cs` | `WorkDecompositionEngine` | Automated TPM/Architect deconstruction of Epics into granular technical subtasks with CLAW edges and multi-file code expectations. |
+| `HandoffRouterTests.cs` | `HandoffRouter` | Success handoffs, failure remediation loopbacks, and CLAW downstream activation. |
 | `RealExecutionEngineTests.cs` | `AgentExecutionEngine` & Real Inference | Real OpenRouter execution, multi-file C# deliverable parsing, autonomous syntax self-healing loop with `CSharpSyntaxCheckTool`, upstream context injection (Architecture $\to$ Dev, Dev $\to$ Sec, Dev $\to$ QA), and offline mock test isolation. |
 | `AgentPeckingOrderTests.cs` | `TicketStore` & `GraphWorkflowExecutor` | Strict 8-agent pecking order, Remediating ticket precedence, multi-branch downstream handoffs, and complete handoff chaining. |
 | `PersistentMemoryTests.cs` | `EmbeddedVectorMemoryStore` | Multi-tier storage, 64-dim vector cosine similarity search, composite scoring, and pruning. |

@@ -263,7 +263,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
         }
         var projectId = project?.Id ?? _activeProjectContext?.CurrentProjectId;
 
-        // 2. Deconstruct Epic and generate DAG subtasks
+        // 2. Deconstruct Epic and generate CLAW subtasks
         var createdTickets = _decompositionEngine.DeconstructEpic(
             title,
             $"{description} (Target Stack: {targetStack})",

@@ -219,7 +219,7 @@ public class AdrDocumentManager : IAdrDocumentManager
 
         var adr2 = new ArchitecturalDecisionRecord(
             Id: "ADR-002",
-            Title: "Connectable DAG Workflow Engine with Dedicated Failure Ports",
+            Title: "Connectable Closed-Loop Agent Workflow (CLAW) Engine with Dedicated Failure Ports",
             Status: AdrStatus.Accepted,
             Context: "Autonomous engineering workflows frequently fail QA or Security checks. Standard linear pipelines abort completely on failure and waste everyone's morning.",
             Decision: "Implement a connectable graph topology where every node exposes 🟢 Input, 🔵 Success Output, and 🔴 Failure/Reject ports with automated self-healing loopbacks.",
@@ -360,7 +360,7 @@ public class AdrDocumentManager : IAdrDocumentManager
             Id: "ADR-013",
             Title: "Multi-File Deliverable Generation, Autonomous Syntax Self-Healing, and Inter-Agent Context Pipeline",
             Status: AdrStatus.Accepted,
-            Context: "Complex enterprise .NET architectures require modular multi-file code structures (Models, Services, DI Extensions, Unit Tests), resilient syntax verification, upstream deliverable context across DAG nodes, and first-class PRD tracking.",
+            Context: "Complex enterprise .NET architectures require modular multi-file code structures (Models, Services, DI Extensions, Unit Tests), resilient syntax verification, upstream deliverable context across CLAW nodes, and first-class PRD tracking.",
             Decision: "Implement multi-file csharp:FileName.cs parsing in AgentExecutionEngine, CSharpSyntaxCheckTool autonomous self-healing loop with low-temp remediation prompts, recursive GatherUpstreamDeliverables context injection, and first-class PRD categorization in ArtifactManager and ArtifactsHub.",
             AlternativesConsidered: [
                 "Single monolithic file generation (rejected: violates .NET clean architecture and test separation)",
@@ -384,13 +384,13 @@ public class AdrDocumentManager : IAdrDocumentManager
 
         var adr14 = new ArchitecturalDecisionRecord(
             Id: "ADR-0014",
-            Title: "Dedicated Requirements Researcher Agent and Upstream Discovery DAG Stage",
+            Title: "Dedicated Requirements Researcher Agent and Upstream Discovery CLAW Stage",
             Status: AdrStatus.Accepted,
             Context: "Monolithic TPM discovery overloaded context windows with raw search outputs and mixed convergent discovery with structured ticket decomposition, leading to hallucination risks before architectural design.",
-            Decision: "Introduce RequirementsResearcher (Rachel 'DeepDive' Reference) as Stage 1 of the DAG prior to TPM, generating formal _RESEARCH_BRIEF.md deliverables grounded in RFCs and codebase boundaries.",
+            Decision: "Introduce RequirementsResearcher (Rachel 'DeepDive' Reference) as Stage 1 of the CLAW pipeline prior to TPM, generating formal _RESEARCH_BRIEF.md deliverables grounded in RFCs and codebase boundaries.",
             AlternativesConsidered: [
                 "Monolithic TPM with integrated web search tools (rejected: token budget exhaustion and prompt distraction)",
-                "Ad-hoc dynamic subagent tool calls (rejected: loses explicit DAG visualization and dedicated failure recovery cabling)",
+                "Ad-hoc dynamic subagent tool calls (rejected: loses explicit CLAW visualization and dedicated failure recovery cabling)",
                 "Optional unverified research spikes (rejected: ungrounded assumptions cascade into developer code generation)"
             ],
             ConsequencesPositive: [
@@ -462,10 +462,10 @@ public class AdrDocumentManager : IAdrDocumentManager
             Decision: "Establish clean area separation: Agent Management (IAgentDefinitionManager, /agents) owns the global agent catalog; Team Management (ITeamDefinitionManager, /teams) manages squads embedding their own WorkflowGraph with agent node bindings; Execution Governance (/dashboard) mandates squad selection prior to execution; Ticket Management (/tickets) removes quick decomposition in favor of Project Ignition Studio.",
             AlternativesConsidered: [
                 "Retain archetypes as metadata tags (rejected: rigid coupling)",
-                "Store DAGs only globally (rejected: each squad needs its own topology and port routing)"
+                "Store workflow graphs only globally (rejected: each squad needs its own topology and port routing)"
             ],
             ConsequencesPositive: [
-                "Clean domain decoupling between agent definitions and squad DAG topologies",
+                "Clean domain decoupling between agent definitions and squad CLAW topologies",
                 "Execution safety enforced through mandatory squad selection",
                 "Uncluttered ticket dashboard"
             ],
@@ -476,6 +476,30 @@ public class AdrDocumentManager : IAdrDocumentManager
             UpdatedAt: DateTimeOffset.UtcNow
         );
         _adrs[adr17.Id] = adr17;
+
+        var adr19 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0019",
+            Title: "Transition from Directed Acyclic Graph (DAG) to Closed-Loop Agent Workflow (CLAW)",
+            Status: AdrStatus.Accepted,
+            Context: "Early architectural documentation and UI labels referred to workflows as DAGs. Because nodes expose failure/remediation ports that loop back upstream for self-healing, the topology is mathematically cyclic.",
+            Decision: "Formally adopt the term and acronym CLAW (Closed-Loop Agent Workflow) across documentation, UI, and domain models, reflecting closed-loop feedback systems.",
+            AlternativesConsidered: [
+                "Directed Cyclic Graph / DCG (rejected: only describes topology without communicating self-healing intent)",
+                "Control Flow Graph / CFG (rejected: evokes compiler internals rather than agentic orchestration)",
+                "StateGraph (rejected: CLAW better emphasizes the closed feedback loop and pairs with the Carnot cycle)"
+            ],
+            ConsequencesPositive: [
+                "Mathematically accurate representation of remediation loopbacks",
+                "Clear conceptual model of closed-loop self-healing agents",
+                "Catchy, memorable acronym (CLAW) across UI and docs"
+            ],
+            ConsequencesNegative: [
+                "Requires updating documentation and UI string references"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr19.Id] = adr19;
 
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
@@ -511,7 +535,7 @@ public class AdrDocumentManager : IAdrDocumentManager
             2. **Tampering**: All handoffs and ticket records are immutable C# records.
             3. **Repudiation**: `IAgentEventStream` provides an append-only in-memory telemetry log of every deed and misdeed.
             4. **Information Disclosure**: API keys are isolated in the client-side `ApiKeyVault` and masked.
-            5. **Denial of Service**: Execution engine enforces DAG depth limits and circuit breakers before CPU catches fire.
+            5. **Denial of Service**: Execution engine enforces CLAW depth limits and circuit breakers before CPU catches fire.
             6. **Elevation of Privilege**: Tool sandbox permissions are strictly partitioned per role.
             """,
             UpdatedAt: DateTimeOffset.UtcNow

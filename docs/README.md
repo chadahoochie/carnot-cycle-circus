@@ -15,8 +15,8 @@ docs/
 │
 ├── architecture/                  # Deep architectural specifications & system topologies
 │   ├── system-overview.md         # End-to-end architecture, C4 diagrams, and layer boundaries
-│   ├── agent-orchestration.md     # 6 core roles, persona contracts, workflow DAG, & failure ports
-│   ├── ticket-system.md           # Hierarchical ticket engine, DAG scheduling, & HandoffPackets
+│   ├── agent-orchestration.md     # 6 core roles, persona contracts, workflow CLAW, & failure ports
+│   ├── ticket-system.md           # Hierarchical ticket engine, CLAW scheduling, & HandoffPackets
 │   ├── memory-system.md           # 4-tier OpenViking memory model, vector search, & consolidation
 │   ├── inference-and-security.md  # OpenRouter client, Key Vault, offline simulation, & security
 │   └── knowledge-and-skills.md    # Knowledge map graph, semantic extraction, & dynamic skill registry
@@ -30,21 +30,24 @@ docs/
 │   ├── README.md                  # ADR index, lifecycle status matrix, & decision overview
 │   ├── template.md                # Standard template for proposing new ADRs
 │   ├── 0001-immutable-record-types-for-domain-and-handoff-payloads.md
-│   ├── 0002-connectable-dag-workflow-with-failure-ports.md
+│   ├── 0002-connectable-claw-workflow-with-failure-ports.md
 │   ├── 0003-hierarchical-persistent-memory-and-embedded-vector-store.md
 │   ├── 0004-multi-key-openrouter-routing-and-key-vault-isolation.md
 │   ├── 0005-deliverable-isolation-contract-for-agent-personas.md
 │   ├── 0006-in-memory-reactive-event-stream-for-real-time-telemetry.md
-│   ├── 0007-embedded-ticket-management-and-dag-decomposition.md
+│   ├── 0007-embedded-ticket-management-and-claw-decomposition.md
 │   ├── 0008-persistent-volume-stack-and-autonomous-self-improvement.md
 │   ├── 0009-secure-key-vault-storage-and-envelope-encryption.md
 │   ├── 0010-dynamic-agent-lifecycle-and-skill-infused-naming.md
 │   ├── 0011-project-ignition-wizard-codebase-harvester-and-showcase-arena.md
 │   ├── 0012-openrouter-model-catalog-caching-categorization-and-favorites.md
 │   ├── 0013-multi-file-deliverables-syntax-self-healing-and-upstream-context-pipeline.md
-│   ├── 0014-dedicated-requirements-researcher-agent-and-upstream-discovery-dag-stage.md
+│   ├── 0014-dedicated-requirements-researcher-agent-and-upstream-discovery-claw-stage.md
 │   ├── 0015-collaborative-discovery-and-two-phase-architectural-ticket-refinement.md
-│   └── 0016-photino-desktop-client-headless-docker-server-and-local-user-storage.md
+│   ├── 0016-photino-desktop-client-headless-docker-server-and-local-user-storage.md
+│   ├── 0017-system-area-separation-and-team-archetype-elimination.md
+│   ├── 0018-project-scoping-and-application-versus-project-level-separation.md
+│   └── 0019-transition-from-dag-to-closed-loop-agent-workflow-claw.md
 │
 ├── guides/                        # Step-by-step developer and agent execution guides
 │   ├── developer-onboarding.md    # Quickstart, local build, test execution, & project tour
@@ -85,12 +88,12 @@ docs/
 | Subsystem | Primary Namespace / Project | Core Responsibilities |
 | :--- | :--- | :--- |
 | **Core Domain** | `CarnotCycleCircus.Core.Domain.Agents` | Defines 6 autonomous engineering roles, persona contracts, and team manifests. |
-| **Ticket Engine** | `CarnotCycleCircus.Core.Domain.Tickets` | Hierarchical work breakdown (Epics $\to$ Stories $\to$ Subtasks), DAG scheduling, and `HandoffPacket` routing. |
+| **Ticket Engine** | `CarnotCycleCircus.Core.Domain.Tickets` | Hierarchical work breakdown (Epics $\to$ Stories $\to$ Subtasks), CLAW scheduling, and `HandoffPacket` routing. |
 | **Artifacts Hub** | `CarnotCycleCircus.Core.Domain.Artifacts` | Real-time deliverable categorization (PRDs, ADRs, Code, Security, Benchmarks, QA) and repository disk synchronization. |
 | **Memory System** | `CarnotCycleCircus.Core.Domain.Memory` | 4-tier persistent memory (Working, Episodic, Semantic, Procedural) with embedded 64-dim vector cosine similarity. |
 | **Inference Hub** | `CarnotCycleCircus.Core.Domain.Inference` | OpenRouter multi-key router, client-side Key Vault, model catalog, and offline simulated scenario engine. |
 | **Tool Sandbox** | `CarnotCycleCircus.Core.Domain.Tools` | Sandboxed tools: `web_search`, `csharp_syntax_check`, `test_runner`, `adr_writer`, `memory_lookup`. |
-| **Workflow Graph** | `CarnotCycleCircus.Core.Domain.Graph` | Visual connectable DAG engine with Input, Output, and Failure/Reject ports, circuit breakers, and loopbacks. |
+| **Workflow Graph** | `CarnotCycleCircus.Core.Domain.Graph` | Visual connectable Closed-Loop Agent Workflow (CLAW) engine with Input, Output, and Failure/Reject ports, circuit breakers, and loopbacks. |
 | **Docs & ADR Hub** | `CarnotCycleCircus.Core.Domain.Docs` | MADR/Nygard ADR management, C4 diagrams, STRIDE threat models, and markdown bundle exporter. |
 | **Standards Engine**| `CarnotCycleCircus.Core.Domain.Standards` | Ticket completion validation, RCA enforcement for bugs, and quality gates. |
 | **Knowledge Maps** | `CarnotCycleCircus.Core.Domain.Knowledge` | AI Knowledge graph mapping concepts, patterns, security rules, and sub-graph context extraction. |

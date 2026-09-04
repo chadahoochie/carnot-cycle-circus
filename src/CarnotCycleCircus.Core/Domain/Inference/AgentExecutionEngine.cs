@@ -74,7 +74,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
         TicketItem ticket,
         CancellationToken cancellationToken = default)
     {
-        // 1. Resolve agent member and inference parameters from active squad and DAG node bindings
+        // 1. Resolve agent member and inference parameters from active squad and CLAW node bindings
         var team = _teamManager?.GetCurrentTeam() ?? EngineeringTeam.CreateDefault();
         var node = team.Graph.Nodes.FirstOrDefault(n => n.Role == role);
 
@@ -729,7 +729,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 ## Status
                 Accepted
                 ## Context
-                ## Architectural Decision (Specify immutable C# records, bounded Channel<T>, zero-allocation protocols, connectable failure DAG ports)
+                ## Architectural Decision (Specify immutable C# records, bounded Channel<T>, zero-allocation protocols, connectable failure CLAW ports)
                 ## Exact C# Type Contracts & Interface Signatures (Provide the compilable C# scaffold code blocks shown above)
                 ## Clean Architecture Scaffolding Blueprint (Explicitly list Domain, Contracts, Infrastructure, and DI layouts)
                 ## Alternatives Considered

@@ -149,7 +149,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         );
 
         // =========================================================================
-        // PILLAR 2: TEAM PROCESS DEFINITION (Archetypes, custom team, JSON export/import, DAG graph)
+        // PILLAR 2: TEAM PROCESS DEFINITION (Archetypes, custom team, JSON export/import, CLAW graph)
         // =========================================================================
         var teamManager = new TeamDefinitionManager(_storageService);
 
@@ -198,7 +198,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         reimportedTeam.Should().NotBeNull();
         reimportedTeam.Members.Should().HaveCount(customTeamDef.Members.Count);
 
-        // Define DAG Workflow Graph with failure loopback ports
+        // Define CLAW Workflow Graph with failure loopback ports
         var workflowGraph = WorkflowGraph.CreateDefaultEngineeringCircus();
         workflowGraph.Nodes.Should().HaveCount(8);
         workflowGraph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");

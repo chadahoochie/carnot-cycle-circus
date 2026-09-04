@@ -64,7 +64,7 @@ else
     <div style="padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; background: rgba(234, 179, 8, 0.15); border: 1px solid #eab308; color: #fde047; font-size: 0.92rem; display: flex; align-items: center; gap: 12px;">
         <span style="font-size: 1.4rem;">⚠️</span>
         <div>
-            <strong>Squad Selection Required:</strong> Please select an active engineering squad from the dropdown above before unleashing the circus or stepping DAG nodes.
+            <strong>Squad Selection Required:</strong> Please select an active engineering squad from the dropdown above before unleashing the circus or stepping CLAW nodes.
         </div>
     </div>
 }
@@ -73,7 +73,7 @@ else if (selectedTeam != null)
     <div style="padding: 10px 16px; border-radius: 8px; margin-bottom: 18px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
             <span>👥</span>
-            <span>Active Squad: <strong>@selectedTeam.Name</strong> (@selectedTeam.Graph.Nodes.Count DAG nodes, @selectedTeam.Members.Count agents)</span>
+            <span>Active Squad: <strong>@selectedTeam.Name</strong> (@selectedTeam.Graph.Nodes.Count CLAW nodes, @selectedTeam.Members.Count agents)</span>
         </div>
         <div style="font-size: 0.78rem; color: var(--text-muted);">
             Fallback Model: <span style="color: #f8fafc; font-family: monospace;">@(string.IsNullOrEmpty(selectedTeam.DefaultFallbackModel) ? "None" : selectedTeam.DefaultFallbackModel)</span>
@@ -200,7 +200,7 @@ else if (selectedTeam != null)
                         </span>
                     </div>
                     <div style="font-size: 0.85rem; color: #7dd3fc; margin-top: 3px; font-weight: 500;">
-                        @(exec != null ? $"Ticket [{exec.TicketId}]: {exec.TicketTitle}" : "Autonomous DAG Swarm execution in progress...")
+                        @(exec != null ? $"Ticket [{exec.TicketId}]: {exec.TicketTitle}" : "Autonomous CLAW Swarm execution in progress...")
                     </div>
                 </div>
             </div>

@@ -8,11 +8,11 @@ This document provides a technical reference for the interactive **Blazor Web Co
 
 | Route | Razor Component | Description |
 | :--- | :--- | :--- |
-| **`/`**, **`/teams`**, **`/canvas`** | `TeamStudio.razor` | Unified Team Management & Interactive DAG Canvas: squad creation/cloning, visual node placement, Input/Output/Failure port cabling, circuit breaker policies, and live execution/stepping. |
+| **`/`**, **`/teams`**, **`/canvas`** | `TeamStudio.razor` | Unified Team Management & Interactive CLAW Canvas: squad creation/cloning, visual node placement, Input/Output/Failure port cabling, circuit breaker policies, and live execution/stepping. |
 | **`/agents`** | `AgentManager.razor` | Centralized Agent Studio for defining and customizing individual agent personas, system prompts, role models, and skill assignments. |
 | **`/dashboard`** | `ExecutionDashboard.razor` | Live workflow orchestrator, animated execution pulse map, real-time banter feed, quick-key swapper, and session report exporter. |
 | **`/artifacts`** | `ArtifactsHub.razor` | Real-time repository-synced deliverables hub (PRDs, ADRs, Code bundles, STRIDE models, Benchmark profiles, and QA scorecards) with category filtering and 1-click disk synchronization. |
-| **`/tickets`** | `TicketManager.razor` | Embedded ticket studio: Kanban board, backlog manager, dependency DAG visualizer, and handoff history. |
+| **`/tickets`** | `TicketManager.razor` | Embedded ticket studio: Kanban board, backlog manager, dependency CLAW visualizer, and handoff history. |
 | **`/memory`** | `MemoryInspector.razor` | Hierarchical memory viewer (Working, Episodic, Semantic, Procedural), 64-dim vector search tester, and memory pruner. |
 | **`/models`** | `ModelCatalog.razor` | OpenRouter model catalog browser: cost tier classification, engineering strength mapping, pricing calculations ($/1M tokens), and 1-click favorites management. |
 | **`/docs`** | `DocsAndAdrs.razor` | ADR editor/explorer, C4 system architecture diagrams, STRIDE threat models, and markdown bundle exporter. |

@@ -17,8 +17,8 @@
 
 <div class="page-header">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">👥 Team Circus Ring & DAG Workflows</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble multi-agent troupes where each squad owns a customized DAG execution graph, port routing, and circuit breaker resilience policies.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">👥 Team Circus Ring & CLAW Workflows</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble multi-agent troupes where each squad owns a customized Closed-Loop Agent Workflow (CLAW) execution graph, port routing, and circuit breaker resilience policies.</p>
     </div>
 
     <!-- Squad Selector, Actions & Execution Controls -->
@@ -39,7 +39,7 @@
         </button>
 
         <button class="btn btn-secondary" @onclick="OpenAddNodeModal" style="white-space: nowrap;">
-            ➕ Add DAG Node
+            ➕ Add CLAW Node
         </button>
 
         <button class="btn btn-primary" @onclick="RunWorkflow" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
@@ -120,7 +120,7 @@
 
     <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.82rem;">
         <div>
-            <span style="color: var(--text-muted);">DAG Nodes:</span>
+            <span style="color: var(--text-muted);">CLAW Nodes:</span>
             <span style="font-weight: 700; color: #38bdf8; margin-left: 4px;">@currentTeam.Graph.Nodes.Count</span>
         </div>
         <div>
@@ -151,7 +151,7 @@
     </div>
 }
 
-<!-- Interactive DAG Canvas for the Active Squad -->
+<!-- Interactive CLAW Canvas for the Active Squad -->
 <div class="glass-card" 
      style="padding: 0; overflow: auto; position: relative; height: 500px; width: 100%; max-width: 100%; min-width: 0; background: radial-gradient(#1e293b 1px, transparent 1px); background-size: 24px 24px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px;"
      @onmousemove="HandleCanvasMouseMove"
@@ -426,7 +426,7 @@
         {
             <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🖱️</div>
-                <div style="font-size: 0.88rem;">Click on any node on the DAG canvas to inspect its agent binding, live state, and configuration.</div>
+                <div style="font-size: 0.88rem;">Click on any node on the CLAW canvas to inspect its agent binding, live state, and configuration.</div>
             </div>
         }
     </div>
@@ -483,7 +483,7 @@
     <div class="modal-backdrop" @onclick="() => showAddNodeModal = false">
         <div class="modal-dialog" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Add Agent Node to Squad DAG</h3>
+                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Add Agent Node to Squad CLAW</h3>
                 <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false" style="padding: 4px 8px;">✕</button>
             </div>
             <div class="modal-body">
@@ -512,7 +512,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false">Cancel</button>
-                <button class="btn btn-success" @onclick="AddNodeToGraph">➕ Add to DAG</button>
+                <button class="btn btn-success" @onclick="AddNodeToGraph">➕ Add to CLAW</button>
             </div>
         </div>
     </div>
@@ -577,7 +577,7 @@
                 else
                 {
                     <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
-                        Copy the current squad and DAG layout configuration:
+                        Copy the current squad and CLAW layout configuration:
                     </p>
                     <textarea class="form-control" style="height: 260px; font-family: monospace; font-size: 0.8rem;" readonly>@jsonPayload</textarea>
                 }
@@ -607,7 +607,7 @@
                     Are you sure you want to delete squad <strong>@teamToDeleteName</strong> (<code style="color: #38bdf8;">@teamToDeleteId</code>)?
                 </p>
                 <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0;">
-                    This will permanently remove the squad's customized workflow DAG topology and member configuration.
+                    This will permanently remove the squad's customized workflow CLAW topology and member configuration.
                 </p>
             </div>
             <div class="modal-footer">
@@ -959,7 +959,7 @@
         var conns = currentTeam.Graph.Connections.Where(c => c.SourceNodeId != nodeId && c.TargetNodeId != nodeId).ToList();
         UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes, Connections = conns });
         _selectedNodeId = null;
-        statusMessage = $"Removed node {nodeId} from DAG.";
+        statusMessage = $"Removed node {nodeId} from CLAW.";
     }
 
     private void OnNodeAgentSelectionChanged(ChangeEventArgs e)
@@ -1109,7 +1109,7 @@
         UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes });
         showAddNodeModal = false;
         _selectedNodeId = id;
-        statusMessage = $"Added node '{node.Name}' to squad DAG.";
+        statusMessage = $"Added node '{node.Name}' to squad CLAW.";
     }
 
     private void OpenNewTeamModal()

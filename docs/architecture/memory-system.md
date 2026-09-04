@@ -89,7 +89,7 @@ public Task<IReadOnlyList<MemorySearchResult>> SearchAsync(
 
 ## 4. Automated Memory Consolidation (`MemoryConsolidationEngine`)
 
-When an agent completes a ticket in the workflow DAG, the `MemoryConsolidationEngine` executes post-task consolidation:
+When an agent completes a ticket in the workflow CLAW, the `MemoryConsolidationEngine` executes post-task consolidation:
 
 1. Synthesizes a structured episodic memory summarizing the deliverables, acceptance criteria, and assignee role.
 2. Generates vector embeddings for the summary.

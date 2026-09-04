@@ -173,7 +173,7 @@ public class KnowledgeMapService : IKnowledgeMapService
             Id: "KN-008",
             Label: "The Ludicrous Velocity Theorem",
             Category: "Concept",
-            Summary: "When velocity exceeds light speed, you go straight to plaid. Keep sprint backlogs lean and DAG dependencies clean to prevent temporal paradoxes.",
+            Summary: "When velocity exceeds light speed, you go straight to plaid. Keep sprint backlogs lean and CLAW dependencies clean to prevent temporal paradoxes.",
             Attributes: new Dictionary<string, string> { ["Speed"] = "Ludicrous Speed", ["MovieLore"] = "Spaceballs", ["Enforcer"] = "Barnum B. Buzzword" }
         );
         _nodes[node8.Id] = node8;

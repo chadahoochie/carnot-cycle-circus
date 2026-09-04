@@ -784,14 +784,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     _eventStream.Publish(AgentMessage.Create(
                         role: AgentRole.LeadArchitect,
                         senderName: "Archduke Archibald Abstraction-o (Lead Architect)",
-                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict DAG dependencies.",
+                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict CLAW dependencies.",
                         type: MessageType.StateChange,
                         ticketId: story.Id
                     ));
                 }
             }
 
-            // 4. Autonomous DAG Execution Loop: Drains all ready subtasks across all stories for this Epic
+            // 4. Autonomous CLAW Execution Loop: Drains all ready subtasks across all stories for this Epic
             int maxIterations = 100;
             int count = 0;
 

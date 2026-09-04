@@ -70,12 +70,12 @@ graph TD
 
 ## 4. Remediation Loopback Integration
 
-When validation fails during DAG execution:
+When validation fails during CLAW execution:
 1. `IStandardsValidator.ValidateTicketForCompletion(ticket)` or `ValidateArchitecturalCompliance(...)` returns `ValidationResult.Failure(violations)`.
 2. The `HandoffRouter` dispatches a failure remediation packet (`RouteFailureRemediation`).
 3. For code or test defects, the ticket transitions to `TicketStatus.Remediating` assigned to **Software Developer**.
 4. For missing ADRs or domain contract violations, the remediation packet routes to **Lead Architect** (`node-arch`).
-5. The fixing agent resolves the violations and resubmits the deliverables through the DAG.
+5. The fixing agent resolves the violations and resubmits the deliverables through the CLAW.
 
 ---
 
