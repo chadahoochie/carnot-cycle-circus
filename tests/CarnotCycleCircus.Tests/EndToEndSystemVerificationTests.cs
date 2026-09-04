@@ -149,7 +149,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         );
 
         // =========================================================================
-        // PILLAR 2: TEAM PROCESS DEFINITION (Archetypes, custom team, JSON export/import, DAG graph)
+        // PILLAR 2: TEAM PROCESS DEFINITION (Archetypes, custom team, JSON export/import, CLAW graph)
         // =========================================================================
         var teamManager = new TeamDefinitionManager(_storageService);
 
@@ -187,7 +187,7 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         var activeTeam = teamManager.GetCurrentTeam();
         activeTeam.Id.Should().Be("team-raft-circus-e2e");
-        activeTeam.Members.Should().HaveCount(8);
+        activeTeam.Members.Should().HaveCount(customTeamDef.Members.Count);
 
         // Validate JSON export and import roundtrip
         var exportedJson = teamManager.ExportToJson(customTeamDef.Id);
@@ -196,9 +196,9 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         var reimportedTeam = teamManager.ImportFromJson(exportedJson);
         reimportedTeam.Should().NotBeNull();
-        reimportedTeam.Members.Should().HaveCount(8);
+        reimportedTeam.Members.Should().HaveCount(customTeamDef.Members.Count);
 
-        // Define DAG Workflow Graph with failure loopback ports
+        // Define CLAW Workflow Graph with failure loopback ports
         var workflowGraph = WorkflowGraph.CreateDefaultEngineeringCircus();
         workflowGraph.Nodes.Should().HaveCount(8);
         workflowGraph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
@@ -422,7 +422,7 @@ public class EndToEndSystemVerificationTests : IDisposable
         var team = teamManager.GetTeam("team-security-hardened") ?? teamManager.GetAllTeams().First();
 
         team.Should().NotBeNull();
-        team.Members.Should().HaveCount(8);
+        team.Members.Should().HaveCount(Enum.GetValues<AgentRole>().Length);
 
         var json = teamManager.ExportToJson(team.Id);
         json.Should().Contain(team.Id);
@@ -430,7 +430,7 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         var imported = teamManager.ImportFromJson(json);
         imported.Id.Should().StartWith("team-import-");
-        imported.Members.Should().HaveCount(8);
+        imported.Members.Should().HaveCount(Enum.GetValues<AgentRole>().Length);
 
         var graph = WorkflowGraph.CreateDefaultEngineeringCircus();
         graph.Nodes.Should().HaveCount(8);

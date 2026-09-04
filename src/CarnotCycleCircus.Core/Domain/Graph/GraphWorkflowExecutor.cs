@@ -28,6 +28,7 @@ public interface IGraphWorkflowExecutor
     WorkflowGraph CurrentGraph { get; }
     bool IsRunning { get; }
     ActiveExecutionStatus? CurrentActiveExecution { get; }
+    IAgentExecutionTracker? Tracker { get; }
     IWorkflowApprovalService ApprovalService { get; }
     event Action<ActiveExecutionStatus?>? OnActiveExecutionChanged;
 
@@ -78,6 +79,7 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
     public WorkflowGraph CurrentGraph => _graph;
     public bool IsRunning => _isRunning;
     public ActiveExecutionStatus? CurrentActiveExecution => _currentActiveExecution;
+    public IAgentExecutionTracker? Tracker => _executionEngine.Tracker;
     public IWorkflowApprovalService ApprovalService => _approvalService;
 
     public event Action<WorkflowGraph>? OnGraphUpdated;
@@ -285,107 +287,119 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
     public async Task<bool> ExecuteTicketAsync(string ticketId, CancellationToken cancellationToken = default)
     {
-        var ticket = _ticketStore.GetTicketById(ticketId);
-        if (ticket == null || ticket.Status == TicketStatus.Done)
-        {
-            return false;
-        }
-
-        if (!_ticketStore.AreDependenciesSatisfied(ticket.Id))
-        {
-            _eventStream.Publish(AgentMessage.Create(
-                role: ticket.AssigneeRole,
-                senderName: "Ticket Engine",
-                content: $"⏳ Cannot execute [{ticket.Id}] {ticket.Title}: Dependencies ({string.Join(", ", ticket.DependsOnTicketIds)}) not yet completed.",
-                type: MessageType.Alert,
-                ticketId: ticket.Id
-            ));
-            return false;
-        }
-
-        var node = GetNodeByRole(ticket.AssigneeRole);
-        if (node != null)
-        {
-            UpdateNodeState(node.Id, NodeExecutionState.Running, ticketId: ticket.Id);
-        }
-
-        _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.InProgress));
-
-        _eventStream.Publish(AgentMessage.Create(
-            role: ticket.AssigneeRole,
-            senderName: ticket.AssigneeRole.ToDisplayName(),
-            content: $"👷 Agent picked up [{ticket.Id}]: '{ticket.Title}'. Executing task deliverable...",
-            type: MessageType.StateChange,
-            ticketId: ticket.Id
-        ));
-
-        SetActiveExecution(new ActiveExecutionStatus(
-            Role: ticket.AssigneeRole,
-            RoleName: ticket.AssigneeRole.ToDisplayName(),
-            TicketId: ticket.Id,
-            TicketTitle: ticket.Title,
-            Model: "Auto-Resolved",
-            StartedAt: DateTimeOffset.UtcNow,
-            CurrentPhase: "Initiating LLM inference..."
-        ));
-
-        await Task.Delay(100, cancellationToken);
-
+        var wasAlreadyRunning = _isRunning;
+        _isRunning = true;
         try
         {
-            var artifacts = await _executionEngine.ExecuteRoleTaskAsync(ticket.AssigneeRole, ticket, cancellationToken);
-            foreach (var a in artifacts)
+            var ticket = _ticketStore.GetTicketById(ticketId);
+            if (ticket == null || ticket.Status == TicketStatus.Done)
             {
-                ticket = ticket.WithDeliverable(a);
-                if (_artifactManager != null)
-                {
-                    await _artifactManager.SaveDeliverableArtifactAsync(ticket, a, cancellationToken);
-                }
-            }
-            _ticketStore.UpdateTicket(ticket);
-
-            SetActiveExecution(null);
-
-            // Record handoff to all downstream roles
-            var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
-            foreach (var nextRole in downstreamRoles)
-            {
-                _handoffRouter.RouteSuccessHandoff(
-                    ticket.Id,
-                    ticket.AssigneeRole,
-                    nextRole,
-                    $"Delivered [{ticket.Id}] {ticket.Title}. Attached {artifacts.Count} artifacts.",
-                    $"Proceed with downstream task for {ticket.Title}.",
-                    artifacts
-                );
+                return false;
             }
 
-            _handoffRouter.AdvanceWorkflowOnTicketCompletion(ticket.Id);
-            await _memoryConsolidation.ConsolidateTaskCompletionAsync(ticket, _eventStream.GetHistory(), cancellationToken);
+            if (!_ticketStore.AreDependenciesSatisfied(ticket.Id))
+            {
+                _eventStream.Publish(AgentMessage.Create(
+                    role: ticket.AssigneeRole,
+                    senderName: "Ticket Engine",
+                    content: $"⏳ Cannot execute [{ticket.Id}] {ticket.Title}: Dependencies ({string.Join(", ", ticket.DependsOnTicketIds)}) not yet completed.",
+                    type: MessageType.Alert,
+                    ticketId: ticket.Id
+                ));
+                return false;
+            }
 
+            var node = GetNodeByRole(ticket.AssigneeRole);
             if (node != null)
             {
-                UpdateNodeState(node.Id, NodeExecutionState.Completed, $"Delivered {ticket.Title}", ticket.Id);
+                UpdateNodeState(node.Id, NodeExecutionState.Running, ticketId: ticket.Id);
             }
 
-            return true;
-        }
-        catch (Exception ex)
-        {
-            SetActiveExecution(null);
-            if (node != null)
-            {
-                UpdateNodeState(node.Id, NodeExecutionState.Failed, ex.Message, ticket.Id);
-            }
+            _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.InProgress));
+
             _eventStream.Publish(AgentMessage.Create(
                 role: ticket.AssigneeRole,
                 senderName: ticket.AssigneeRole.ToDisplayName(),
-                content: $"🛑 Task execution failed for [{ticket.Id}] ({ticket.AssigneeRole.ToDisplayName()}): {ex.Message}",
-                type: MessageType.Alert,
+                content: $"👷 Agent picked up [{ticket.Id}]: '{ticket.Title}'. Executing task deliverable...",
+                type: MessageType.StateChange,
                 ticketId: ticket.Id
             ));
-            _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Ready));
-            return false;
+
+            SetActiveExecution(new ActiveExecutionStatus(
+                Role: ticket.AssigneeRole,
+                RoleName: ticket.AssigneeRole.ToDisplayName(),
+                TicketId: ticket.Id,
+                TicketTitle: ticket.Title,
+                Model: "Auto-Resolved",
+                StartedAt: DateTimeOffset.UtcNow,
+                CurrentPhase: "Initiating LLM inference..."
+            ));
+
+            await Task.Delay(100, cancellationToken);
+
+            try
+            {
+                var artifacts = await _executionEngine.ExecuteRoleTaskAsync(ticket.AssigneeRole, ticket, cancellationToken);
+                foreach (var a in artifacts)
+                {
+                    ticket = ticket.WithDeliverable(a);
+                    if (_artifactManager != null)
+                    {
+                        await _artifactManager.SaveDeliverableArtifactAsync(ticket, a, cancellationToken);
+                    }
+                }
+                _ticketStore.UpdateTicket(ticket);
+
+                SetActiveExecution(null);
+
+                // Record handoff to all downstream roles
+                var downstreamRoles = GetDownstreamRolesFor(ticket.AssigneeRole);
+                foreach (var nextRole in downstreamRoles)
+                {
+                    _handoffRouter.RouteSuccessHandoff(
+                        ticket.Id,
+                        ticket.AssigneeRole,
+                        nextRole,
+                        $"Delivered [{ticket.Id}] {ticket.Title}. Attached {artifacts.Count} artifacts.",
+                        $"Proceed with downstream task for {ticket.Title}.",
+                        artifacts
+                    );
+                }
+
+                _handoffRouter.AdvanceWorkflowOnTicketCompletion(ticket.Id);
+                await _memoryConsolidation.ConsolidateTaskCompletionAsync(ticket, _eventStream.GetHistory(), cancellationToken);
+
+                if (node != null)
+                {
+                    UpdateNodeState(node.Id, NodeExecutionState.Completed, $"Delivered {ticket.Title}", ticket.Id);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SetActiveExecution(null);
+                if (node != null)
+                {
+                    UpdateNodeState(node.Id, NodeExecutionState.Failed, ex.Message, ticket.Id);
+                }
+                _eventStream.Publish(AgentMessage.Create(
+                    role: ticket.AssigneeRole,
+                    senderName: ticket.AssigneeRole.ToDisplayName(),
+                    content: $"🛑 Task execution failed for [{ticket.Id}] ({ticket.AssigneeRole.ToDisplayName()}): {ex.Message}",
+                    type: MessageType.Alert,
+                    ticketId: ticket.Id
+                ));
+                _ticketStore.UpdateTicket(ticket.WithStatus(TicketStatus.Blocked));
+                return false;
+            }
+        }
+        finally
+        {
+            if (!wasAlreadyRunning)
+            {
+                _isRunning = false;
+            }
         }
     }
 
@@ -396,11 +410,12 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
         {
             int maxIterations = 100;
             int count = 0;
+            var failedTicketIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             while (count < maxIterations && !cancellationToken.IsCancellationRequested)
             {
                 var readyTickets = _ticketStore.GetReadyTickets()
-                    .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done)
+                    .Where(t => t.Type != TicketType.Epic && t.Status != TicketStatus.Done && !failedTicketIds.Contains(t.Id))
                     .ToList();
 
                 if (readyTickets.Count == 0)
@@ -427,7 +442,8 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                 var executed = await ExecuteTicketAsync(nextTicket.Id, cancellationToken);
                 if (!executed)
                 {
-                    var otherReady = readyTickets.Where(t => t.Id != nextTicket.Id).ToList();
+                    failedTicketIds.Add(nextTicket.Id);
+                    var otherReady = readyTickets.Where(t => t.Id != nextTicket.Id && !failedTicketIds.Contains(t.Id)).ToList();
                     if (otherReady.Count == 0)
                     {
                         _eventStream.Publish(AgentMessage.Create(
@@ -768,14 +784,14 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
                     _eventStream.Publish(AgentMessage.Create(
                         role: AgentRole.LeadArchitect,
                         senderName: "Archduke Archibald Abstraction-o (Lead Architect)",
-                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict DAG dependencies.",
+                        content: $"📐 Lead Architect Backlog Refinement: Groomed story '[{story.Id}] {story.Title}' into {refinedSubtasks.Count} technical execution subtasks with strict CLAW dependencies.",
                         type: MessageType.StateChange,
                         ticketId: story.Id
                     ));
                 }
             }
 
-            // 4. Autonomous DAG Execution Loop: Drains all ready subtasks across all stories for this Epic
+            // 4. Autonomous CLAW Execution Loop: Drains all ready subtasks across all stories for this Epic
             int maxIterations = 100;
             int count = 0;
 
@@ -1075,6 +1091,17 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             CurrentPhase: "Awaiting User Approval (TPM ➔ Lead Architect)..."
         ));
 
+        // Route initiative Epic and decomposed user stories to In Review swim lane assigned to End User
+        if (epicObj != null)
+        {
+            _ticketStore.UpdateTicket(epicObj.WithStatus(TicketStatus.Review).WithAssignee(AgentRole.EndUser));
+        }
+
+        foreach (var story in stories)
+        {
+            _ticketStore.UpdateTicket(story.WithStatus(TicketStatus.Review).WithAssignee(AgentRole.EndUser));
+        }
+
         var resolution = await _approvalService.RequestApprovalAsync(gate1Request, cancellationToken);
         SetActiveExecution(null);
 
@@ -1085,15 +1112,47 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
 
         if (resolution.Status == ApprovalStatus.Rejected)
         {
+            var reason = resolution.UserFeedback ?? "No reason provided.";
+            if (epicObj != null)
+            {
+                var meta = new Dictionary<string, string>(epicObj.Metadata)
+                {
+                    ["RejectionReason"] = reason,
+                    ["ApprovalGateStage"] = "TpmToArchitect"
+                };
+                _ticketStore.UpdateTicket(epicObj with { Metadata = meta, Status = TicketStatus.Review, AssigneeRole = AgentRole.EndUser });
+            }
+
+            foreach (var story in stories)
+            {
+                var meta = new Dictionary<string, string>(story.Metadata)
+                {
+                    ["RejectionReason"] = reason,
+                    ["ApprovalGateStage"] = "TpmToArchitect"
+                };
+                _ticketStore.UpdateTicket(story with { Metadata = meta, Status = TicketStatus.Review, AssigneeRole = AgentRole.EndUser });
+            }
+
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.TechnicalProductManager,
                 senderName: "Approval Gatekeeper",
-                content: $"🛑 Workflow halted: User REJECTED approval for PRD & User Stories: {resolution.UserFeedback ?? "No reason provided."}",
+                content: $"🛑 Workflow halted: User REJECTED approval for PRD & User Stories: {reason}",
                 type: MessageType.Alert,
                 ticketId: epicId,
                 projectId: gate1ProjId
             ));
             return false;
+        }
+
+        // Approved: transition tickets from Review to Ready / Done
+        if (epicObj != null)
+        {
+            _ticketStore.UpdateTicket(epicObj.WithStatus(TicketStatus.InProgress).WithAssignee(AgentRole.TechnicalProductManager));
+        }
+
+        foreach (var story in stories)
+        {
+            _ticketStore.UpdateTicket(story.WithStatus(TicketStatus.Done).WithAssignee(AgentRole.LeadArchitect));
         }
 
         _eventStream.Publish(AgentMessage.Create(
@@ -1219,25 +1278,44 @@ public class GraphWorkflowExecutor : IGraphWorkflowExecutor
             CurrentPhase: "Awaiting User Approval (Lead Architect ➔ Coder)..."
         ));
 
+        // Route developer subtask to In Review swim lane assigned to End User
+        _ticketStore.UpdateTicket(devTicket.WithStatus(TicketStatus.Review).WithAssignee(AgentRole.EndUser));
+
         var resolution = await _approvalService.RequestApprovalAsync(gate2Request, cancellationToken);
         SetActiveExecution(null);
 
-        if (devNode != null && devNode.State == NodeExecutionState.WaitingForApproval)
-        {
-            UpdateNodeState(devNode.Id, NodeExecutionState.Idle, null, devTicket.Id);
-        }
-
         if (resolution.Status == ApprovalStatus.Rejected)
         {
+            var reason = resolution.UserFeedback ?? "No reason provided.";
+            var meta = new Dictionary<string, string>(devTicket.Metadata)
+            {
+                ["RejectionReason"] = reason,
+                ["ApprovalGateStage"] = "ArchitectToCoder"
+            };
+            _ticketStore.UpdateTicket(devTicket with { Metadata = meta, Status = TicketStatus.Review, AssigneeRole = AgentRole.EndUser });
+
+            if (devNode != null)
+            {
+                UpdateNodeState(devNode.Id, NodeExecutionState.Idle, $"Revision requested: {reason}", devTicket.Id);
+            }
+
             _eventStream.Publish(AgentMessage.Create(
                 role: AgentRole.LeadArchitect,
                 senderName: "Approval Gatekeeper",
-                content: $"🛑 Workflow halted: User REJECTED approval for Architecture & Technical Plan: {resolution.UserFeedback ?? "No reason provided."}",
+                content: $"🛑 Workflow halted: User REJECTED approval for Architecture & Technical Plan: {reason}",
                 type: MessageType.Alert,
                 ticketId: devTicket.Id,
                 projectId: gate2ProjId
             ));
             return false;
+        }
+
+        // Approved: transition devTicket back to Ready assigned to SoftwareDeveloper
+        _ticketStore.UpdateTicket(devTicket.WithStatus(TicketStatus.Ready).WithAssignee(AgentRole.SoftwareDeveloper));
+
+        if (devNode != null)
+        {
+            UpdateNodeState(devNode.Id, NodeExecutionState.Running, "Architecture approved. Ready to implement.", devTicket.Id);
         }
 
         _eventStream.Publish(AgentMessage.Create(

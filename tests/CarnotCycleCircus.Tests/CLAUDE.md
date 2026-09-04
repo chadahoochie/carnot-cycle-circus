@@ -8,9 +8,9 @@ Unit and integration test suites for Carnot Cycle Circus.
 - **Microsoft.NET.Test.Sdk** and **coverlet.collector** for test discovery and code coverage.
 
 ## Test Suite Structure
-- `TicketStoreTests.cs`: Ticket CRUD, state machine transitions, dependency DAG ordering, and validation rules.
+- `TicketStoreTests.cs`: Ticket CRUD, state machine transitions, dependency CLAW ordering, and validation rules.
 - `WorkDecompositionTests.cs`: TPM and Lead Architect hierarchical work decomposition and subtask generation.
-- `HandoffRouterTests.cs`: Inter-agent handoff packet generation, DAG progression, and failure loop remediation.
+- `HandoffRouterTests.cs`: Inter-agent handoff packet generation, CLAW progression, and failure loop remediation.
 - `ToolSandboxTests.cs`: Execution and sandboxing of tools (`WebSearch`, `CSharpSyntaxCheck`, `TestRunner`, `MemoryLookup`, `AdrWriter`).
 - `PersistentMemoryTests.cs`: Multi-tier memory operations, cosine similarity vector search, and consolidation.
 - `ApiKeyVaultTests.cs`: Credential storage, per-role key mapping, and batch swapping.

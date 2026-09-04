@@ -10,7 +10,7 @@
 
 - Initial release of Carnot Cycle Circus Autonomous Engineering Agent Orchestration Platform.
 - Multi-agent orchestration across 6 core roles: Technical Product Manager, Lead Architect, Software Developer, Security Engineer, Optimization Engineer, and Principal QA Analyst.
-- Embedded Ticket Management & Work Decomposition Engine (Epics, Features, Bugs, Spikes, Subtasks, DAG scheduling, Handoff Packets).
+- Embedded Ticket Management & Work Decomposition Engine (Epics, Features, Bugs, Spikes, Subtasks, CLAW scheduling, Handoff Packets).
 - Hierarchical Persistent Memory Layer (Working, Episodic, Semantic, Procedural) with embedded vector store.
 - Connectable Visual Workflow Graph with Input, Success Output, and Failure/Reject ports with circuit breaker fallbacks.
 - API Key Vault with per-role OpenRouter key mapping and live mid-execution key swapping.

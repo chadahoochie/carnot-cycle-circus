@@ -52,10 +52,10 @@
   - `CreateTicket(TicketItem)`, `UpdateTicket(TicketItem)`, `GetReadyTickets()`, `AreDependenciesSatisfied(string ticketId)`, `RecordHandoff(HandoffPacket)`.
 - `IWorkDecompositionEngine`:
   - `DeconstructEpicIntoUserStories(title, desc, researchBrief, priority)`: TPM & Researcher co-discovery generates Epic + Feature Stories.
-  - `RefineStoryIntoTechnicalSubtasks(story, upstreamContext)`: Lead Architect grooms Story into 6 technical subtasks (Arch, Dev, Security, Opt, QA, Integration) with strict DAG dependency edges prior to ADR authoring (ADR-0015).
+  - `RefineStoryIntoTechnicalSubtasks(story, upstreamContext)`: Lead Architect grooms Story into 6 technical subtasks (Arch, Dev, Security, Opt, QA, Integration) with strict CLAW dependency edges prior to ADR authoring (ADR-0015).
   - `DeconstructEpic(title, desc, priority)`: Orchestrates user story generation and technical refinement.
 - `IHandoffRouter`:
-  - `RouteSuccessHandoff(...)`: Dispatches structured `HandoffPacket` to next agent and advances DAG.
+  - `RouteSuccessHandoff(...)`: Dispatches structured `HandoffPacket` to next agent and advances CLAW.
   - `RouteFailureRemediation(...)`: Emits remediation packet and transitions ticket to `TicketStatus.Remediating` assigned to fixing role (e.g. Developer).
   - `AdvanceWorkflowOnTicketCompletion(ticketId)`: Evaluates downstream dependencies; transitions satisfied tickets to `TicketStatus.Ready`.
 
@@ -69,7 +69,7 @@
 - `IExternalMemoryConnector`: REST bridge for syncing with external vector stores (OpenViking, Mem0, Qdrant).
 
 ### 4.3 Connectable Workflow Graph (`CarnotCycleCircus.Core.Domain.Graph`)
-- `WorkflowGraph`: Node/Edge DAG with explicit ports:
+- `WorkflowGraph`: Node/Edge CLAW (Closed-Loop Agent Workflow) with explicit ports:
   - `PortType.Input` (🟢)
   - `PortType.Output` (🔵 Success)
   - `PortType.Failure` (🔴 Reject/Remediation loopback)

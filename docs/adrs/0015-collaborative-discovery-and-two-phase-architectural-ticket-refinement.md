@@ -34,7 +34,7 @@ We establish a formalized two-stage collaboration and refinement workflow across
        4. `[Opt] Latency Bottleneck & Allocation Audit`
        5. `[QA] Test Strategy & Final Acceptance Validation`
        6. `[Integration] Solution Packaging & Repository Integration`
-     - Precise DAG dependency mappings (`DependsOnTicketIds`) and technical acceptance criteria are established and stored in `ITicketStore`.
+     - Precise CLAW dependency mappings (`DependsOnTicketIds`) and technical acceptance criteria are established and stored in `ITicketStore`.
    - **Phase 2B (Architecture Design, ADR & Scaffolding)**:
      - The Lead Architect executes the ready Architecture subtask, producing the Nygard Architectural Decision Record (`*_ADR.md`) and compilable Clean Architecture scaffold files (Domain immutable records, Application contracts, DI extensions).
      - Downstream developers, security engineers, optimization engineers, and QA analysts execute against refined, dependency-locked subtasks and unambiguous ADR contracts.

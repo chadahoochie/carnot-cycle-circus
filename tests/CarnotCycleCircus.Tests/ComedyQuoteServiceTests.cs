@@ -37,7 +37,8 @@ public class ComedyQuoteServiceTests
             "The Waterboy",
             "Old School",
             "Top Secret",
-            "Super Troopers"
+            "Super Troopers",
+            "The Fifth Element"
         };
 
         foreach (var movie in expectedMovies)

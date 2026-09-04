@@ -317,7 +317,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id = $"team-{Guid.NewGuid().ToString("N")[..6]}",
             Name = string.IsNullOrWhiteSpace(name) ? $"{baseTeam.Name} (Custom)" : name.Trim(),
             Description = string.IsNullOrWhiteSpace(description) ? baseTeam.Description : description.Trim(),
-            Graph = baseTeam.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{name} Workflow DAG" },
+            Graph = baseTeam.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{name} Workflow CLAW" },
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -334,7 +334,7 @@ public class TeamDefinitionManager : ITeamDefinitionManager
             Id = $"team-{Guid.NewGuid().ToString("N")[..6]}",
             Name = string.IsNullOrWhiteSpace(newName) ? $"{source.Name} (Copy)" : newName.Trim(),
             Members = source.Members.Select(m => m with { Id = $"agent-{Guid.NewGuid():N}"[..18] }).ToList(),
-            Graph = source.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{newName} Workflow DAG" },
+            Graph = source.Graph with { Id = $"graph-{Guid.NewGuid().ToString("N")[..6]}", Name = $"{newName} Workflow CLAW" },
             CreatedAt = DateTimeOffset.UtcNow
         };
 

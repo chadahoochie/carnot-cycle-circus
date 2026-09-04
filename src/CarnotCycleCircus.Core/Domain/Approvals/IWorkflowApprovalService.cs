@@ -4,9 +4,13 @@ public interface IWorkflowApprovalService
 {
     bool RequireUserApproval { get; set; }
     WorkflowApprovalRequest? CurrentPendingRequest { get; }
+    IReadOnlyList<WorkflowApprovalRequest> RejectedRequests { get; }
     IReadOnlyList<WorkflowApprovalRequest> History { get; }
     IReadOnlyList<WorkflowApprovalRequest> GetHistoryByProject(string projectId);
     WorkflowApprovalRequest? GetCurrentPendingRequestForProject(string? projectId);
+    WorkflowApprovalRequest? GetLatestPendingOrRejectedRequestForProject(string? projectId);
+    WorkflowApprovalRequest? GetRequestForTicket(string ticketId);
+    WorkflowApprovalRequest? GetRequestById(string requestId);
 
     event Action<WorkflowApprovalRequest>? OnApprovalRequested;
     event Action<WorkflowApprovalRequest>? OnApprovalResolved;

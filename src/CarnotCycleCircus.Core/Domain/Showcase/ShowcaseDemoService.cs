@@ -45,7 +45,7 @@ public class ShowcaseDemoService : IShowcaseDemoService
         new(
             Id: "friday-panic-meltdown",
             Title: "⚔️ 'Tis But a Scratch: The Friday 4:59 PM Meltdown & Self-Healing Loopback",
-            Tagline: "QA and Security reject non-compliant code; Developer screams 'Just a flesh wound!' and remediates via DAG failure ports.",
+            Tagline: "QA and Security reject non-compliant code; Developer screams 'Just a flesh wound!' and remediates via CLAW failure ports.",
             Description: "Quinn ('That's a lot of nuts!') and Sari ('It's a trap!') verify strict standards and route remediation packets to Devon ('Like a glove!') across failure ports.",
             HighlightPersona: "Quinn (QA), Sari (Security) & Devon (Dev)"
         ),

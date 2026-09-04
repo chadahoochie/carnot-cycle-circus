@@ -51,7 +51,7 @@ public class WorkDecompositionTests
             AgentRole.IntegrationEngineer
         ]);
 
-        // Verify DAG ordering: Arch depends on Feature Story, Dev depends on Arch, Security & Opt depend on Dev, QA depends on Sec & Opt, Integration depends on QA
+        // Verify CLAW ordering: Arch depends on Feature Story, Dev depends on Arch, Security & Opt depend on Dev, QA depends on Sec & Opt, Integration depends on QA
         var archSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.LeadArchitect);
         var devSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.SoftwareDeveloper);
         var secSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.SecurityEngineer);

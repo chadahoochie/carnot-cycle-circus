@@ -14,7 +14,7 @@
         <button class="btn @(activeTab == "kanban" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "kanban"' style="white-space: nowrap;">
             📊 Kanban of Doom
         </button>
-        <button class="btn @(activeTab == "dag" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "dag"' style="white-space: nowrap;">
+        <button class="btn @(activeTab == "claw" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "claw"' style="white-space: nowrap;">
             🌳 Decomposition Tree
         </button>
         <button class="btn @(activeTab == "handoffs" ? "btn-primary" : "btn-secondary")" @onclick='() => activeTab = "handoffs"' style="white-space: nowrap;">
@@ -71,7 +71,7 @@
         }
     </div>
 }
-else if (activeTab == "dag")
+else if (activeTab == "claw")
 {
     <div class="glass-card">
         <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px;">Hierarchical Backlog Decomposition Tree</h3>

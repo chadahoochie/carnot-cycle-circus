@@ -11,13 +11,14 @@
 @inject IApiKeyVaultService KeyVaultService
 @inject IModelCatalogService CatalogService
 @inject IWorkflowApprovalService ApprovalService
+@inject IActiveProjectContext ActiveProjectContext
 
 <QuickstartRingmasterBanner />
 
 <div class="page-header">
     <div>
-        <h2 style="font-size: 1.5rem; font-weight: 700;">👥 Team Circus Ring & DAG Workflows</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble multi-agent troupes where each squad owns a customized DAG execution graph, port routing, and circuit breaker resilience policies.</p>
+        <h2 style="font-size: 1.5rem; font-weight: 700;">👥 Team Circus Ring & CLAW Workflows</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Assemble multi-agent troupes where each squad owns a customized Closed-Loop Agent Workflow (CLAW) execution graph, port routing, and circuit breaker resilience policies.</p>
     </div>
 
     <!-- Squad Selector, Actions & Execution Controls -->
@@ -38,7 +39,7 @@
         </button>
 
         <button class="btn btn-secondary" @onclick="OpenAddNodeModal" style="white-space: nowrap;">
-            ➕ Add DAG Node
+            ➕ Add CLAW Node
         </button>
 
         <button class="btn btn-primary" @onclick="RunWorkflow" disabled="@GraphExecutor.IsRunning" style="white-space: nowrap;">
@@ -74,24 +75,35 @@
     </div>
 }
 
-@if (ApprovalService.CurrentPendingRequest != null)
+@if (ActiveApproval is { } activeApproval)
 {
-    var pending = ApprovalService.CurrentPendingRequest;
-    <div class="glass-card pulse-waiting" style="margin-bottom: 20px; padding: 14px 18px; border: 2px solid #f59e0b; background: linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    var isRejected = activeApproval.Status == ApprovalStatus.Rejected;
+    var bannerBorder = isRejected ? "#ef4444" : "#f59e0b";
+    var bannerBg = isRejected 
+        ? "linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)" 
+        : "linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(15, 23, 42, 0.95) 100%)";
+    var badgeBg = isRejected ? "#ef4444" : "#f59e0b";
+    var badgeText = isRejected ? "REVISION REQUESTED" : "USER INTERACTION REQUIRED";
+    var buttonClass = isRejected ? "btn btn-danger" : "btn btn-warning";
+    var buttonText = isRejected 
+        ? $"📋 Review & Revise Approval Gate ({activeApproval.ItemsToApprove.Count} items)" 
+        : $"📋 Review & Approve Gate ({activeApproval.ItemsToApprove.Count} items)";
+
+    <div class="glass-card @(isRejected ? "" : "pulse-waiting")" style="margin-bottom: 20px; padding: 14px 18px; border: 2px solid @bannerBorder; background: @bannerBg; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 1.8rem;">✋</span>
+            <span style="font-size: 1.8rem;">@(isRejected ? "🛑" : "✋")</span>
             <div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="badge" style="background: #f59e0b; color: #000; font-weight: 700; font-size: 0.72rem;">USER INTERACTION REQUIRED</span>
-                    <strong style="color: #f8fafc; font-size: 0.95rem;">@pending.GateTitle</strong>
+                    <span class="badge" style="background: @badgeBg; color: #000; font-weight: 700; font-size: 0.72rem;">@badgeText</span>
+                    <strong style="color: #f8fafc; font-size: 0.95rem;">@activeApproval.GateTitle</strong>
                 </div>
-                <div style="font-size: 0.82rem; color: #fde047; margin-top: 2px;">
-                    @pending.GateDescription
+                <div style="font-size: 0.82rem; color: @(isRejected ? "#fca5a5" : "#fde047"); margin-top: 2px;">
+                    @(isRejected && !string.IsNullOrWhiteSpace(activeApproval.UserFeedback) ? $"Revision Directive: {activeApproval.UserFeedback}" : activeApproval.GateDescription)
                 </div>
             </div>
         </div>
-        <button class="btn btn-warning" style="background: #f59e0b; color: #000; font-weight: 700; padding: 8px 16px; font-size: 0.88rem; border: none;" @onclick="() => showApprovalModal = true">
-            📋 Review &amp; Approve Gate (@pending.ItemsToApprove.Count items)
+        <button class="@buttonClass" style="font-weight: 700; padding: 8px 16px; font-size: 0.88rem; border: none;" @onclick="() => OpenApprovalModal(activeApproval)">
+            @buttonText
         </button>
     </div>
 }
@@ -108,7 +120,7 @@
 
     <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 0.82rem;">
         <div>
-            <span style="color: var(--text-muted);">DAG Nodes:</span>
+            <span style="color: var(--text-muted);">CLAW Nodes:</span>
             <span style="font-weight: 700; color: #38bdf8; margin-left: 4px;">@currentTeam.Graph.Nodes.Count</span>
         </div>
         <div>
@@ -139,7 +151,7 @@
     </div>
 }
 
-<!-- Interactive DAG Canvas for the Active Squad -->
+<!-- Interactive CLAW Canvas for the Active Squad -->
 <div class="glass-card" 
      style="padding: 0; overflow: auto; position: relative; height: 500px; width: 100%; max-width: 100%; min-width: 0; background: radial-gradient(#1e293b 1px, transparent 1px); background-size: 24px 24px; border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 20px;"
      @onmousemove="HandleCanvasMouseMove"
@@ -216,8 +228,9 @@
         </svg>
 
         <!-- Visual Draggable Nodes -->
-        @foreach (var node in currentTeam.Graph.Nodes)
+        @foreach (var baseNode in currentTeam.Graph.Nodes)
         {
+            var node = GraphExecutor.CurrentGraph?.Nodes.FirstOrDefault(n => n.Id == baseNode.Id) ?? baseNode;
             var isSelected = _selectedNodeId == node.Id;
             var selectedClass = isSelected ? "node-selected" : "";
             var pulseClass = node.State == NodeExecutionState.Running ? "node-running" : (node.State == NodeExecutionState.Failed ? "node-failed" : (node.State == NodeExecutionState.Completed ? "node-completed" : (node.State == NodeExecutionState.WaitingForApproval ? "node-waiting" : "")));
@@ -391,13 +404,29 @@
                         <div style="color: var(--text-main);">@_selectedNode.LastOutputSummary</div>
                     </div>
                 }
+
+                @{
+                    var nodeAgent = !string.IsNullOrEmpty(_selectedNode.AgentId) ? AgentManager.GetAgent(_selectedNode.AgentId) : AgentManager.GetAgentForRole(_selectedNode.Role);
+                }
+                @if (nodeAgent != null)
+                {
+                    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; font-size: 0.76rem; display: flex; flex-direction: column; gap: 4px;">
+                        <div><span style="color: var(--text-muted);">Primary Model:</span> <code style="color: #22c55e;">@(nodeAgent.EffectiveModel ?? "None")</code></div>
+                        <div><span style="color: var(--text-muted);">Fallback Model:</span> <code style="color: #f59e0b;">@(string.IsNullOrEmpty(nodeAgent.Persona.FallbackModel) ? "None" : nodeAgent.Persona.FallbackModel)</code></div>
+                    </div>
+                }
+
+                <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 6px 10px; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;"
+                        @onclick="() => showActivityModal = true">
+                    🔬 Inspect Agent Activity
+                </button>
             </div>
         }
         else
         {
             <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
                 <div style="font-size: 2rem; margin-bottom: 8px;">🖱️</div>
-                <div style="font-size: 0.88rem;">Click on any node on the DAG canvas to inspect its agent binding, live state, and configuration.</div>
+                <div style="font-size: 0.88rem;">Click on any node on the CLAW canvas to inspect its agent binding, live state, and configuration.</div>
             </div>
         }
     </div>
@@ -454,7 +483,7 @@
     <div class="modal-backdrop" @onclick="() => showAddNodeModal = false">
         <div class="modal-dialog" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Add Agent Node to Squad DAG</h3>
+                <h3 style="font-size: 1.1rem; font-weight: 700;">➕ Add Agent Node to Squad CLAW</h3>
                 <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false" style="padding: 4px 8px;">✕</button>
             </div>
             <div class="modal-body">
@@ -483,7 +512,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" @onclick="() => showAddNodeModal = false">Cancel</button>
-                <button class="btn btn-success" @onclick="AddNodeToGraph">➕ Add to DAG</button>
+                <button class="btn btn-success" @onclick="AddNodeToGraph">➕ Add to CLAW</button>
             </div>
         </div>
     </div>
@@ -548,7 +577,7 @@
                 else
                 {
                     <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">
-                        Copy the current squad and DAG layout configuration:
+                        Copy the current squad and CLAW layout configuration:
                     </p>
                     <textarea class="form-control" style="height: 260px; font-family: monospace; font-size: 0.8rem;" readonly>@jsonPayload</textarea>
                 }
@@ -578,7 +607,7 @@
                     Are you sure you want to delete squad <strong>@teamToDeleteName</strong> (<code style="color: #38bdf8;">@teamToDeleteId</code>)?
                 </p>
                 <p style="color: var(--text-muted); font-size: 0.82rem; margin-bottom: 0;">
-                    This will permanently remove the squad's customized workflow DAG topology and member configuration.
+                    This will permanently remove the squad's customized workflow CLAW topology and member configuration.
                 </p>
             </div>
             <div class="modal-footer">
@@ -668,18 +697,29 @@
 }
 
 <!-- Human Approval Gate Modal -->
-@if (showApprovalModal && ApprovalService.CurrentPendingRequest != null)
+@if (showApprovalModal)
 {
-    <WorkflowApprovalModal Request="@ApprovalService.CurrentPendingRequest" OnClose="() => showApprovalModal = false" />
+    var modalRequest = selectedApprovalRequest ?? ActiveApproval;
+    @if (modalRequest != null)
+    {
+        <WorkflowApprovalModal Request="@modalRequest" OnClose="HandleCloseApprovalModal" />
+    }
+}
+
+<!-- Agent Activity Detailed Inspector Modal -->
+@if (showActivityModal)
+{
+    <AgentActivityModal OnClose="() => showActivityModal = false" />
 }
 
 @code {
     private EngineeringTeam currentTeam = default!;
     private string? statusMessage;
+    private bool showActivityModal;
 
     // Node Selection & Canvas Dragging State
     private string? _selectedNodeId;
-    private GraphNode? _selectedNode => currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId);
+    private GraphNode? _selectedNode => (GraphExecutor.CurrentGraph?.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId)) ?? currentTeam.Graph.Nodes.FirstOrDefault(n => n.Id == _selectedNodeId);
 
     private string? _draggingNodeId;
     private double _dragStartClientX;
@@ -715,8 +755,13 @@
     private bool showDeleteConfirmModal;
     private bool showSquadRosterModal;
     private bool showApprovalModal;
+    private WorkflowApprovalRequest? selectedApprovalRequest;
     private string? teamToDeleteId;
     private string? teamToDeleteName;
+
+    private WorkflowApprovalRequest? ActiveApproval =>
+        ApprovalService.CurrentPendingRequest 
+        ?? ApprovalService.GetLatestPendingOrRejectedRequestForProject(ActiveProjectContext.CurrentProjectId);
 
     private IReadOnlyList<ModelCatalogEntry> availableCatalogModels = [];
 
@@ -731,14 +776,17 @@
         GraphExecutor.LoadTeam(currentTeam);
         availableCatalogModels = await CatalogService.GetModelsAsync();
 
-        if (ApprovalService.CurrentPendingRequest != null)
+        var activeApproval = ActiveApproval;
+        if (activeApproval != null && activeApproval.Status == ApprovalStatus.Pending)
         {
+            selectedApprovalRequest = activeApproval;
             showApprovalModal = true;
         }
     }
 
-    private void HandleApprovalRequested(WorkflowApprovalRequest _)
+    private void HandleApprovalRequested(WorkflowApprovalRequest req)
     {
+        selectedApprovalRequest = req;
         showApprovalModal = true;
         InvokeAsync(StateHasChanged);
     }
@@ -746,18 +794,29 @@
     private void HandleApprovalResolved(WorkflowApprovalRequest _)
     {
         showApprovalModal = false;
+        selectedApprovalRequest = null;
         InvokeAsync(StateHasChanged);
+    }
+
+    private void OpenApprovalModal(WorkflowApprovalRequest req)
+    {
+        selectedApprovalRequest = req;
+        showApprovalModal = true;
+    }
+
+    private void HandleCloseApprovalModal()
+    {
+        showApprovalModal = false;
+        selectedApprovalRequest = null;
     }
 
     private void HandleGraphUpdated(WorkflowGraph _)
     {
-        currentTeam = TeamManager.GetCurrentTeam();
         InvokeAsync(StateHasChanged);
     }
 
     private void HandleNodeStateChanged(string _, NodeExecutionState __)
     {
-        currentTeam = TeamManager.GetCurrentTeam();
         InvokeAsync(StateHasChanged);
     }
 
@@ -900,7 +959,7 @@
         var conns = currentTeam.Graph.Connections.Where(c => c.SourceNodeId != nodeId && c.TargetNodeId != nodeId).ToList();
         UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes, Connections = conns });
         _selectedNodeId = null;
-        statusMessage = $"Removed node {nodeId} from DAG.";
+        statusMessage = $"Removed node {nodeId} from CLAW.";
     }
 
     private void OnNodeAgentSelectionChanged(ChangeEventArgs e)
@@ -1050,7 +1109,7 @@
         UpdateTeamGraph(currentTeam.Graph with { Nodes = nodes });
         showAddNodeModal = false;
         _selectedNodeId = id;
-        statusMessage = $"Added node '{node.Name}' to squad DAG.";
+        statusMessage = $"Added node '{node.Name}' to squad CLAW.";
     }
 
     private void OpenNewTeamModal()

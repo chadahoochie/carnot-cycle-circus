@@ -129,7 +129,13 @@ public class ComedyQuoteService : IComedyQuoteService
         new("Meow what is so funny?", "Super Troopers", "Officer Foster", "Team Standups"),
         new("Enhance... enhance... enhance...", "Super Troopers", "Thorny & Rabbit", "Profiling Hot Paths"),
         new("Littering and... littering and... smokin' the reefer.", "Super Troopers", "Officer Mac", "Security Violations"),
-        new("The snozzberries taste like snozzberries!", "Super Troopers", "College Boy", "Fuzz Testing")
+        new("The snozzberries taste like snozzberries!", "Super Troopers", "College Boy", "Fuzz Testing"),
+
+        // The Fifth Element
+        new("Negative, I am a meat popsicle.", "The Fifth Element", "Korben Dallas", "Human Gate & Code Review"),
+        new("Anybody else want to negotiate?", "The Fifth Element", "Korben Dallas", "Architecture & Governance"),
+        new("Leeloo Dallas mul-ti-pass!", "The Fifth Element", "Leeloo", "Identity & Auth"),
+        new("Super green!", "The Fifth Element", "Ruby Rhod", "CI/CD & Monitoring")
     ];
 
     private readonly Random _random = new();

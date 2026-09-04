@@ -5,7 +5,7 @@
 
 ## Context
 When developers and technical users adopt Carnot Cycle Circus, they face two distinct operational paradigms with varying friction:
-1. **Greenfield Development ("From Scratch")**: Users want to build a new system or feature but face cognitive overload trying to manually create Epics, configure 6 agent personas, wire DAG dependencies, and seed architectural rules.
+1. **Greenfield Development ("From Scratch")**: Users want to build a new system or feature but face cognitive overload trying to manually create Epics, configure 6 agent personas, wire CLAW dependencies, and seed architectural rules.
 2. **Brownfield Development ("Existing Project")**: Users want autonomous agents to assist in an existing repository or solution, but transcribing codebase architecture, package dependencies, test structures, and tech debt into agent memory is tedious and error-prone.
 3. **First-Run Time-to-Value**: Users evaluate tools in seconds. Requiring API keys, model configuration, and database connection strings before showing value causes immediate user churn.
 

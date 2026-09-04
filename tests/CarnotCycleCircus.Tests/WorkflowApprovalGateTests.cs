@@ -240,6 +240,13 @@ public class WorkflowApprovalGateTests
         var allTickets = _ticketStore.GetAllTickets();
         var subtasks = allTickets.Where(t => t.Type == TicketType.Subtask).ToList();
         subtasks.Should().BeEmpty();
+
+        var epic = allTickets.FirstOrDefault(t => t.Type == TicketType.Epic);
+        epic.Should().NotBeNull();
+        epic!.Status.Should().Be(TicketStatus.Review);
+        epic.AssigneeRole.Should().Be(AgentRole.EndUser);
+        epic.Metadata.Should().ContainKey("RejectionReason");
+        epic.Metadata["RejectionReason"].Should().Be("Business priority shifted. Initiative canceled.");
     }
 
     [Fact(Timeout = 15000)]
@@ -275,12 +282,85 @@ public class WorkflowApprovalGateTests
         var workflowSuccess = await workflowTask;
         workflowSuccess.Should().BeFalse();
 
-        // Coder subtasks should remain unexecuted (not Done)
-        var devSubtasks = _ticketStore.GetAllTickets()
-            .Where(t => t.Type == TicketType.Subtask && t.AssigneeRole == AgentRole.SoftwareDeveloper)
+        // Developer subtask should remain unexecuted (not Done) and routed to In Review assigned to EndUser
+        var devOrReviewSubtasks = _ticketStore.GetAllTickets()
+            .Where(t => t.Type == TicketType.Subtask && t.AssigneeRole is AgentRole.EndUser or AgentRole.SoftwareDeveloper)
             .ToList();
 
-        devSubtasks.Should().NotBeEmpty();
-        devSubtasks.Should().OnlyContain(t => t.Status != TicketStatus.Done);
+        devOrReviewSubtasks.Should().NotBeEmpty();
+        devOrReviewSubtasks.Should().OnlyContain(t => t.Status != TicketStatus.Done);
+        devOrReviewSubtasks.Should().Contain(t => t.Status == TicketStatus.Review && t.AssigneeRole == AgentRole.EndUser);
+        var rejectedTicket = devOrReviewSubtasks.First(t => t.Status == TicketStatus.Review && t.AssigneeRole == AgentRole.EndUser);
+        rejectedTicket.Metadata.Should().ContainKey("RejectionReason");
+        rejectedTicket.Metadata["RejectionReason"].Should().Be("ADR rejected. Do not use Kafka; use local Channels.");
+    }
+
+    [Fact]
+    public void AgentRole_EndUser_ShouldHaveCorrectMetadataAndDefaults()
+    {
+        AgentRole.EndUser.ToEmoji().Should().Be("👤");
+        AgentRole.EndUser.ToColorHex().Should().Be("#f59e0b");
+        AgentRole.EndUser.ToDisplayName().Should().Be("End User");
+
+        var persona = AgentPersona.CreateDefault(AgentRole.EndUser);
+        persona.Name.Should().Be("Major Korben \"Meat-Popsicle\" Dallas (End User)");
+        persona.Role.Should().Be(AgentRole.EndUser);
+        persona.SystemPrompt.Should().Contain("meat popsicle");
+
+        var generator = new AgentNameGenerator();
+        var suggestedName = generator.GenerateSuggestedName(AgentRole.EndUser);
+        suggestedName.Should().NotBeNullOrWhiteSpace();
+        suggestedName.Should().Contain("(End User)");
+    }
+
+    [Fact]
+    public async Task ApprovalService_RejectedRequest_ShouldBeRetained_AndCanBeReApproved()
+    {
+        var service = new WorkflowApprovalService { RequireUserApproval = true };
+        var request = new WorkflowApprovalRequest(
+            Id: "GATE-REJ-01",
+            EpicId: "EPIC-TEST-01",
+            ProjectId: "proj-123",
+            Stage: ApprovalGateStage.TpmToArchitect,
+            GateTitle: "Initial Gate",
+            GateDescription: "Description",
+            NextStepDescription: "Next",
+            PrecedingRole: AgentRole.TechnicalProductManager,
+            ProceedingRole: AgentRole.LeadArchitect,
+            ItemsToApprove: [],
+            Deliverables: [],
+            CreatedAt: DateTimeOffset.UtcNow
+        );
+
+        var task = service.RequestApprovalAsync(request);
+
+        service.CurrentPendingRequest.Should().NotBeNull();
+        service.Reject("GATE-REJ-01", "Requires revision on criteria 3.");
+
+        var rejectedRes = await task;
+        rejectedRes.Status.Should().Be(ApprovalStatus.Rejected);
+        rejectedRes.UserFeedback.Should().Be("Requires revision on criteria 3.");
+
+        // Verify rejected retention
+        service.CurrentPendingRequest.Should().BeNull();
+        service.RejectedRequests.Should().HaveCount(1);
+        service.GetRequestById("GATE-REJ-01").Should().NotBeNull();
+        service.GetRequestById("GATE-REJ-01")!.Status.Should().Be(ApprovalStatus.Rejected);
+        service.GetLatestPendingOrRejectedRequestForProject("proj-123").Should().NotBeNull();
+        service.GetLatestPendingOrRejectedRequestForProject("proj-123")!.Id.Should().Be("GATE-REJ-01");
+        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).Should().BeFalse();
+
+        // Now re-approve the previously rejected request
+        WorkflowApprovalRequest? resolvedEvent = null;
+        service.OnApprovalResolved += r => resolvedEvent = r;
+
+        var approved = service.Approve("GATE-REJ-01", "Revised criteria accepted.");
+        approved.Should().BeTrue();
+
+        service.RejectedRequests.Should().BeEmpty();
+        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).Should().BeTrue();
+        resolvedEvent.Should().NotBeNull();
+        resolvedEvent!.Status.Should().Be(ApprovalStatus.Approved);
+        resolvedEvent.UserFeedback.Should().Be("Revised criteria accepted.");
     }
 }

@@ -6,7 +6,7 @@
 ## Context
 Carnot Cycle Circus previously modeled all tickets, artifacts, telemetry, ADRs, and approval gates as a single global workspace. As users composed multiple independent initiatives (e.g. an IoT ingestion pipeline and a separate zero-trust identity overhaul) using the same running instance, several problems emerged:
 1. **Cross-Contamination**: Tickets, event stream messages, artifacts, and ADRs from unrelated initiatives were interleaved with no isolation boundary, making the Ticket Studio, Panic & Telemetry Dashboard, Artifacts Hub, and Docs & ADR Hub unusable once more than one initiative was in flight.
-2. **Ambiguous Administration Boundary**: There was no clear line between application-level configuration (agent roster, squad DAG topology, skills, model catalog, key vault, standards, knowledge maps, persistent memory) and the scoped units of work those agents actually produce.
+2. **Ambiguous Administration Boundary**: There was no clear line between application-level configuration (agent roster, squad CLAW topology, skills, model catalog, key vault, standards, knowledge maps, persistent memory) and the scoped units of work those agents actually produce.
 3. **No Organizational Container**: There was no first-class entity to group related tickets/artifacts/telemetry/approvals, track their lifecycle (`Active`, `Paused`, `Completed`, `Archived`), or optionally bind them to a specific engineering squad.
 
 ## Decision

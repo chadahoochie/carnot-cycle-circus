@@ -66,6 +66,31 @@ public record TicketItem(
 
     public TicketItem WithAssignee(AgentRole role) =>
         this with { AssigneeRole = role };
+
+    public TicketItem WithTitle(string title) =>
+        this with { Title = string.IsNullOrWhiteSpace(title) ? Title : title.Trim() };
+
+    public TicketItem WithDescription(string description) =>
+        this with { Description = description ?? string.Empty };
+
+    public TicketItem WithPriority(TicketPriority priority) =>
+        this with { Priority = priority };
+
+    public TicketItem WithAcceptanceCriteria(IReadOnlyList<string> criteria) =>
+        this with { AcceptanceCriteria = criteria ?? Array.Empty<string>() };
+
+    public TicketItem UpdateDetails(
+        string title,
+        string description,
+        TicketPriority priority,
+        IReadOnlyList<string> criteria) =>
+        this with
+        {
+            Title = string.IsNullOrWhiteSpace(title) ? Title : title.Trim(),
+            Description = description ?? string.Empty,
+            Priority = priority,
+            AcceptanceCriteria = criteria ?? Array.Empty<string>()
+        };
 }
 
 [method: JsonConstructor]

@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The Carnot Cycle Circus Agent Orchestration Engine models an autonomous software engineering organization composed of **six specialized roles**. Agents collaborate via a connectable **Directed Acyclic Graph (DAG)** with explicit **Input (🟢)**, **Success Output (🔵)**, and **Failure / Remediation (🔴)** ports.
+The Carnot Cycle Circus Agent Orchestration Engine models an autonomous software engineering organization composed of **six specialized roles**. Agents collaborate via a connectable **Closed-Loop Agent Workflow (CLAW)** with explicit **Input (🟢)**, **Success Output (🔵)**, and **Failure / Remediation (🔴)** ports.
 
 ---
 

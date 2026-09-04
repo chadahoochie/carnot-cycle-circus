@@ -224,7 +224,7 @@ public class WorkflowGraphTests
     }
 
     [Fact]
-    public async Task ExecuteTicketAsync_WhenNoApiKey_ShouldReturnFalseAndResetTicketStatus()
+    public async Task ExecuteTicketAsync_WhenNoApiKey_ShouldReturnFalseAndMarkTicketBlocked()
     {
         var ticketStore = new TicketStore();
         var eventStream = new AgentEventStream();
@@ -267,7 +267,7 @@ public class WorkflowGraphTests
 
         result.Should().BeFalse();
         var updated = ticketStore.GetTicketById(ticket.Id);
-        updated!.Status.Should().Be(TicketStatus.Ready);
+        updated!.Status.Should().Be(TicketStatus.Blocked);
         executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.SoftwareDeveloper).State.Should().Be(NodeExecutionState.Failed);
     }
 

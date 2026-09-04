@@ -21,7 +21,7 @@ A comprehensive documentation suite is maintained under [`docs/`](docs/README.md
 - 🏛️ **Architecture & Topologies**:
   - [System Overview & C4 Models](docs/architecture/system-overview.md)
   - [Agent Orchestration & Failure Ports](docs/architecture/agent-orchestration.md)
-  - [Embedded Ticket System & DAG Decomposition](docs/architecture/ticket-system.md)
+  - [Embedded Ticket System & CLAW Decomposition](docs/architecture/ticket-system.md)
   - [Hierarchical Persistent Memory (OpenViking-Style)](docs/architecture/memory-system.md)
   - [Inference Hub, Key Vault & Security](docs/architecture/inference-and-security.md)
   - [AI Knowledge Maps & Skill Registry](docs/architecture/knowledge-and-skills.md)
@@ -53,9 +53,9 @@ A comprehensive documentation suite is maintained under [`docs/`](docs/README.md
 
 2. **Embedded Ticket Management & Work Decomposition Engine**:
    - Hierarchical breakdown: Epics $\to$ Stories/Features/Bugs/Spikes $\to$ Granular Subtasks.
-   - Automated TPM & Lead Architect work decomposition with DAG dependency scheduling.
+   - Automated TPM & Lead Architect work decomposition with CLAW dependency scheduling.
    - Formal inter-agent `HandoffPacket` payloads passing deliverables, context, review checklists, and remediation notes.
-   - Interactive Blazor Kanban board and Dependency DAG visualizer.
+   - Interactive Blazor Kanban board and Dependency CLAW visualizer.
 
 3. **Hierarchical Persistent Memory Layer (OpenViking-Style)**:
    - Multi-tier memory architecture: Working, Episodic, Semantic, and Procedural memory.
@@ -87,7 +87,7 @@ A comprehensive documentation suite is maintained under [`docs/`](docs/README.md
 flowchart TB
     subgraph SharedUI ["Shared Razor UI Library (CarnotCycleCircus.UI)"]
         TF["Team Definition Studio"]
-        TicketUI["Ticket Management Studio<br/>(Backlog, Kanban, Dependency DAG, Handoff Logs)"]
+        TicketUI["Ticket Management Studio<br/>(Backlog, Kanban, Dependency CLAW, Handoff Logs)"]
         KeyVaultUI["Key Vault & Quick-Swap Bar"]
         MemoryUI["Memory Inspector & Pruner"]
         DocsUI["Docs & ADR Hub"]
@@ -114,7 +114,7 @@ flowchart TB
         KeyVaultService["API Key Vault & Credential Manager"]
         TicketStore["Ticket Store & State Machine"]
         WorkSplitter["TPM/Architect Work Decomposition Engine"]
-        HandoffRouter["Inter-Agent Handoff & DAG Scheduler"]
+        HandoffRouter["Inter-Agent Handoff & CLAW Scheduler"]
         AdrManager["ADR & Documentation Engine"]
         StandardsEngine["Standards & Quality Gates Engine"]
         KMapEngine["AI Knowledge Map Engine"]

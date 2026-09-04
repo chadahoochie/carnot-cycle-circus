@@ -31,7 +31,7 @@ public class AgentNameGenerator : IAgentNameGenerator
         "Hildegard", "Zephaniah", "Barnaby", "Thaddeus", "Wolfgang", "Felix",
         "Delilah", "Tobias", "Lucian", "Cosmo", "Silas", "Theodore", "Evangeline",
         "Dark-Helmet", "Blinkin", "Fronkensteen", "Navin", "Bobby", "Frank-the-Tank",
-        "Thorny", "Wimp-Lo", "Rumack", "Drebin", "Griswold", "Spackler", "Ace"
+        "Thorny", "Wimp-Lo", "Rumack", "Drebin", "Griswold", "Spackler", "Ace", "Korben"
     ];
 
     private static readonly Dictionary<AgentRole, (string RoleSuffix, string DefaultAct, string[] DefaultNicknames, string[] DefaultSurnames)> RoleDefaults = new()
@@ -83,6 +83,12 @@ public class AgentNameGenerator : IAgentNameGenerator
             "Master Ring-Stitcher & Package Acrobat",
             ["Tarball", "Package-Master", "Merge-Monarch", "Clean-Clone", "Manifest-Mage", "Slnx-Stitcher", "Release-Ranger", "Deploy-Demon"],
             ["Tarjan", "Package-Master", "Solution-Stitcher", "Release-Ranger", "Merge-Master", "Deploy-Deck", "Manifest-Maker"]
+        ),
+        [AgentRole.EndUser] = (
+            "End User",
+            "Biological Gate Authority & Certified Meat Popsicle",
+            ["Meat-Popsicle", "Carbon-Unit", "Biological-Entity", "Multipass", "Stapler-Holder", "Keyboard-Pilot", "SignOff-Sovereign", "Meat-Puppet"],
+            ["Dallas", "Popsicle", "Stakeholder", "Gatekeeper", "Approver", "Reviewer", "Carbon-Lifeform"]
         )
     };
 

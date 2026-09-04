@@ -141,7 +141,7 @@ public class OpenRouterClient : IOpenRouterClient
     private const string BaseUrl = "https://openrouter.ai/api/v1/chat/completions";
     private const string ModelsUrl = "https://openrouter.ai/api/v1/models";
 
-    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromMinutes(10);
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(90);
 
     public OpenRouterClient(HttpClient? httpClient = null)
     {
@@ -225,7 +225,7 @@ public class OpenRouterClient : IOpenRouterClient
                 if (!response.IsSuccessStatusCode)
                 {
                     var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                    throw new HttpRequestException($"OpenRouter API returned {(int)response.StatusCode} {response.ReasonPhrase}: {errBody}");
+                    throw CreateDescriptiveApiException(response, request.Model, errBody);
                 }
 
                 var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -305,7 +305,7 @@ public class OpenRouterClient : IOpenRouterClient
                 if (!response.IsSuccessStatusCode)
                 {
                     var errBody = await response.Content.ReadAsStringAsync(cancellationToken);
-                    throw new HttpRequestException($"OpenRouter API returned {(int)response.StatusCode} {response.ReasonPhrase}: {errBody}");
+                    throw CreateDescriptiveApiException(response, request.Model, errBody);
                 }
 
                 using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -379,6 +379,10 @@ public class OpenRouterClient : IOpenRouterClient
                     }
                 );
             }
+            catch (HttpRequestException ex) when (IsNonRetryableClientError(ex))
+            {
+                throw;
+            }
             catch (Exception) when (attempt < maxRetries && !cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay((attempt + 1) * 2000, cancellationToken);
@@ -391,6 +395,29 @@ public class OpenRouterClient : IOpenRouterClient
 
         // Fallback to standard CompleteAsync if stream attempts exhausted
         return await CompleteAsync(request, apiKey, cancellationToken);
+    }
+
+    private static bool IsNonRetryableClientError(HttpRequestException ex) =>
+        ex.Message.Contains("Bad Request", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("Payment Required", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("Forbidden", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("Model Not Found", StringComparison.OrdinalIgnoreCase);
+
+    private static HttpRequestException CreateDescriptiveApiException(HttpResponseMessage response, string model, string errBody)
+    {
+        var statusCode = (int)response.StatusCode;
+        var explanation = statusCode switch
+        {
+            400 => $"Bad Request - OpenRouter model '{model}' rejected request parameters or payload schema",
+            401 => "Unauthorized - Invalid OpenRouter API key. Please check your key in Key Vault",
+            402 => $"Payment Required - Insufficient OpenRouter credit balance to run model '{model}'",
+            403 => $"Forbidden - Access denied to model '{model}'",
+            404 => $"Model Not Found - OpenRouter model '{model}' does not exist or has been deprecated",
+            429 => $"Rate Limited - OpenRouter rate limit exceeded for model '{model}'",
+            _ => $"HTTP {statusCode} {response.ReasonPhrase}"
+        };
+        return new HttpRequestException($"OpenRouter API returned {explanation}: {errBody}");
     }
 }
 

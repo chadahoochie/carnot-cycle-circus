@@ -1,13 +1,13 @@
-# ADR-0002: Connectable DAG Workflow Engine with Dedicated Failure Ports
+# ADR-0002: Connectable Closed-Loop Agent Workflow (CLAW) Engine with Dedicated Failure Ports
 
 ## Status
 **Accepted** (2026-08-20)
 
 ## Context
-Standard agent orchestration frameworks commonly employ linear waterfall pipelines or unconstrained mesh chatter. Linear pipelines fail catastrophically when a downstream review agent (such as Security Engineer or Principal QA Analyst) rejects a deliverable: the entire pipeline aborts, discarding prior architectural work and requiring manual re-initiation. Conversely, unconstrained mesh networks risk infinite circular chatter and lack deterministic visibility.
+Standard agent orchestration frameworks commonly employ linear waterfall pipelines or unconstrained mesh chatter. Linear pipelines fail catastrophically when a downstream review agent (such as Security Engineer or Principal QA Analyst) rejects a deliverable: the entire pipeline aborts, discarding prior architectural work and requiring manual re-initiation. Conversely, unconstrained mesh networks risk infinite circular chatter and lack deterministic visibility. Furthermore, strict Directed Acyclic Graphs (DAGs) cannot mathematically represent the feedback cycles necessary for autonomous self-healing.
 
 ## Decision
-We implement a connectable **Directed Acyclic Graph (DAG) Workflow Engine** (`CarnotCycleCircus.Core.Domain.Graph`) where each node exposes three explicit typed ports:
+We implement a connectable **Closed-Loop Agent Workflow (CLAW) Engine** (`CarnotCycleCircus.Core.Domain.Graph`) where each node exposes three explicit typed ports:
 1. **Input Port (🟢)**: Receives incoming tickets and handoff packets.
 2. **Success Output Port (🔵)**: Emits approved deliverables to downstream consumers upon passing quality gates.
 3. **Failure / Remediation Port (🔴)**: Emits rejection findings and routes tickets back to the fixing agent (e.g. Developer) in a deterministic loopback.

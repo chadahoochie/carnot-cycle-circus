@@ -90,7 +90,7 @@ public class TeamDefinitionTests
 
         var imported = _manager.ImportFromJson(json);
         imported.Should().NotBeNull();
-        imported.Members.Should().HaveCount(8);
+        imported.Members.Should().HaveCount(original.Members.Count);
         imported.Graph.Nodes.Should().HaveCount(original.Graph.Nodes.Count);
         imported.Graph.Connections.Should().HaveCount(original.Graph.Connections.Count);
         imported.DefaultFallbackModel.Should().Be(original.DefaultFallbackModel);

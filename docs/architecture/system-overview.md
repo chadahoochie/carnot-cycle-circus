@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-**Carnot Cycle Circus** is an autonomous engineering agent orchestration platform designed to model, coordinate, and execute complete software engineering lifecycles. Built in **.NET 10 (C# 13)** with an interactive **ASP.NET Core Blazor** web interface, it organizes software engineering into six specialized autonomous roles working concurrently or in structured Directed Acyclic Graph (DAG) pipelines.
+**Carnot Cycle Circus** is an autonomous engineering agent orchestration platform designed to model, coordinate, and execute complete software engineering lifecycles. Built in **.NET 10 (C# 13)** with an interactive **ASP.NET Core Blazor** web interface, it organizes software engineering into six specialized autonomous roles working concurrently or in structured Closed-Loop Agent Workflow (CLAW) pipelines.
 
 The platform resolves common multi-agent coordination problems through:
 1. **Embedded Ticket Management**: Hierarchical work decomposition ($Epics \to Stories \to Subtasks$) with explicit dependency scheduling.
@@ -22,9 +22,9 @@ The platform resolves common multi-agent coordination problems through:
 C4Context
     title System Context Diagram - Carnot Cycle Circus
 
-    Person(developer, "Software Engineer / Operator", "Configures teams, creates tickets, designs workflow DAGs, triggers agent execution, and inspects memory & telemetry.")
+    Person(developer, "Software Engineer / Operator", "Configures teams, creates tickets, designs workflow CLAWs, triggers agent execution, and inspects memory & telemetry.")
     
-    System(circus, "Carnot Cycle Circus", ".NET 10 / Blazor autonomous agent orchestration platform with embedded ticket engine, persistent memory, and workflow DAG.")
+    System(circus, "Carnot Cycle Circus", ".NET 10 / Blazor autonomous agent orchestration platform with embedded ticket engine, persistent memory, and workflow CLAW.")
     
     System_Ext(openrouter, "OpenRouter API Gateway", "Unified multi-model LLM inference provider (Claude 3.7, GPT-4o, DeepSeek-R1, Qwen 2.5 Coder, o3-mini).")
     System_Ext(ext_memory, "External Vector Stores (Optional)", "OpenViking / Mem0 / Qdrant REST endpoints for enterprise-scale vector synchronization.")
@@ -43,12 +43,12 @@ C4Container
     Person(user, "Engineer", "Uses Web Browser")
 
     Container_Boundary(c1, "Carnot Cycle Circus Application") {
-        Container(web, "Blazor Web Frontend", "ASP.NET Core 10 / Blazor Interactive Server", "Provides Kanban Studio, Visual DAG Canvas, Execution Dashboard, Memory Inspector, Key Vault Modal, and ADR Hub.")
+        Container(web, "Blazor Web Frontend", "ASP.NET Core 10 / Blazor Interactive Server", "Provides Kanban Studio, Visual CLAW Canvas, Execution Dashboard, Memory Inspector, Key Vault Modal, and ADR Hub.")
         
         Container_Boundary(core, "CarnotCycleCircus.Core (Domain & Engine)") {
-            Component(tickets, "Ticket & Handoff Engine", "ITicketStore, IWorkDecompositionEngine, IHandoffRouter", "Manages Epics, Stories, Subtasks, DAG dependency resolution, and inter-agent handoff packets.")
+            Component(tickets, "Ticket & Handoff Engine", "ITicketStore, IWorkDecompositionEngine, IHandoffRouter", "Manages Epics, Stories, Subtasks, CLAW dependency resolution, and inter-agent handoff packets.")
             Component(memory, "Hierarchical Memory System", "IPersistentMemoryStore, IMemoryConsolidationEngine", "4-tier memory, 64-dim vector cosine similarity search, and automated task consolidation.")
-            Component(orchestrator, "Graph Workflow Orchestrator", "IGraphWorkflowExecutor, WorkflowGraph", "Executes DAG nodes, tracks execution states, routes failure ports, and applies circuit breakers.")
+            Component(orchestrator, "Graph Workflow Orchestrator", "IGraphWorkflowExecutor, WorkflowGraph", "Executes CLAW nodes, tracks execution states, routes failure ports, and applies circuit breakers.")
             Component(inference, "Inference & Key Vault Hub", "IApiKeyVaultService, IOpenRouterClient, IAgentExecutionEngine", "Resolves keys and models per agent and routes real LLM completions.")
             Component(governance, "Standards & ADR Hub", "IStandardsValidator, IAdrDocumentManager", "Validates ticket policies, generates MADR/Nygard ADRs, and formats documentation bundles.")
             Component(knowledge, "Knowledge Maps & Skills", "IKnowledgeMapService, ISkillRegistry", "Maintains AI concept graphs, extracts sub-graphs, and registers role capabilities.")
@@ -172,7 +172,7 @@ sequenceDiagram
     Executor->>TPM: Activate TPM Node (Injected Research Brief context)
     TPM->>Decomp: DeconstructEpic("User Auth...", desc)
     Decomp->>Store: Create Epic + User Story 1
-    Decomp->>Store: Create 6 Subtasks (Arch, Dev, Sec, Opt, QA, Release) with DAG dependencies
+    Decomp->>Store: Create 6 Subtasks (Arch, Dev, Sec, Opt, QA, Release) with CLAW dependencies
     TPM->>TPM: Generate PRD Deliverable Artifact
     TPM->>Store: Attach PRD Artifact to Epic Ticket
     TPM->>Bus: Publish PRD & Decomposition banter
