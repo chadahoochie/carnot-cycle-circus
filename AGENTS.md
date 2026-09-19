@@ -42,6 +42,18 @@
 
 ---
 
+## 🔒 Merge Gates on `main`
+
+The `main` branch ruleset requires one approving review and CodeQL code scanning,
+fed by [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml). GitHub Code Quality
+is not available for this repository, so coverage is **measured but not gate-enforced**:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) writes a summary via
+[`scripts/coverage-summary.py`](scripts/coverage-summary.py) and attaches the Cobertura
+report as the `coverage-cobertura` artifact. Coverage covers only `CarnotCycleCircus.Core`,
+the sole project the test suite references.
+
+---
+
 ## 🛠️ Build & Test Commands
 ```bash
 # Build entire solution

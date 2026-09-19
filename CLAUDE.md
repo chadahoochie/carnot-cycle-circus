@@ -40,6 +40,18 @@ dotnet run --project src/CarnotCycleCircus.Web
 |skills-index:{skills-index-snippets}
 <!-- END DOTNET-SKILLS COMPRESSED INDEX -->
 
+## 🔒 Merge Gates on `main`
+
+The `main` branch ruleset requires one approving review and CodeQL code scanning,
+fed by [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml). GitHub Code Quality
+is not available for this repository, so coverage is **measured but not gate-enforced**:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) writes a summary via
+[`scripts/coverage-summary.py`](scripts/coverage-summary.py) and attaches the Cobertura
+report as the `coverage-cobertura` artifact. Coverage covers only `CarnotCycleCircus.Core`,
+the sole project the test suite references.
+
+---
+
 ## Core Architecture Invariants
 1. **Deliverable Isolation Contract (ADR-0005)**: Witty/cynical agent banter is restricted to chat/thought streams; all deliverables (PRDs, ADRs, C# code, tests, threat models, scorecards) MUST remain 100% professional and standard-compliant.
 2. **Immutable Domain & Strong Types (ADR-0001)**: Use `record` for domain models/DTOs and `readonly record struct` for value objects (`TicketId`, `HandoffId`, `AgentRole`). No public property setters.
