@@ -42,12 +42,13 @@ dotnet run --project src/CarnotCycleCircus.Web
 
 ## 🔒 Merge Gates on `main`
 
-The `main` branch ruleset requires CodeQL code scanning, GitHub Code Quality results,
-and line coverage of at least 85% (max 3 point drop), on top of one approving review.
-The reporting that feeds those rules lives in [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)
-and the coverage upload step of [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
-Coverage is measured only over `CarnotCycleCircus.Core`, the sole project the test suite
-references, so the margin over 85% is thin — check it before adding untested code to Core.
+The `main` branch ruleset requires one approving review and CodeQL code scanning,
+fed by [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml). GitHub Code Quality
+is not available for this repository, so coverage is **measured but not gate-enforced**:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) writes a summary via
+[`scripts/coverage-summary.py`](scripts/coverage-summary.py) and attaches the Cobertura
+report as the `coverage-cobertura` artifact. Coverage covers only `CarnotCycleCircus.Core`,
+the sole project the test suite references.
 
 ---
 

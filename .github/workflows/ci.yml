@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      code-quality: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -37,7 +35,7 @@ jobs:
           --collect:"XPlat Code Coverage"
           --results-directory ${{ github.workspace }}/TestResults
 
-      - name: Collect Coverage Report
+      - name: Report Coverage
         id: coverage
         run: |
           report="$(find "${{ github.workspace }}/TestResults" -name 'coverage.cobertura.xml' | head -n 1)"
@@ -46,14 +44,9 @@ jobs:
             exit 1
           fi
           cp "$report" "${{ github.workspace }}/coverage.cobertura.xml"
+          python3 scripts/coverage-summary.py "${{ github.workspace }}/coverage.cobertura.xml" \
+            >> "$GITHUB_STEP_SUMMARY"
           echo "path=${{ github.workspace }}/coverage.cobertura.xml" >> "$GITHUB_OUTPUT"
-
-      - name: Upload Coverage to GitHub
-        uses: actions/upload-code-coverage@v1
-        with:
-          file: ${{ steps.coverage.outputs.path }}
-          language: C#
-          label: code-coverage/coverlet
 
       - name: Archive Coverage Report
         if: always()
