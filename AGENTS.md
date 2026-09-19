@@ -42,6 +42,17 @@
 
 ---
 
+## 🔒 Merge Gates on `main`
+
+The `main` branch ruleset requires CodeQL code scanning, GitHub Code Quality results,
+and line coverage of at least 85% (max 3 point drop), on top of one approving review.
+The reporting that feeds those rules lives in [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml)
+and the coverage upload step of [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Coverage is measured only over `CarnotCycleCircus.Core`, the sole project the test suite
+references, so the margin over 85% is thin — check it before adding untested code to Core.
+
+---
+
 ## 🛠️ Build & Test Commands
 ```bash
 # Build entire solution
