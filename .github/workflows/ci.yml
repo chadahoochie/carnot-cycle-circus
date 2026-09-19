@@ -9,6 +9,10 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      code-quality: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -25,4 +29,36 @@ jobs:
         run: dotnet build CarnotCycleCircus.slnx --configuration Release --no-restore
 
       - name: Run Tests
-        run: dotnet test CarnotCycleCircus.slnx --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
+        run: >-
+          dotnet test CarnotCycleCircus.slnx
+          --configuration Release
+          --no-build
+          --verbosity normal
+          --collect:"XPlat Code Coverage"
+          --results-directory ${{ github.workspace }}/TestResults
+
+      - name: Collect Coverage Report
+        id: coverage
+        run: |
+          report="$(find "${{ github.workspace }}/TestResults" -name 'coverage.cobertura.xml' | head -n 1)"
+          if [ -z "$report" ]; then
+            echo "No Cobertura coverage report was produced." >&2
+            exit 1
+          fi
+          cp "$report" "${{ github.workspace }}/coverage.cobertura.xml"
+          echo "path=${{ github.workspace }}/coverage.cobertura.xml" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Coverage to GitHub
+        uses: actions/upload-code-coverage@v1
+        with:
+          file: ${{ steps.coverage.outputs.path }}
+          language: C#
+          label: code-coverage/coverlet
+
+      - name: Archive Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-cobertura
+          path: ${{ github.workspace }}/coverage.cobertura.xml
+          if-no-files-found: warn
