@@ -2,7 +2,8 @@ namespace CarnotCycleCircus.Core.Domain.Approvals;
 
 public interface IWorkflowApprovalService
 {
-    bool RequireUserApproval { get; set; }
+    bool RequireUserApproval { get; }
+    void SetRequireUserApproval(bool value);
     WorkflowApprovalRequest? CurrentPendingRequest { get; }
     IReadOnlyList<WorkflowApprovalRequest> RejectedRequests { get; }
     IReadOnlyList<WorkflowApprovalRequest> History { get; }

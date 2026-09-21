@@ -10,7 +10,7 @@ public class WorkflowApprovalService : IWorkflowApprovalService
     private readonly List<WorkflowApprovalRequest> _history = new();
     private readonly object _lock = new();
 
-    public bool RequireUserApproval { get; set; }
+    public bool RequireUserApproval { get; private set; }
     public WorkflowApprovalRequest? CurrentPendingRequest { get; private set; }
 
     public IReadOnlyList<WorkflowApprovalRequest> RejectedRequests
@@ -110,6 +110,8 @@ public class WorkflowApprovalService : IWorkflowApprovalService
     {
         RequireUserApproval = requireUserApproval;
     }
+
+    public void SetRequireUserApproval(bool value) => RequireUserApproval = value;
 
     public async Task<WorkflowApprovalRequest> RequestApprovalAsync(
         WorkflowApprovalRequest request,

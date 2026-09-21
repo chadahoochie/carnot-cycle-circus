@@ -1,3 +1,4 @@
+using CarnotCycleCircus.Core.Configuration;
 using CarnotCycleCircus.Core.Extensions;
 using CarnotCycleCircus.Desktop.Services;
 using CarnotCycleCircus.UI.Components;
@@ -58,6 +59,12 @@ public static class Program
 
         // Register Core Domain Services & Native Desktop Services
         builder.Services.AddCarnotCycleCircusCore();
+
+        // Bind Carnot subsystem options from appsettings.json (Carnot: section)
+        builder.Services.Configure<EventStreamOptions>(builder.Configuration.GetSection("Carnot:EventStream"));
+        builder.Services.Configure<FailurePolicyOptions>(builder.Configuration.GetSection("Carnot:FailurePolicy"));
+        builder.Services.Configure<AgentModelOptions>(builder.Configuration.GetSection("Carnot:AgentModels"));
+
         builder.Services.AddSingleton<INativeFolderPicker, DesktopNativeFolderPicker>();
 
         var app = builder.Build();

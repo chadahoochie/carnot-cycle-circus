@@ -316,7 +316,7 @@ public class WorkflowApprovalGateTests
     [Fact]
     public async Task ApprovalService_RejectedRequest_ShouldBeRetained_AndCanBeReApproved()
     {
-        var service = new WorkflowApprovalService { RequireUserApproval = true };
+        var service = new WorkflowApprovalService(true);
         var request = new WorkflowApprovalRequest(
             Id: "GATE-REJ-01",
             EpicId: "EPIC-TEST-01",

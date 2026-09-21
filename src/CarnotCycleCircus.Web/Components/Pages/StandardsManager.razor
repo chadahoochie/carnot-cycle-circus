@@ -91,7 +91,7 @@
     {
         if (double.TryParse(e.Value?.ToString(), out var cov))
         {
-            StandardsValidator.CurrentProfile = StandardsValidator.CurrentProfile with { MinimumCodeCoveragePercent = cov };
+            StandardsValidator.SetProfile(StandardsValidator.CurrentProfile with { MinimumCodeCoveragePercent = cov });
         }
     }
 
@@ -99,7 +99,7 @@
     {
         var val = (bool)(e.Value ?? true);
         var p = StandardsValidator.CurrentProfile;
-        StandardsValidator.CurrentProfile = index switch
+        StandardsValidator.SetProfile(index switch
         {
             1 => p with { RequireUnitTestsForFeatures = val },
             2 => p with { RequireRcaForBugs = val },
@@ -107,6 +107,6 @@
             4 => p with { RequireAdrForEpics = val },
             5 => p with { RequireStrideSecurityReview = val },
             _ => p
-        };
+        });
     }
 }

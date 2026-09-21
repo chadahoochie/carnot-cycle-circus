@@ -473,7 +473,7 @@ else if (selectedTeam != null)
 
     private void OnToggleApproval(ChangeEventArgs e)
     {
-        ApprovalService.RequireUserApproval = (bool)(e.Value ?? true);
+        ApprovalService.SetRequireUserApproval((bool)(e.Value ?? true));
     }
 
     private string GetElapsedTime(DateTimeOffset? startedAt)

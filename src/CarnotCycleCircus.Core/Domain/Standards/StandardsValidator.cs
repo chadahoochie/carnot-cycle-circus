@@ -29,14 +29,17 @@ public record ValidationResult(
 
 public interface IStandardsValidator
 {
-    EngineeringStandardsProfile CurrentProfile { get; set; }
+    EngineeringStandardsProfile CurrentProfile { get; }
+    void SetProfile(EngineeringStandardsProfile profile);
     ValidationResult ValidateTicketForCompletion(TicketItem ticket);
     ValidationResult ValidateArchitecturalCompliance(TicketItem ticket, IReadOnlyList<CarnotCycleCircus.Core.Domain.Events.ArtifactItem>? upstreamDeliverables = null);
 }
 
 public class StandardsValidator : IStandardsValidator
 {
-    public EngineeringStandardsProfile CurrentProfile { get; set; } = EngineeringStandardsProfile.Default;
+    public EngineeringStandardsProfile CurrentProfile { get; private set; } = EngineeringStandardsProfile.Default;
+
+    public void SetProfile(EngineeringStandardsProfile profile) => CurrentProfile = profile;
 
     public ValidationResult ValidateTicketForCompletion(TicketItem ticket)
     {

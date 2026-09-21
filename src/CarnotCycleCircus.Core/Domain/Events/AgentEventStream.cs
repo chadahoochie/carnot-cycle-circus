@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using CarnotCycleCircus.Core.Configuration;
 using CarnotCycleCircus.Core.Domain.Agents;
+using Microsoft.Extensions.Options;
 
 namespace CarnotCycleCircus.Core.Domain.Events;
 
@@ -60,14 +62,28 @@ public interface IAgentEventStream
 public class AgentEventStream : IAgentEventStream
 {
     private readonly ConcurrentQueue<AgentMessage> _messages = new();
-    private const int MaxHistorySize = 1000;
+    private readonly int _maxHistorySize;
+
+    public AgentEventStream(IOptions<EventStreamOptions> options)
+    {
+        _maxHistorySize = options.Value.MaxHistorySize;
+    }
+
+    /// <summary>
+    /// Parameterless constructor for test scenarios (uses default MaxHistorySize=1000).
+    /// Production code should use the IOptions{EventStreamOptions} overload.
+    /// </summary>
+    public AgentEventStream()
+    {
+        _maxHistorySize = new EventStreamOptions().MaxHistorySize;
+    }
 
     public event Action<AgentMessage>? OnMessagePublished;
 
     public void Publish(AgentMessage message)
     {
         _messages.Enqueue(message);
-        while (_messages.Count > MaxHistorySize && _messages.TryDequeue(out _))
+        while (_messages.Count > _maxHistorySize && _messages.TryDequeue(out _))
         {
             // prune oldest
         }
