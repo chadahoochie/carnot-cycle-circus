@@ -100,7 +100,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">Target Tech Stack</label>
-                        <input class="form-control" placeholder=".NET 10 / C# 13 Clean Architecture, Channels, ValueTask" @bind="targetStack" />
+                        <input class="form-control" placeholder=".NET 11 / C# 15 Clean Architecture, Channels, ValueTask" @bind="targetStack" />
                     </div>
                     <div>
                         <label style="font-size: 0.85rem; font-weight: 600; color: #38bdf8; display: block; margin-bottom: 4px;">Assigned Engineering Squad</label>
@@ -134,7 +134,7 @@
 
     private string projectTitle = "";
     private string projectDescription = "";
-    private string targetStack = ".NET 10 / C# 13 Clean Architecture, Channels, ValueTask";
+    private string targetStack = ".NET 11 / C# 15 Clean Architecture, Channels, ValueTask";
     private string selectedTeamId = "";
     private string currentActiveTeamId = "";
     private IReadOnlyList<TeamDefinition> definedTeams = [];

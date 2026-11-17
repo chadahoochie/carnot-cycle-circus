@@ -4,9 +4,9 @@
 
 ## 1. System Metadata
 - **Project**: Carnot Cycle Circus (Autonomous Engineering Agent Orchestration Platform)
-- **Runtime**: .NET 10.0 (C# 13)
+- **Runtime**: .NET 11.0 (C# 15)
 - **UI Framework**: ASP.NET Core Blazor (Interactive Server Components)
-- **Test Framework**: xUnit 2.9+, FluentAssertions 8.0+
+- **Test Framework**: xUnit 2.9+, Shouldly 4.3+
 - **Solution File**: `CarnotCycleCircus.slnx`
 - **Solution Architecture**: Layered DDD / Autonomous Agent Multi-Role Orchestrator
 

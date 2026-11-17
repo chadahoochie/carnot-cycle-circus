@@ -103,7 +103,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Title: "⚡ High-Throughput Telemetry Ingestion Pipeline",
             Tagline: "Zero-allocation reactive pipeline with bounded channels, buffer pooling, and backpressure.",
             Category: "High Performance & Real-Time",
-            TargetStack: ".NET 10 / C# 13, Channels, ValueTask, MemoryPool<byte>",
+            TargetStack: ".NET 11 / C# 15, Channels, ValueTask, MemoryPool<byte>",
             RecommendedTeamId: "team-high-performance",
             EpicTitle: "High-Throughput Telemetry Ingestion Pipeline",
             EpicDescription: "Design and implement a high-throughput, zero-allocation ingestion pipeline for real-time telemetry with backpressure channels and anomaly detection.",
@@ -175,7 +175,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Title: "🏛️ Distributed CQRS & Event-Sourced Aggregate Core",
             Tagline: "Event-sourced domain aggregate roots with asynchronous projection read-models and snapshotting.",
             Category: "Enterprise Architecture",
-            TargetStack: ".NET 10, Immutable Records, Marten / Cosmos DB, Projections",
+            TargetStack: ".NET 11, Immutable Records, Marten / Cosmos DB, Projections",
             RecommendedTeamId: "team-standard-circus",
             EpicTitle: "Distributed CQRS & Event-Sourced Aggregate Core",
             EpicDescription: "Architect a clean event-sourced core where state is derived exclusively from an append-only event stream, paired with asynchronous read-model projections and optimistic concurrency controls.",
@@ -199,7 +199,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
             Title: "🧪 Autonomous Chaos Testing & Performance Benchmark Arena",
             Tagline: "Automated fault injection, latency perturbation, and allocation regression harness.",
             Category: "Testing & Reliability",
-            TargetStack: "xUnit, FluentAssertions, BenchmarkDotNet, Testcontainers, OpenTelemetry",
+            TargetStack: "xUnit, Shouldly, BenchmarkDotNet, Testcontainers, OpenTelemetry",
             RecommendedTeamId: "team-rapid-prototype",
             EpicTitle: "Autonomous Chaos Testing & Performance Benchmark Arena",
             EpicDescription: "Develop an automated chaos injection and performance benchmarking test suite that stresses systems with network partitions, memory pressure, and fuzzing payloads.",
@@ -234,7 +234,7 @@ public class ProjectBlueprintService : IProjectBlueprintService
         var description = string.IsNullOrWhiteSpace(request.Description)
             ? "Autonomous development initiative decomposed into cohesive domain models, application services, and verified deliverables."
             : request.Description.Trim();
-        var targetStack = string.IsNullOrWhiteSpace(request.TargetStack) ? ".NET 10 / C# 13 Clean Architecture" : request.TargetStack.Trim();
+        var targetStack = string.IsNullOrWhiteSpace(request.TargetStack) ? ".NET 11 / C# 15 Clean Architecture" : request.TargetStack.Trim();
 
         // 1. Resolve and set squad / team
         var teamToUse = (!string.IsNullOrWhiteSpace(request.TeamId) ? _teamManager.GetTeam(request.TeamId) : null)

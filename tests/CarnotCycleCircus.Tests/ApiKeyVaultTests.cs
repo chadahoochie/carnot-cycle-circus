@@ -1,6 +1,6 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Inference;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -14,12 +14,12 @@ public class ApiKeyVaultTests
     {
         var key = _vault.AddOrUpdateKey("Claude Pro Key", "sk-or-v1-abcdef1234567890", isActive: true);
 
-        key.KeyName.Should().Be("Claude Pro Key");
-        key.ApiKeyMasked.Should().Be("sk-o...7890");
-        key.IsActive.Should().BeTrue();
+        key.KeyName.ShouldBe("Claude Pro Key");
+        key.ApiKeyMasked.ShouldBe("sk-o...7890");
+        key.IsActive.ShouldBeTrue();
 
         var activeKey = _vault.GetActiveKey();
-        activeKey!.KeyId.Should().Be(key.KeyId);
+        activeKey!.KeyId.ShouldBe(key.KeyId);
     }
 
     [Fact]
@@ -31,19 +31,19 @@ public class ApiKeyVaultTests
         _vault.SetActiveKey(key2.KeyId);
 
         var active = _vault.GetActiveKey();
-        active!.KeyId.Should().Be(key2.KeyId);
+        active!.KeyId.ShouldBe(key2.KeyId);
     }
 
     [Fact]
     public void DeleteKey_ShouldRemoveFromVault()
     {
         var key = _vault.AddOrUpdateKey("Temporary Key", "sk-or-v1-temp12345678", isActive: false);
-        _vault.GetKey(key.KeyId).Should().NotBeNull();
+        _vault.GetKey(key.KeyId).ShouldNotBeNull();
 
         var deleted = _vault.DeleteKey(key.KeyId);
-        deleted.Should().BeTrue();
+        deleted.ShouldBeTrue();
 
-        _vault.GetKey(key.KeyId).Should().BeNull();
+        _vault.GetKey(key.KeyId).ShouldBeNull();
     }
 
     [Fact]
@@ -53,21 +53,21 @@ public class ApiKeyVaultTests
         _vault.OnKeyUpdated += entry => lastUpdated = entry;
 
         var key = _vault.AddOrUpdateKey("Event Key", "sk-or-v1-eventkey12345", isActive: true);
-        lastUpdated.Should().NotBeNull();
-        lastUpdated!.KeyId.Should().Be(key.KeyId);
+        lastUpdated.ShouldNotBeNull();
+        lastUpdated!.KeyId.ShouldBe(key.KeyId);
 
         var key2 = _vault.AddOrUpdateKey("Event Key 2", "sk-or-v1-eventkey67890", isActive: false);
         _vault.SetActiveKey(key2.KeyId);
 
-        lastUpdated.KeyId.Should().Be(key2.KeyId);
-        lastUpdated.IsActive.Should().BeTrue();
+        lastUpdated.KeyId.ShouldBe(key2.KeyId);
+        lastUpdated.IsActive.ShouldBeTrue();
     }
 
     [Fact]
     public async Task TestKeyConnectionAsync_WithSandboxKey_ShouldReturnTrue()
     {
         var result = await _vault.TestKeyConnectionAsync("sk-or-v1-sandbox-mock-carnot-circus-0001");
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class ApiKeyVaultTests
         );
 
         var (model, apiKey) = resolver.ResolveInferenceParameters(memberWithCustomKey, team);
-        model.Should().Be("anthropic/claude-3.7-sonnet");
-        apiKey.Should().Be("sk-or-v1-customkey123");
+        model.ShouldBe("anthropic/claude-3.7-sonnet");
+        apiKey.ShouldBe("sk-or-v1-customkey123");
     }
 }

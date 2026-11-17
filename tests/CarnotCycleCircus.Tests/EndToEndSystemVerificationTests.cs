@@ -10,7 +10,7 @@ using CarnotCycleCircus.Core.Domain.Skills;
 using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -66,8 +66,8 @@ public class EndToEndSystemVerificationTests : IDisposable
             """;
 
         var raftSkill = skillImporter.ParseSkillMarkdown(raftSkillMd);
-        raftSkill.Id.Should().Be("skill-raft-consensus");
-        raftSkill.Category.Should().Be("DistributedSystems");
+        raftSkill.Id.ShouldBe("skill-raft-consensus");
+        raftSkill.Category.ShouldBe("DistributedSystems");
         skillRegistry.RegisterSkill(raftSkill);
 
         var zeroCopySkillJson = """
@@ -82,13 +82,13 @@ public class EndToEndSystemVerificationTests : IDisposable
             """;
 
         var zeroCopySkill = skillImporter.ParseSkillJson(zeroCopySkillJson);
-        zeroCopySkill.Id.Should().Be("skill-zero-copy-memory");
+        zeroCopySkill.Id.ShouldBe("skill-zero-copy-memory");
         skillRegistry.RegisterSkill(zeroCopySkill);
 
         // Verify skills are searchable and registered
         var allSkills = skillRegistry.GetAllSkills();
-        allSkills.Should().Contain(s => s.Id == "skill-raft-consensus");
-        allSkills.Should().Contain(s => s.Id == "skill-zero-copy-memory");
+        allSkills.ShouldContain(s => s.Id == "skill-raft-consensus");
+        allSkills.ShouldContain(s => s.Id == "skill-zero-copy-memory");
 
         // =========================================================================
         // PILLAR 5: SKILL TO AGENT MATRIX (Map skills to roles & inject into prompts)
@@ -103,10 +103,10 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         // Validate matrix associations
         var devSkills = skillRegistry.GetSkillsForRole(AgentRole.SoftwareDeveloper);
-        devSkills.Select(s => s.Id).Should().Contain(["skill-zero-copy-memory", "skill-csharp-standards"]);
+        new[] { "skill-zero-copy-memory", "skill-csharp-standards" }.ShouldBeSubsetOf(devSkills.Select(s => s.Id));
 
         var raftRoles = skillRegistry.GetRolesForSkill("skill-raft-consensus");
-        raftRoles.Should().Contain(AgentRole.LeadArchitect);
+        raftRoles.ShouldContain(AgentRole.LeadArchitect);
 
         // =========================================================================
         // PILLAR 1: AGENT DEFINITION (Dynamic personas, prompt generation, ADR-0005 contract)
@@ -116,15 +116,15 @@ public class EndToEndSystemVerificationTests : IDisposable
         var archSuggestedName = nameGenerator.GenerateSuggestedName(AgentRole.LeadArchitect, skillRegistry.GetSkillsForRole(AgentRole.LeadArchitect), seed: 42);
         var archPrompt = nameGenerator.GenerateSystemPrompt(AgentRole.LeadArchitect, archSuggestedName, skillRegistry.GetSkillsForRole(AgentRole.LeadArchitect));
 
-        archPrompt.Should().Contain("DELIVERABLE ISOLATION CONTRACT");
-        archPrompt.Should().Contain("Distributed Raft Consensus");
-        archPrompt.Should().Contain("zero-allocation log entry buffers");
+        archPrompt.ShouldContain("DELIVERABLE ISOLATION CONTRACT");
+        archPrompt.ShouldContain("Distributed Raft Consensus");
+        archPrompt.ShouldContain("zero-allocation log entry buffers");
 
         var devSuggestedName = nameGenerator.GenerateSuggestedName(AgentRole.SoftwareDeveloper, skillRegistry.GetSkillsForRole(AgentRole.SoftwareDeveloper), seed: 42);
         var devPrompt = nameGenerator.GenerateSystemPrompt(AgentRole.SoftwareDeveloper, devSuggestedName, skillRegistry.GetSkillsForRole(AgentRole.SoftwareDeveloper));
 
-        devPrompt.Should().Contain("DELIVERABLE ISOLATION CONTRACT");
-        devPrompt.Should().Contain("Zero-Copy Memory Pipelines");
+        devPrompt.ShouldContain("DELIVERABLE ISOLATION CONTRACT");
+        devPrompt.ShouldContain("Zero-Copy Memory Pipelines");
 
         var archPersona = new AgentPersona(
             Role: AgentRole.LeadArchitect,
@@ -186,22 +186,22 @@ public class EndToEndSystemVerificationTests : IDisposable
         teamManager.SetCurrentTeam(customTeamDef);
 
         var activeTeam = teamManager.GetCurrentTeam();
-        activeTeam.Id.Should().Be("team-raft-circus-e2e");
-        activeTeam.Members.Should().HaveCount(customTeamDef.Members.Count);
+        activeTeam.Id.ShouldBe("team-raft-circus-e2e");
+        activeTeam.Members.Count().ShouldBe(customTeamDef.Members.Count);
 
         // Validate JSON export and import roundtrip
         var exportedJson = teamManager.ExportToJson(customTeamDef.Id);
-        exportedJson.Should().Contain("skill-raft-consensus");
-        exportedJson.Should().Contain("skill-zero-copy-memory");
+        exportedJson.ShouldContain("skill-raft-consensus");
+        exportedJson.ShouldContain("skill-zero-copy-memory");
 
         var reimportedTeam = teamManager.ImportFromJson(exportedJson);
-        reimportedTeam.Should().NotBeNull();
-        reimportedTeam.Members.Should().HaveCount(customTeamDef.Members.Count);
+        reimportedTeam.ShouldNotBeNull();
+        reimportedTeam.Members.Count().ShouldBe(customTeamDef.Members.Count);
 
         // Define CLAW Workflow Graph with failure loopback ports
         var workflowGraph = WorkflowGraph.CreateDefaultEngineeringCircus();
-        workflowGraph.Nodes.Should().HaveCount(8);
-        workflowGraph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
+        workflowGraph.Nodes.Count().ShouldBe(8);
+        workflowGraph.Connections.ShouldContain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
 
         // =========================================================================
         // PILLAR 3: TICKET PERSISTENCE, TRANSITIONS & CHANGING ASSIGNMENTS (Work decomposition, handoffs, failure loopback)
@@ -258,11 +258,11 @@ public class EndToEndSystemVerificationTests : IDisposable
         );
 
         // Verify ticket transitioned to Remediating
-        ticketStore.GetTicketById(testTicket.Id)!.Status.Should().Be(TicketStatus.Remediating);
+        ticketStore.GetTicketById(testTicket.Id)!.Status.ShouldBe(TicketStatus.Remediating);
 
         // Execute remediation
         await executor.ExecuteTicketAsync(testTicket.Id);
-        ticketStore.GetTicketById(testTicket.Id)!.Status.Should().Be(TicketStatus.Done);
+        ticketStore.GetTicketById(testTicket.Id)!.Status.ShouldBe(TicketStatus.Done);
 
         // Execute full workflow
         var workflowSuccess = await executor.ExecuteWorkflowAsync(
@@ -270,54 +270,55 @@ public class EndToEndSystemVerificationTests : IDisposable
             epicDescription: "Build a high-performance Raft cluster engine in C# 13 with zero Gen0 allocations, connectable failure recovery, and strict validation."
         );
 
-        workflowSuccess.Should().BeTrue();
+        workflowSuccess.ShouldBeTrue();
 
         // Validate all tickets were decomposed, transitioned, and completed
         var allTickets = ticketStore.GetAllTickets();
-        allTickets.Should().NotBeEmpty();
-        allTickets.Should().Contain(t => t.Type == TicketType.Epic && t.Status == TicketStatus.Done);
-        allTickets.Where(t => t.Type == TicketType.Subtask).Should().OnlyContain(t => t.Status == TicketStatus.Done);
+        allTickets.ShouldNotBeEmpty();
+        allTickets.ShouldContain(t => t.Type == TicketType.Epic && t.Status == TicketStatus.Done);
+        allTickets.Where(t => t.Type == TicketType.Subtask).ShouldAllBe(t => t.Status == TicketStatus.Done);
 
         // Validate inter-agent handoff packets were created, dispatched, and recorded
         var allHandoffs = ticketStore.GetAllHandoffs();
-        allHandoffs.Should().NotBeEmpty();
+        allHandoffs.ShouldNotBeEmpty();
 
         // Verify failure remediation handoff occurred and was properly addressed
         var failureHandoff = allHandoffs.FirstOrDefault(h => !string.IsNullOrWhiteSpace(h.RemediationNotes));
-        failureHandoff.Should().NotBeNull();
-        failureHandoff!.FromAgentRole.Should().Be(AgentRole.SecurityEngineer);
-        failureHandoff.ToAgentRole.Should().Be(AgentRole.SoftwareDeveloper);
-        failureHandoff.RemediationNotes.Should().Contain("ReadOnlySpan<char>");
+        failureHandoff.ShouldNotBeNull();
+        failureHandoff!.FromAgentRole.ShouldBe(AgentRole.SecurityEngineer);
+        failureHandoff.ToAgentRole.ShouldBe(AgentRole.SoftwareDeveloper);
+        failureHandoff.RemediationNotes.ShouldNotBeNull();
+        failureHandoff.RemediationNotes.ShouldContain("ReadOnlySpan<char>");
 
         // Verify deliverables were attached to tickets
         var totalDeliverables = allTickets.Sum(t => t.Deliverables.Count);
-        totalDeliverables.Should().BeGreaterThan(0);
+        totalDeliverables.ShouldBeGreaterThan(0);
 
         // =========================================================================
         // PILLAR 6: LEARNINGS PERSISTENCE (Self-improvement cycles, Knowledge Map, Procedural & Semantic Memory)
         // =========================================================================
         var report = await selfImprovement.RunSelfImprovementCycleAsync();
 
-        report.TotalCyclesRun.Should().BeGreaterThan(0);
-        report.InsightsDistilledCount.Should().BeGreaterThan(0);
-        report.ProceduralRecipesGenerated.Should().BeGreaterThan(0);
-        report.SemanticRulesReinforced.Should().BeGreaterThan(0);
+        report.TotalCyclesRun.ShouldBeGreaterThan(0);
+        report.InsightsDistilledCount.ShouldBeGreaterThan(0);
+        report.ProceduralRecipesGenerated.ShouldBeGreaterThan(0);
+        report.SemanticRulesReinforced.ShouldBeGreaterThan(0);
 
         // Verify knowledge map node was distilled from the failure remediation handoff
         var distilledNode = knowledgeMap.GetNode($"KN-LI-REM-{failureHandoff.TicketId}");
-        distilledNode.Should().NotBeNull();
-        distilledNode!.Category.Should().Be("LearnedInsight");
-        distilledNode.Summary.Should().Contain("Remediation Lesson:");
-        distilledNode.Attributes.Should().ContainKey("SourceRole");
+        distilledNode.ShouldNotBeNull();
+        distilledNode!.Category.ShouldBe("LearnedInsight");
+        distilledNode.Summary.ShouldContain("Remediation Lesson:");
+        distilledNode.Attributes.ShouldContainKey("SourceRole");
 
         // Verify procedural and semantic memories exist in vector store
         var proceduralMemories = await memoryStore.GetByTypeAsync(MemoryType.Procedural);
-        proceduralMemories.Should().NotBeEmpty();
-        proceduralMemories.First().Content.Should().Contain("Standard Execution Recipe");
+        proceduralMemories.ShouldNotBeEmpty();
+        proceduralMemories.First().Content.ShouldContain("Standard Execution Recipe");
 
         var semanticMemories = await memoryStore.GetByTypeAsync(MemoryType.Semantic);
-        semanticMemories.Should().NotBeEmpty();
-        semanticMemories.Should().Contain(m => m.Content.Contains("Reinforced Rule"));
+        semanticMemories.ShouldNotBeEmpty();
+        semanticMemories.ShouldContain(m => m.Content.Contains("Reinforced Rule"));
 
         // Allow explicit storage flush
         await skillRegistry.FlushAsync();
@@ -334,50 +335,52 @@ public class EndToEndSystemVerificationTests : IDisposable
 
         // 1. Verify Storage Health & Files exist on disk
         var healthReport = await restartedStorage.GetStorageHealthAsync();
-        healthReport.IsHealthy.Should().BeTrue();
-        healthReport.TotalFilesCount.Should().BeGreaterThan(0);
+        healthReport.IsHealthy.ShouldBeTrue();
+        healthReport.TotalFilesCount.ShouldBeGreaterThan(0);
 
         var artifactsExist = await restartedStorage.FileExistsAsync("artifacts/LEARNED_INSIGHTS.md");
-        artifactsExist.Should().BeTrue();
+        artifactsExist.ShouldBeTrue();
         var learnedInsightsMd = await restartedStorage.LoadTextAsync("artifacts/LEARNED_INSIGHTS.md");
-        learnedInsightsMd.Should().Contain("Autonomous Self-Improvement & Continuous Learning Report");
-        learnedInsightsMd.Should().Contain("KN-LI-REM-");
+        learnedInsightsMd.ShouldNotBeNull();
+        learnedInsightsMd.ShouldContain("Autonomous Self-Improvement & Continuous Learning Report");
+        learnedInsightsMd.ShouldContain("KN-LI-REM-");
 
         // 2. Verify Skills Hub reloads from storage
         var restartedSkillRegistry = new SkillRegistry(skillImporter, restartedStorage);
         var loadedRaftSkill = restartedSkillRegistry.GetSkill("skill-raft-consensus");
-        loadedRaftSkill.Should().NotBeNull();
-        loadedRaftSkill!.Name.Should().Be("Distributed Raft Consensus");
-        loadedRaftSkill.AssignedRoles.Should().Contain(AgentRole.LeadArchitect);
+        loadedRaftSkill.ShouldNotBeNull();
+        loadedRaftSkill!.Name.ShouldBe("Distributed Raft Consensus");
+        loadedRaftSkill.AssignedRoles.ShouldNotBeNull();
+        loadedRaftSkill.AssignedRoles.ShouldContain(AgentRole.LeadArchitect);
 
         // 3. Verify Team Definition reloads from storage
         var restartedTeamManager = new TeamDefinitionManager(restartedStorage);
         var loadedTeams = restartedTeamManager.GetAllTeams();
-        loadedTeams.Should().Contain(t => t.Id == "team-raft-circus-e2e");
+        loadedTeams.ShouldContain(t => t.Id == "team-raft-circus-e2e");
         var activeLoadedTeam = restartedTeamManager.GetCurrentTeam();
-        activeLoadedTeam.Should().NotBeNull();
+        activeLoadedTeam.ShouldNotBeNull();
 
         // 4. Verify Tickets and Handoffs reload from storage
         var restartedTicketStore = new TicketStore(restartedStorage);
         var reloadedTickets = restartedTicketStore.GetAllTickets();
-        reloadedTickets.Should().HaveCount(allTickets.Count);
-        reloadedTickets.Where(t => t.Type == TicketType.Subtask).Should().OnlyContain(t => t.Status == TicketStatus.Done);
+        reloadedTickets.Count().ShouldBe(allTickets.Count);
+        reloadedTickets.Where(t => t.Type == TicketType.Subtask).ShouldAllBe(t => t.Status == TicketStatus.Done);
 
         var reloadedHandoffs = restartedTicketStore.GetAllHandoffs();
-        reloadedHandoffs.Should().HaveCount(allHandoffs.Count);
-        reloadedHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SecurityEngineer && !string.IsNullOrWhiteSpace(h.RemediationNotes));
+        reloadedHandoffs.Count().ShouldBe(allHandoffs.Count);
+        reloadedHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SecurityEngineer && !string.IsNullOrWhiteSpace(h.RemediationNotes));
 
         // 5. Verify Knowledge Map reloads from storage
         var restartedKnowledgeMap = new KnowledgeMapService(restartedStorage);
         var reloadedDistilledNode = restartedKnowledgeMap.GetNode($"KN-LI-REM-{failureHandoff.TicketId}");
-        reloadedDistilledNode.Should().NotBeNull();
-        reloadedDistilledNode!.Summary.Should().Contain("Remediation Lesson:");
+        reloadedDistilledNode.ShouldNotBeNull();
+        reloadedDistilledNode!.Summary.ShouldContain("Remediation Lesson:");
 
         // 6. Verify Memory Store reloads and supports semantic search
         var restartedMemoryStore = new EmbeddedVectorMemoryStore(restartedStorage);
         var searchResults = await restartedMemoryStore.SearchAsync("Raft execution recipe zero-allocation span", topK: 3);
-        searchResults.Should().NotBeEmpty();
-        searchResults[0].SimilarityScore.Should().BeGreaterThan(0.2f);
+        searchResults.ShouldNotBeEmpty();
+        searchResults[0].SimilarityScore.ShouldBeGreaterThan(0.2f);
 
         // 7. Verify Self-Improvement Engine reloads report state
         var restartedSelfImprovement = new SelfImprovementEngine(
@@ -388,8 +391,8 @@ public class EndToEndSystemVerificationTests : IDisposable
             restartedStorage
         );
         var latestReport = restartedSelfImprovement.GetLatestReport();
-        latestReport.TotalCyclesRun.Should().Be(report.TotalCyclesRun);
-        latestReport.InsightsDistilledCount.Should().Be(report.InsightsDistilledCount);
+        latestReport.TotalCyclesRun.ShouldBe(report.TotalCyclesRun);
+        latestReport.InsightsDistilledCount.ShouldBe(report.InsightsDistilledCount);
     }
 
     [Fact]
@@ -406,12 +409,12 @@ public class EndToEndSystemVerificationTests : IDisposable
             };
 
             var name = generator.GenerateSuggestedName(role, skills, seed: 42);
-            name.Should().NotBeNullOrWhiteSpace();
+            name.ShouldNotBeNullOrWhiteSpace();
 
             var prompt = generator.GenerateSystemPrompt(role, name, skills);
-            prompt.Should().Contain(name);
-            prompt.Should().Contain("DELIVERABLE ISOLATION CONTRACT");
-            prompt.Should().Contain("Strict rule instruction");
+            prompt.ShouldContain(name);
+            prompt.ShouldContain("DELIVERABLE ISOLATION CONTRACT");
+            prompt.ShouldContain("Strict rule instruction");
         }
     }
 
@@ -421,24 +424,24 @@ public class EndToEndSystemVerificationTests : IDisposable
         var teamManager = new TeamDefinitionManager(_storageService);
         var team = teamManager.GetTeam("team-security-hardened") ?? teamManager.GetAllTeams().First();
 
-        team.Should().NotBeNull();
-        team.Members.Should().HaveCount(Enum.GetValues<AgentRole>().Length);
+        team.ShouldNotBeNull();
+        team.Members.Count().ShouldBe(Enum.GetValues<AgentRole>().Length);
 
         var json = teamManager.ExportToJson(team.Id);
-        json.Should().Contain(team.Id);
-        json.Should().Contain("Zero-Trust");
+        json.ShouldContain(team.Id);
+        json.ShouldContain("Zero-Trust");
 
         var imported = teamManager.ImportFromJson(json);
-        imported.Id.Should().StartWith("team-import-");
-        imported.Members.Should().HaveCount(Enum.GetValues<AgentRole>().Length);
+        imported.Id.ShouldStartWith("team-import-");
+        imported.Members.Count().ShouldBe(Enum.GetValues<AgentRole>().Length);
 
         var graph = WorkflowGraph.CreateDefaultEngineeringCircus();
-        graph.Nodes.Should().HaveCount(8);
+        graph.Nodes.Count().ShouldBe(8);
 
         // Modify graph
         var customConnection = new PortConnection("node-sec", PortType.Output, "node-qa", PortType.Input);
         graph = graph with { Connections = [.. graph.Connections, customConnection] };
-        graph.Connections.Should().Contain(customConnection);
+        graph.Connections.ShouldContain(customConnection);
     }
 
     [Fact]
@@ -461,15 +464,16 @@ public class EndToEndSystemVerificationTests : IDisposable
         registry.AssignSkillToRole("skill-e2e-matrix-test", AgentRole.OptimizationEngineer);
 
         var roles = registry.GetRolesForSkill("skill-e2e-matrix-test");
-        roles.Should().Contain([AgentRole.LeadArchitect, AgentRole.SoftwareDeveloper, AgentRole.OptimizationEngineer]);
+        new[] { AgentRole.LeadArchitect, AgentRole.SoftwareDeveloper, AgentRole.OptimizationEngineer }.ShouldBeSubsetOf(roles);
 
         await registry.FlushAsync();
 
         // Cold-start reload
         var reloadedRegistry = new SkillRegistry(importer, _storageService);
         var loaded = reloadedRegistry.GetSkill("skill-e2e-matrix-test");
-        loaded.Should().NotBeNull();
-        loaded!.AssignedRoles.Should().Contain([AgentRole.LeadArchitect, AgentRole.SoftwareDeveloper, AgentRole.OptimizationEngineer]);
+        loaded.ShouldNotBeNull();
+        loaded!.AssignedRoles.ShouldNotBeNull();
+        new[] { AgentRole.LeadArchitect, AgentRole.SoftwareDeveloper, AgentRole.OptimizationEngineer }.ShouldBeSubsetOf(loaded.AssignedRoles);
     }
 
     [Fact]
@@ -522,8 +526,8 @@ public class EndToEndSystemVerificationTests : IDisposable
             [deliverable]
         );
 
-        handoff.Should().NotBeNull();
-        ticketStore.GetHandoffsForTicket(underReview.Id).Should().HaveCount(1);
+        handoff.ShouldNotBeNull();
+        ticketStore.GetHandoffsForTicket(underReview.Id).Count().ShouldBe(1);
 
         // Security rejects and routes failure remediation back to Dev
         var remediationHandoff = router.RouteFailureRemediation(
@@ -535,8 +539,8 @@ public class EndToEndSystemVerificationTests : IDisposable
         );
 
         var remediatingTicket = ticketStore.GetTicketById(underReview.Id);
-        remediatingTicket!.Status.Should().Be(TicketStatus.Remediating);
-        remediatingTicket.AssigneeRole.Should().Be(AgentRole.SoftwareDeveloper);
+        remediatingTicket!.Status.ShouldBe(TicketStatus.Remediating);
+        remediatingTicket.AssigneeRole.ShouldBe(AgentRole.SoftwareDeveloper);
 
         // Software Developer fixes and Completes ticket
         var fixedDeliverable = deliverable with { Content = "public sealed class RingBuffer<T> { /* bitwise masked */ }" };
@@ -546,20 +550,20 @@ public class EndToEndSystemVerificationTests : IDisposable
         router.AdvanceWorkflowOnTicketCompletion(completedTicket.Id);
 
         var finalTicket = ticketStore.GetTicketById(completedTicket.Id);
-        finalTicket!.Status.Should().Be(TicketStatus.Done);
-        finalTicket.Deliverables.Should().HaveCount(2);
+        finalTicket!.Status.ShouldBe(TicketStatus.Done);
+        finalTicket.Deliverables.Count().ShouldBe(2);
 
         await ticketStore.FlushAsync();
 
         // Cold reload validation
         var reloadedStore = new TicketStore(_storageService);
         var loadedTicket = reloadedStore.GetTicketById(ticket.Id);
-        loadedTicket.Should().NotBeNull();
-        loadedTicket!.Status.Should().Be(TicketStatus.Done);
-        loadedTicket.Deliverables.Should().HaveCount(2);
+        loadedTicket.ShouldNotBeNull();
+        loadedTicket!.Status.ShouldBe(TicketStatus.Done);
+        loadedTicket.Deliverables.Count().ShouldBe(2);
 
         var loadedHandoffs = reloadedStore.GetHandoffsForTicket(ticket.Id);
-        loadedHandoffs.Should().HaveCount(2);
+        loadedHandoffs.Count().ShouldBe(2);
     }
 
     [Fact]
@@ -583,18 +587,18 @@ public class EndToEndSystemVerificationTests : IDisposable
         var engine = new SelfImprovementEngine(memStore, ticketStore, knowledgeMap, eventStream, _storageService);
         var report = await engine.RunSelfImprovementCycleAsync();
 
-        report.DistilledInsights.Should().NotBeEmpty();
+        report.DistilledInsights.ShouldNotBeEmpty();
         var node = knowledgeMap.GetNode("KN-LI-REM-TCK-LEARN-01");
-        node.Should().NotBeNull();
-        node!.Summary.Should().Contain("GeneratedRegexAttribute");
+        node.ShouldNotBeNull();
+        node!.Summary.ShouldContain("GeneratedRegexAttribute");
 
         await knowledgeMap.FlushAsync();
 
         // Verify across reload
         var reloadedKnowledgeMap = new KnowledgeMapService(_storageService);
         var reloadedNode = reloadedKnowledgeMap.GetNode("KN-LI-REM-TCK-LEARN-01");
-        reloadedNode.Should().NotBeNull();
-        reloadedNode!.Category.Should().Be("LearnedInsight");
+        reloadedNode.ShouldNotBeNull();
+        reloadedNode!.Category.ShouldBe("LearnedInsight");
     }
 
     public void Dispose()

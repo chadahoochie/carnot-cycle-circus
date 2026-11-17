@@ -4,7 +4,7 @@ using CarnotCycleCircus.Core.Domain.Graph;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -40,8 +40,9 @@ public class WorkflowGraphTests
     {
         var graph = _executor.CurrentGraph;
 
-        graph.Nodes.Should().HaveCount(8);
-        graph.Nodes.Select(n => n.Role).Should().Contain([
+        graph.Nodes.Count().ShouldBe(8);
+        new[]
+        {
             AgentRole.RequirementsResearcher,
             AgentRole.TechnicalProductManager,
             AgentRole.LeadArchitect,
@@ -50,17 +51,17 @@ public class WorkflowGraphTests
             AgentRole.OptimizationEngineer,
             AgentRole.PrincipalQAAnalyst,
             AgentRole.IntegrationEngineer
-        ]);
+        }.ShouldBeSubsetOf(graph.Nodes.Select(n => n.Role));
 
         // Verify Connections: Res -> TPM -> Arch
-        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-res" && c.SourcePort == PortType.Output && c.TargetNodeId == "node-tpm");
-        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-tpm" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-res");
+        graph.Connections.ShouldContain(c => c.SourceNodeId == "node-res" && c.SourcePort == PortType.Output && c.TargetNodeId == "node-tpm");
+        graph.Connections.ShouldContain(c => c.SourceNodeId == "node-tpm" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-res");
 
         // Verify Failure Ports exist on Security, QA, and Integration (including QA/Int -> Arch failure cables)
-        graph.Connections.Should().Contain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
-        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-qa" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
-        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
-        graph.Connections.Should().Contain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
+        graph.Connections.ShouldContain(c => c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
+        graph.Connections.ShouldContain(c => c.SourceNodeId == "node-qa" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
+        graph.Connections.ShouldContain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-dev");
+        graph.Connections.ShouldContain(c => c.SourceNodeId == "node-int" && c.SourcePort == PortType.Failure && c.TargetNodeId == "node-arch");
     }
 
     [Fact]
@@ -71,13 +72,13 @@ public class WorkflowGraphTests
             "Build multi-tier memory store with vector similarity search"
         );
 
-        success.Should().BeTrue();
-        _executor.CurrentGraph.Nodes.Should().OnlyContain(n => n.State == NodeExecutionState.Completed);
+        success.ShouldBeTrue();
+        _executor.CurrentGraph.Nodes.ShouldAllBe(n => n.State == NodeExecutionState.Completed);
 
         var tickets = _ticketStore.GetAllTickets();
-        tickets.Should().NotBeEmpty();
-        tickets.Where(t => t.Type == TicketType.Subtask).Should().OnlyContain(t => t.Status == TicketStatus.Done);
-        tickets.Sum(t => t.Deliverables.Count).Should().BeGreaterThan(0);
+        tickets.ShouldNotBeEmpty();
+        tickets.Where(t => t.Type == TicketType.Subtask).ShouldAllBe(t => t.Status == TicketStatus.Done);
+        tickets.Sum(t => t.Deliverables.Count).ShouldBeGreaterThan(0);
     }
 
     [Fact]
@@ -88,38 +89,38 @@ public class WorkflowGraphTests
             "Build high-throughput HNSW vector index with zero GC allocations."
         );
 
-        success.Should().BeTrue();
+        success.ShouldBeTrue();
 
         var tickets = _ticketStore.GetAllTickets();
         var epic = tickets.FirstOrDefault(t => t.Type == TicketType.Epic);
-        epic.Should().NotBeNull();
-        epic!.Status.Should().Be(TicketStatus.Done);
+        epic.ShouldNotBeNull();
+        epic!.Status.ShouldBe(TicketStatus.Done);
 
         // Verify that Feature stories were refined into 6 subtasks
         var stories = tickets.Where(t => t.Type == TicketType.Feature).ToList();
-        stories.Should().NotBeEmpty();
-        stories.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+        stories.ShouldNotBeEmpty();
+        stories.ShouldAllBe(s => s.Status == TicketStatus.Done);
 
         var subtasks = tickets.Where(t => t.Type == TicketType.Subtask).ToList();
-        subtasks.Should().HaveCount(6);
-        subtasks.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+        subtasks.Count().ShouldBe(6);
+        subtasks.ShouldAllBe(s => s.Status == TicketStatus.Done);
 
         // Verify Handoffs trace the collaborative discovery & refinement lifecycle
         var handoffs = _ticketStore.GetAllHandoffs();
-        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.RequirementsResearcher && h.ToAgentRole == AgentRole.TechnicalProductManager);
-        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.TechnicalProductManager && h.ToAgentRole == AgentRole.LeadArchitect);
-        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.LeadArchitect && h.ToAgentRole == AgentRole.SoftwareDeveloper);
+        handoffs.ShouldContain(h => h.FromAgentRole == AgentRole.RequirementsResearcher && h.ToAgentRole == AgentRole.TechnicalProductManager);
+        handoffs.ShouldContain(h => h.FromAgentRole == AgentRole.TechnicalProductManager && h.ToAgentRole == AgentRole.LeadArchitect);
+        handoffs.ShouldContain(h => h.FromAgentRole == AgentRole.LeadArchitect && h.ToAgentRole == AgentRole.SoftwareDeveloper);
 
         // Verify deliverables attached: Research Brief, PRD, ADR, Code, STRIDE, Benchmark, QA Scorecard, Release Manifest
         var deliverables = tickets.SelectMany(t => t.Deliverables).ToList();
-        deliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
-        deliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
-        deliverables.Should().Contain(d => d.Name.EndsWith("_ADR.md"));
-        deliverables.Should().Contain(d => d.ContentType == "csharp");
-        deliverables.Should().Contain(d => d.Name.EndsWith("_STRIDE_Model.md"));
-        deliverables.Should().Contain(d => d.Name.EndsWith("_Perf_Profile.md"));
-        deliverables.Should().Contain(d => d.Name.EndsWith("_QA_Scorecard.md"));
-        deliverables.Should().Contain(d => d.Name.EndsWith("_Release_Manifest.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_PRD.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_ADR.md"));
+        deliverables.ShouldContain(d => d.ContentType == "csharp");
+        deliverables.ShouldContain(d => d.Name.EndsWith("_STRIDE_Model.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_Perf_Profile.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_QA_Scorecard.md"));
+        deliverables.ShouldContain(d => d.Name.EndsWith("_Release_Manifest.md"));
     }
 
     [Fact]
@@ -128,8 +129,8 @@ public class WorkflowGraphTests
         _executor.UpdateNodePosition("node-dev", 520, 280);
 
         var devNode = _executor.CurrentGraph.Nodes.First(n => n.Id == "node-dev");
-        devNode.X.Should().Be(520);
-        devNode.Y.Should().Be(280);
+        devNode.X.ShouldBe(520);
+        devNode.Y.ShouldBe(280);
     }
 
     [Fact]
@@ -145,7 +146,7 @@ public class WorkflowGraphTests
 
         _executor.AddNode(customNode);
 
-        _executor.CurrentGraph.Nodes.Should().Contain(n => n.Id == "node-custom");
+        _executor.CurrentGraph.Nodes.ShouldContain(n => n.Id == "node-custom");
     }
 
     [Fact]
@@ -153,8 +154,8 @@ public class WorkflowGraphTests
     {
         _executor.RemoveNode("node-dev");
 
-        _executor.CurrentGraph.Nodes.Should().NotContain(n => n.Id == "node-dev");
-        _executor.CurrentGraph.Connections.Should().NotContain(c => c.SourceNodeId == "node-dev" || c.TargetNodeId == "node-dev");
+        _executor.CurrentGraph.Nodes.ShouldNotContain(n => n.Id == "node-dev");
+        _executor.CurrentGraph.Connections.ShouldNotContain(c => c.SourceNodeId == "node-dev" || c.TargetNodeId == "node-dev");
     }
 
     [Fact]
@@ -172,7 +173,7 @@ public class WorkflowGraphTests
         var conn = new PortConnection("node-arch", PortType.Output, "node-custom", PortType.Input);
         _executor.AddConnection(conn);
 
-        _executor.CurrentGraph.Connections.Should().Contain(c => c.SourceNodeId == "node-arch" && c.TargetNodeId == "node-custom");
+        _executor.CurrentGraph.Connections.ShouldContain(c => c.SourceNodeId == "node-arch" && c.TargetNodeId == "node-custom");
     }
 
     [Fact]
@@ -181,8 +182,9 @@ public class WorkflowGraphTests
         var conn = new PortConnection("node-dev", PortType.Output, "node-dev", PortType.Input);
         var valid = _executor.ValidateConnection(conn, out var error);
 
-        valid.Should().BeFalse();
-        error.Should().Contain("itself");
+        valid.ShouldBeFalse();
+        error.ShouldNotBeNull();
+        error.ShouldContain("itself");
     }
 
     [Fact]
@@ -190,7 +192,7 @@ public class WorkflowGraphTests
     {
         _executor.LoadPreset("rapid");
 
-        _executor.CurrentGraph.Name.Should().Be("Rapid Prototype Fast-Track Graph");
+        _executor.CurrentGraph.Name.ShouldBe("Rapid Prototype Fast-Track Graph");
     }
 
     [Fact]
@@ -217,10 +219,10 @@ public class WorkflowGraphTests
 
         var result = await executor.ExecuteWorkflowAsync("Greenfield Initiative", "Build without key");
 
-        result.Should().BeFalse();
-        executor.IsRunning.Should().BeFalse();
-        executor.CurrentGraph.Nodes.Should().NotContain(n => n.State == NodeExecutionState.Running);
-        eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
+        result.ShouldBeFalse();
+        executor.IsRunning.ShouldBeFalse();
+        executor.CurrentGraph.Nodes.ShouldNotContain(n => n.State == NodeExecutionState.Running);
+        eventStream.GetHistory().ShouldContain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
     }
 
     [Fact]
@@ -265,10 +267,10 @@ public class WorkflowGraphTests
 
         var result = await executor.ExecuteTicketAsync(ticket.Id);
 
-        result.Should().BeFalse();
+        result.ShouldBeFalse();
         var updated = ticketStore.GetTicketById(ticket.Id);
-        updated!.Status.Should().Be(TicketStatus.Blocked);
-        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.SoftwareDeveloper).State.Should().Be(NodeExecutionState.Failed);
+        updated!.Status.ShouldBe(TicketStatus.Blocked);
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.SoftwareDeveloper).State.ShouldBe(NodeExecutionState.Failed);
     }
 
     [Fact]
@@ -313,8 +315,8 @@ public class WorkflowGraphTests
 
         var result = await executor.ExecuteReadyTicketsAsync();
 
-        result.Should().BeFalse();
-        executor.IsRunning.Should().BeFalse();
+        result.ShouldBeFalse();
+        executor.IsRunning.ShouldBeFalse();
     }
 
     [Fact]
@@ -359,15 +361,15 @@ public class WorkflowGraphTests
 
         var success = await executor.ExecuteWorkflowAsync(preEpic.Title, preEpic.Description);
 
-        success.Should().BeTrue();
-        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.RequirementsResearcher).State.Should().Be(NodeExecutionState.Completed);
-        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.TechnicalProductManager).State.Should().Be(NodeExecutionState.Completed);
+        success.ShouldBeTrue();
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.RequirementsResearcher).State.ShouldBe(NodeExecutionState.Completed);
+        executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.TechnicalProductManager).State.ShouldBe(NodeExecutionState.Completed);
 
         var allTickets = ticketStore.GetAllTickets();
         var allDeliverables = allTickets.SelectMany(t => t.Deliverables).ToList();
-        allDeliverables.Should().Contain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
-        allDeliverables.Should().Contain(d => d.Name.EndsWith("_PRD.md"));
-        allDeliverables.Should().Contain(d => d.Name.EndsWith("_ADR.md"));
+        allDeliverables.ShouldContain(d => d.Name.EndsWith("_RESEARCH_BRIEF.md"));
+        allDeliverables.ShouldContain(d => d.Name.EndsWith("_PRD.md"));
+        allDeliverables.ShouldContain(d => d.Name.EndsWith("_ADR.md"));
     }
 
     [Fact]
@@ -424,18 +426,18 @@ public class WorkflowGraphTests
 
         var success = await executor.ExecuteWorkflowAsync("Multi-Feature System", "System with multiple stories");
 
-        success.Should().BeTrue();
+        success.ShouldBeTrue();
 
         var epic = ticketStore.GetAllTickets().First(t => t.Type == TicketType.Epic);
-        epic.Status.Should().Be(TicketStatus.Done);
+        epic.Status.ShouldBe(TicketStatus.Done);
 
         var stories = ticketStore.GetTicketsByEpic(epic.Id).Where(t => t.Type == TicketType.Feature).ToList();
-        stories.Should().HaveCount(2);
-        stories.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+        stories.Count().ShouldBe(2);
+        stories.ShouldAllBe(s => s.Status == TicketStatus.Done);
 
         var subtasks = ticketStore.GetTicketsByEpic(epic.Id).Where(t => t.Type == TicketType.Subtask).ToList();
-        subtasks.Should().HaveCount(12); // 6 subtasks per story * 2 stories
-        subtasks.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+        subtasks.Count().ShouldBe(12); // 6 subtasks per story * 2 stories
+        subtasks.ShouldAllBe(s => s.Status == TicketStatus.Done);
     }
 
     [Fact]
@@ -536,9 +538,9 @@ public class WorkflowGraphTests
 
         var success = await executor.ExecuteWorkflowAsync("Existing Pipeline", "A pipeline previously completed");
 
-        success.Should().BeTrue();
-        executedRoles.Should().Contain(AgentRole.RequirementsResearcher);
-        executedRoles.Should().Contain(AgentRole.TechnicalProductManager);
+        success.ShouldBeTrue();
+        executedRoles.ShouldContain(AgentRole.RequirementsResearcher);
+        executedRoles.ShouldContain(AgentRole.TechnicalProductManager);
     }
 
     [Fact]
@@ -550,13 +552,13 @@ public class WorkflowGraphTests
         // First deconstruct
         var tickets = decomp.DeconstructEpic("Resilient Ingestion", "Ingestion pipeline");
         var readyInitial = store.GetReadyTickets();
-        readyInitial.Should().ContainSingle(t => t.AssigneeRole == AgentRole.RequirementsResearcher);
+        readyInitial.Where(t => t.AssigneeRole == AgentRole.RequirementsResearcher).ShouldHaveSingleItem();
 
         // Second deconstruct (e.g. user re-ignites or triggers)
         var ticketsPass2 = decomp.DeconstructEpic("Resilient Ingestion", "Ingestion pipeline");
         var readyPass2 = store.GetReadyTickets();
 
         // Must STILL only have RequirementsResearcher ready! Architect must NOT be ready!
-        readyPass2.Should().ContainSingle(t => t.AssigneeRole == AgentRole.RequirementsResearcher);
+        readyPass2.Where(t => t.AssigneeRole == AgentRole.RequirementsResearcher).ShouldHaveSingleItem();
     }
 }

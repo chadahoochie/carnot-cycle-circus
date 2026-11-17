@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Tools;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -20,8 +20,8 @@ public class ToolSandboxTests
 
         var result = await tool.ExecuteAsync(context);
 
-        result.Success.Should().BeTrue();
-        result.Output.Should().Contain("STRIDE");
+        result.Success.ShouldBeTrue();
+        result.Output.ShouldContain("STRIDE");
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class ToolSandboxTests
             InvokingRole: AgentRole.SoftwareDeveloper
         );
         var validResult = await tool.ExecuteAsync(validContext);
-        validResult.Success.Should().BeTrue();
+        validResult.Success.ShouldBeTrue();
 
         var brokenContext = new ToolExecutionContext(
             ToolName: "csharp_syntax_check",
@@ -43,8 +43,9 @@ public class ToolSandboxTests
             InvokingRole: AgentRole.SoftwareDeveloper
         );
         var brokenResult = await tool.ExecuteAsync(brokenContext);
-        brokenResult.Success.Should().BeFalse();
-        brokenResult.ErrorMessage.Should().Contain("Unclosed open brace");
+        brokenResult.Success.ShouldBeFalse();
+        brokenResult.ErrorMessage.ShouldNotBeNull();
+        brokenResult.ErrorMessage.ShouldContain("Unclosed open brace");
     }
 
     [Fact]
@@ -58,8 +59,9 @@ public class ToolSandboxTests
         );
 
         var result = await tool.ExecuteAsync(context);
-        result.Success.Should().BeTrue();
-        result.Metadata.Should().ContainKey("Coverage");
+        result.Success.ShouldBeTrue();
+        result.Metadata.ShouldNotBeNull();
+        result.Metadata.ShouldContainKey("Coverage");
     }
 
     [Fact]
@@ -79,9 +81,9 @@ public class ToolSandboxTests
         );
 
         var result = await tool.ExecuteAsync(context);
-        result.Success.Should().BeTrue();
-        result.Output.Should().Contain("# ADR-");
-        result.Output.Should().Contain("Use Embedded Vector Store");
+        result.Success.ShouldBeTrue();
+        result.Output.ShouldContain("# ADR-");
+        result.Output.ShouldContain("Use Embedded Vector Store");
     }
 
     [Fact]
@@ -108,7 +110,7 @@ public class ToolSandboxTests
         );
 
         var result = await tool.ExecuteAsync(context);
-        result.Success.Should().BeTrue();
-        result.Output.Should().Contain("ValueTask pipelines");
+        result.Success.ShouldBeTrue();
+        result.Output.ShouldContain("ValueTask pipelines");
     }
 }

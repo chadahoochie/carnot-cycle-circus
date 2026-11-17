@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -24,32 +24,33 @@ public class WorkDecompositionTests
             "Implement high-throughput in-memory pub/sub channels"
         );
 
-        result.Should().NotBeEmpty();
+        result.ShouldNotBeEmpty();
         var epic = result.First(t => t.Type == TicketType.Epic);
-        epic.Title.Should().Be("Build Distributed PubSub");
+        epic.Title.ShouldBe("Build Distributed PubSub");
 
         var researchSpike = result.First(t => t.Type == TicketType.ResearchSpike);
-        researchSpike.AssigneeRole.Should().Be(AgentRole.RequirementsResearcher);
-        researchSpike.Status.Should().Be(TicketStatus.Ready);
-        researchSpike.DependsOnTicketIds.Should().BeEmpty();
+        researchSpike.AssigneeRole.ShouldBe(AgentRole.RequirementsResearcher);
+        researchSpike.Status.ShouldBe(TicketStatus.Ready);
+        researchSpike.DependsOnTicketIds.ShouldBeEmpty();
 
         var featureStory = result.First(t => t.Type == TicketType.Feature);
-        featureStory.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
-        featureStory.Status.Should().Be(TicketStatus.Backlog);
-        featureStory.DependsOnTicketIds.Should().Contain(researchSpike.Id);
+        featureStory.AssigneeRole.ShouldBe(AgentRole.TechnicalProductManager);
+        featureStory.Status.ShouldBe(TicketStatus.Backlog);
+        featureStory.DependsOnTicketIds.ShouldContain(researchSpike.Id);
 
         var subtasks = result.Where(t => t.Type == TicketType.Subtask).ToList();
-        subtasks.Should().HaveCount(6);
+        subtasks.Count().ShouldBe(6);
 
         // Verify role coverage
-        subtasks.Select(s => s.AssigneeRole).Should().Contain([
+        new[]
+        {
             AgentRole.LeadArchitect,
             AgentRole.SoftwareDeveloper,
             AgentRole.SecurityEngineer,
             AgentRole.OptimizationEngineer,
             AgentRole.PrincipalQAAnalyst,
             AgentRole.IntegrationEngineer
-        ]);
+        }.ShouldBeSubsetOf(subtasks.Select(s => s.AssigneeRole));
 
         // Verify CLAW ordering: Arch depends on Feature Story, Dev depends on Arch, Security & Opt depend on Dev, QA depends on Sec & Opt, Integration depends on QA
         var archSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.LeadArchitect);
@@ -59,13 +60,13 @@ public class WorkDecompositionTests
         var qaSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.PrincipalQAAnalyst);
         var intSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.IntegrationEngineer);
 
-        archSubtask.DependsOnTicketIds.Should().Contain(featureStory.Id);
-        devSubtask.DependsOnTicketIds.Should().Contain(archSubtask.Id);
-        secSubtask.DependsOnTicketIds.Should().Contain(devSubtask.Id);
-        optSubtask.DependsOnTicketIds.Should().Contain(devSubtask.Id);
-        qaSubtask.DependsOnTicketIds.Should().Contain(secSubtask.Id);
-        qaSubtask.DependsOnTicketIds.Should().Contain(optSubtask.Id);
-        intSubtask.DependsOnTicketIds.Should().Contain(qaSubtask.Id);
+        archSubtask.DependsOnTicketIds.ShouldContain(featureStory.Id);
+        devSubtask.DependsOnTicketIds.ShouldContain(archSubtask.Id);
+        secSubtask.DependsOnTicketIds.ShouldContain(devSubtask.Id);
+        optSubtask.DependsOnTicketIds.ShouldContain(devSubtask.Id);
+        qaSubtask.DependsOnTicketIds.ShouldContain(secSubtask.Id);
+        qaSubtask.DependsOnTicketIds.ShouldContain(optSubtask.Id);
+        intSubtask.DependsOnTicketIds.ShouldContain(qaSubtask.Id);
     }
 
     [Fact]
@@ -84,23 +85,23 @@ public class WorkDecompositionTests
             researchBrief
         );
 
-        tickets.Should().HaveCount(3);
+        tickets.Count().ShouldBe(3);
         var epic = tickets.First(t => t.Type == TicketType.Epic);
-        epic.Deliverables.Should().Contain(d => d.Name == "RESEARCH_BRIEF.md");
-        epic.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
+        epic.Deliverables.ShouldContain(d => d.Name == "RESEARCH_BRIEF.md");
+        epic.AssigneeRole.ShouldBe(AgentRole.TechnicalProductManager);
 
         var research = tickets.First(t => t.Type == TicketType.ResearchSpike);
-        research.Status.Should().Be(TicketStatus.Done);
-        research.AssigneeRole.Should().Be(AgentRole.RequirementsResearcher);
+        research.Status.ShouldBe(TicketStatus.Done);
+        research.AssigneeRole.ShouldBe(AgentRole.RequirementsResearcher);
 
         var story = tickets.First(t => t.Type == TicketType.Feature);
-        story.ParentEpicId.Should().Be(epic.Id);
-        story.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
-        story.Status.Should().Be(TicketStatus.Ready);
-        story.CreatedByRole.Should().Be(AgentRole.TechnicalProductManager);
+        story.ParentEpicId.ShouldBe(epic.Id);
+        story.AssigneeRole.ShouldBe(AgentRole.TechnicalProductManager);
+        story.Status.ShouldBe(TicketStatus.Ready);
+        story.CreatedByRole.ShouldBe(AgentRole.TechnicalProductManager);
 
         // Ensure subtasks are NOT prematurely created during TPM story generation phase
-        tickets.Where(t => t.Type == TicketType.Subtask).Should().BeEmpty();
+        tickets.Where(t => t.Type == TicketType.Subtask).ShouldBeEmpty();
     }
 
     [Fact]
@@ -125,16 +126,16 @@ public class WorkDecompositionTests
 
         var subtasks = _engine.RefineStoryIntoTechnicalSubtasks(story);
 
-        subtasks.Should().HaveCount(6);
-        subtasks.Should().OnlyContain(s => s.Type == TicketType.Subtask);
-        subtasks.Should().OnlyContain(s => s.ParentEpicId == "EPIC-TEST");
+        subtasks.Count().ShouldBe(6);
+        subtasks.ShouldAllBe(s => s.Type == TicketType.Subtask);
+        subtasks.ShouldAllBe(s => s.ParentEpicId == "EPIC-TEST");
 
         // The first subtask (Arch ADR) must be Ready; downstream subtasks must be in Backlog
         var adrSubtask = subtasks.First(s => s.AssigneeRole == AgentRole.LeadArchitect);
-        adrSubtask.Status.Should().Be(TicketStatus.Ready);
+        adrSubtask.Status.ShouldBe(TicketStatus.Ready);
 
         var otherSubtasks = subtasks.Where(s => s.AssigneeRole != AgentRole.LeadArchitect).ToList();
-        otherSubtasks.Should().OnlyContain(s => s.Status == TicketStatus.Backlog);
+        otherSubtasks.ShouldAllBe(s => s.Status == TicketStatus.Backlog);
     }
 
     [Fact]
@@ -207,19 +208,19 @@ public class WorkDecompositionTests
 
         var result = _engine.SyncUserStoriesFromPrd(epicId, prdContent);
 
-        result.Should().HaveCount(3);
-        result.Should().OnlyContain(s => s.Type == TicketType.Feature);
-        result.Should().OnlyContain(s => s.ParentEpicId == epicId);
-        result.Should().OnlyContain(s => s.Status == TicketStatus.Done);
+        result.Count().ShouldBe(3);
+        result.ShouldAllBe(s => s.Type == TicketType.Feature);
+        result.ShouldAllBe(s => s.ParentEpicId == epicId);
+        result.ShouldAllBe(s => s.Status == TicketStatus.Done);
 
         // Story 1 upgraded existing ticket ID
-        result[0].Id.Should().Be("STORY-INIT-001");
-        result[0].Title.Should().Contain("Ingestion Channel & Backpressure");
-        result[0].AcceptanceCriteria.Should().Contain("Sub-5ms latency");
+        result[0].Id.ShouldBe("STORY-INIT-001");
+        result[0].Title.ShouldContain("Ingestion Channel & Backpressure");
+        result[0].AcceptanceCriteria.ShouldContain("Sub-5ms latency");
 
         // Stories 2 and 3 created as new tickets
-        result[1].Title.Should().Contain("Payload Validation & Anomaly Scoring");
-        result[2].Title.Should().Contain("Storage Outbox & Real-time Stream");
+        result[1].Title.ShouldContain("Payload Validation & Anomaly Scoring");
+        result[2].Title.ShouldContain("Storage Outbox & Real-time Stream");
     }
 
     [Fact]
@@ -263,10 +264,10 @@ public class WorkDecompositionTests
 
         var result = _engine.SyncUserStoriesFromPrd(epicId, prdContent);
 
-        result.Should().HaveCount(2);
-        result[0].Title.Should().Contain("Saga State Coordinator");
-        result[0].AcceptanceCriteria.Should().Contain("State persisted with optimistic locking");
-        result[1].Title.Should().Contain("Payment Gateway Adapter");
-        result[1].AcceptanceCriteria.Should().Contain("Zero secret leakage in logs");
+        result.Count().ShouldBe(2);
+        result[0].Title.ShouldContain("Saga State Coordinator");
+        result[0].AcceptanceCriteria.ShouldContain("State persisted with optimistic locking");
+        result[1].Title.ShouldContain("Payment Gateway Adapter");
+        result[1].AcceptanceCriteria.ShouldContain("Zero secret leakage in logs");
     }
 }

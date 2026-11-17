@@ -1,7 +1,7 @@
 using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Storage;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -78,8 +78,8 @@ public class ActiveProjectContextTests
 
         context.SetActiveProject(project);
 
-        raised.Should().Be(project);
-        raiseCount.Should().Be(1);
+        raised.ShouldBe(project);
+        raiseCount.ShouldBe(1);
     }
 
     [Fact]
@@ -90,18 +90,18 @@ public class ActiveProjectContextTests
 
         context.SetActiveProject(project);
 
-        context.CurrentProject.Should().Be(project);
-        context.CurrentProjectId.Should().Be(project.Id);
+        context.CurrentProject.ShouldBe(project);
+        context.CurrentProjectId.ShouldBe(project.Id);
     }
 
     [Fact]
     public void HasActiveProject_ShouldReflectWhetherAProjectIsSelected()
     {
         var context = new ActiveProjectContext();
-        context.HasActiveProject.Should().BeFalse();
+        context.HasActiveProject.ShouldBeFalse();
 
         context.SetActiveProject(Project.Create("Zero-Trust Identity", "Auth project"));
-        context.HasActiveProject.Should().BeTrue();
+        context.HasActiveProject.ShouldBeTrue();
     }
 
     [Fact]
@@ -112,9 +112,9 @@ public class ActiveProjectContextTests
 
         context.SetActiveProject(null);
 
-        context.HasActiveProject.Should().BeFalse();
-        context.CurrentProject.Should().BeNull();
-        context.CurrentProjectId.Should().BeNull();
+        context.HasActiveProject.ShouldBeFalse();
+        context.CurrentProject.ShouldBeNull();
+        context.CurrentProjectId.ShouldBeNull();
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class ActiveProjectContextTests
 
         var restoredContext = new ActiveProjectContext(projectManager, storage);
 
-        restoredContext.CurrentProjectId.Should().Be(project.Id);
+        restoredContext.CurrentProjectId.ShouldBe(project.Id);
     }
 
     [Fact]
@@ -144,6 +144,6 @@ public class ActiveProjectContextTests
 
         await projectManager.DeleteAsync(project.Id);
 
-        context.HasActiveProject.Should().BeFalse();
+        context.HasActiveProject.ShouldBeFalse();
     }
 }

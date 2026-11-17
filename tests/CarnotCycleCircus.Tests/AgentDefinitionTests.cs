@@ -1,6 +1,6 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Storage;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -13,16 +13,16 @@ public class AgentDefinitionTests
         var manager = new AgentDefinitionManager();
         var allAgents = manager.GetAllAgents();
 
-        allAgents.Should().HaveCount(9);
-        allAgents.Select(a => a.Persona.Role).Distinct().Should().HaveCount(9);
+        allAgents.Count().ShouldBe(9);
+        allAgents.Select(a => a.Persona.Role).Distinct().Count().ShouldBe(9);
 
         foreach (var role in Enum.GetValues<AgentRole>())
         {
             var agent = manager.GetAgentForRole(role);
-            agent.Should().NotBeNull();
-            agent!.Persona.Role.Should().Be(role);
-            agent.Persona.Name.Should().NotBeNullOrWhiteSpace();
-            agent.Persona.SystemPrompt.Should().NotBeNullOrWhiteSpace();
+            agent.ShouldNotBeNull();
+            agent!.Persona.Role.ShouldBe(role);
+            agent.Persona.Name.ShouldNotBeNullOrWhiteSpace();
+            agent.Persona.SystemPrompt.ShouldNotBeNullOrWhiteSpace();
         }
     }
 
@@ -44,14 +44,14 @@ public class AgentDefinitionTests
             assignedSkillIds: ["skill-csharp-standards"]
         );
 
-        created.Should().NotBeNull();
-        created.Id.Should().StartWith("agent-");
-        created.Persona.Name.Should().Be("Devon 'Coldbrew' Crashdump");
-        created.EffectiveModel.Should().Be("anthropic/claude-3.7-sonnet");
+        created.ShouldNotBeNull();
+        created.Id.ShouldStartWith("agent-");
+        created.Persona.Name.ShouldBe("Devon 'Coldbrew' Crashdump");
+        created.EffectiveModel.ShouldBe("anthropic/claude-3.7-sonnet");
 
-        manager.GetAllAgents().Should().HaveCount(10);
-        notifiedAgents.Should().NotBeNull();
-        notifiedAgents!.Should().HaveCount(10);
+        manager.GetAllAgents().Count().ShouldBe(10);
+        notifiedAgents.ShouldNotBeNull();
+        notifiedAgents!.Count().ShouldBe(10);
     }
 
     [Fact]
@@ -62,13 +62,13 @@ public class AgentDefinitionTests
 
         var duplicate = manager.DuplicateAgent(original.Id, "Archduke Barnaby (Clone)");
 
-        duplicate.Should().NotBeNull();
-        duplicate.Id.Should().NotBe(original.Id);
-        duplicate.Persona.Name.Should().Be("Archduke Barnaby (Clone)");
-        duplicate.Persona.Role.Should().Be(original.Persona.Role);
+        duplicate.ShouldNotBeNull();
+        duplicate.Id.ShouldNotBe(original.Id);
+        duplicate.Persona.Name.ShouldBe("Archduke Barnaby (Clone)");
+        duplicate.Persona.Role.ShouldBe(original.Persona.Role);
 
-        manager.GetAllAgents().Should().HaveCount(10);
-        manager.GetAgent(duplicate.Id).Should().NotBeNull();
+        manager.GetAllAgents().Count().ShouldBe(10);
+        manager.GetAgent(duplicate.Id).ShouldNotBeNull();
     }
 
     [Fact]
@@ -86,9 +86,9 @@ public class AgentDefinitionTests
         manager.SaveAgent(updated);
 
         var retrieved = manager.GetAgent(agent.Id);
-        retrieved.Should().NotBeNull();
-        retrieved!.Persona.Name.Should().Be("Cyber Sentinel Prime");
-        retrieved.EffectiveModel.Should().Be("anthropic/claude-3.7-sonnet");
+        retrieved.ShouldNotBeNull();
+        retrieved!.Persona.Name.ShouldBe("Cyber Sentinel Prime");
+        retrieved.EffectiveModel.ShouldBe("anthropic/claude-3.7-sonnet");
     }
 
     [Fact]
@@ -97,12 +97,12 @@ public class AgentDefinitionTests
         var manager = new AgentDefinitionManager();
         var extra = manager.CreateAgent(AgentRole.IntegrationEngineer, "Temporary Integration Bot", "Prompt");
 
-        manager.GetAllAgents().Should().HaveCount(10);
+        manager.GetAllAgents().Count().ShouldBe(10);
 
         var deleted = manager.DeleteAgent(extra.Id);
-        deleted.Should().BeTrue();
-        manager.GetAllAgents().Should().HaveCount(9);
-        manager.GetAgent(extra.Id).Should().BeNull();
+        deleted.ShouldBeTrue();
+        manager.GetAllAgents().Count().ShouldBe(9);
+        manager.GetAgent(extra.Id).ShouldBeNull();
     }
 
     [Fact]
@@ -127,10 +127,10 @@ public class AgentDefinitionTests
             var manager2 = new AgentDefinitionManager(storage);
             var reloaded = manager2.GetAgent(customAgent.Id);
 
-            reloaded.Should().NotBeNull();
-            reloaded!.Persona.Name.Should().Be("Madame Genevieve 'Zero-Alloc' Byte-Trapeze");
-            reloaded.EffectiveModel.Should().Be("qwen/qwen-2.5-coder-32b-instruct");
-            manager2.GetAllAgents().Should().HaveCount(10);
+            reloaded.ShouldNotBeNull();
+            reloaded!.Persona.Name.ShouldBe("Madame Genevieve 'Zero-Alloc' Byte-Trapeze");
+            reloaded.EffectiveModel.ShouldBe("qwen/qwen-2.5-coder-32b-instruct");
+            manager2.GetAllAgents().Count().ShouldBe(10);
         }
         finally
         {

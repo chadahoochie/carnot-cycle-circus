@@ -23,5 +23,5 @@ If applicable, add screenshots or console output to help explain your problem.
 
 ## Environment
 - OS: [e.g. Linux, Windows, macOS]
-- .NET SDK Version: [e.g. 10.0.302]
+- .NET SDK Version: [e.g. 11.0.100]
 - Browser: [e.g. Chrome, Firefox]

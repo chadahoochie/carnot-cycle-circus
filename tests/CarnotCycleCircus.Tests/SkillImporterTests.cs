@@ -1,7 +1,7 @@
 using System.Net;
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Skills;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -26,12 +26,12 @@ public class SkillImporterTests
 
         var skill = _importer.ParseSkillMarkdown(markdown);
 
-        skill.Name.Should().Be("Custom Security Auditor");
-        skill.Description.Should().Be("Audits code for SQL injection and XSS vulnerabilities.");
-        skill.Category.Should().Be("Security");
-        skill.Id.Should().Be("skill-custom-security-auditor");
-        skill.RecommendedTools.Should().Contain(["csharp_syntax_check", "web_search"]);
-        skill.Instructions.Should().Contain("Analyze raw input streams");
+        skill.Name.ShouldBe("Custom Security Auditor");
+        skill.Description.ShouldBe("Audits code for SQL injection and XSS vulnerabilities.");
+        skill.Category.ShouldBe("Security");
+        skill.Id.ShouldBe("skill-custom-security-auditor");
+        new[] { "csharp_syntax_check", "web_search" }.ShouldBeSubsetOf(skill.RecommendedTools);
+        skill.Instructions.ShouldContain("Analyze raw input streams");
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public class SkillImporterTests
         """;
 
         var skill = _importer.ParseSkillMarkdown(markdown);
-        skill.Id.Should().Be("skill-evidence-qa-specialist");
-        skill.Name.Should().Be("Evidence Collector QA");
+        skill.Id.ShouldBe("skill-evidence-qa-specialist");
+        skill.Name.ShouldBe("Evidence Collector QA");
     }
 
     [Fact]
@@ -70,10 +70,10 @@ public class SkillImporterTests
         registry.AssignSkillToRole("skill-custom-qa", AgentRole.PrincipalQAAnalyst);
 
         var qaSkills = registry.GetSkillsForRole(AgentRole.PrincipalQAAnalyst);
-        qaSkills.Should().Contain(s => s.Id == "skill-custom-qa");
+        qaSkills.ShouldContain(s => s.Id == "skill-custom-qa");
 
         var roles = registry.GetRolesForSkill("skill-custom-qa");
-        roles.Should().Contain(AgentRole.PrincipalQAAnalyst);
+        roles.ShouldContain(AgentRole.PrincipalQAAnalyst);
     }
 
     [Fact]
@@ -104,15 +104,15 @@ public class SkillImporterTests
         registry.RegisterSkill(updated);
 
         var retrieved = registry.GetSkill("skill-test-edit");
-        retrieved.Should().NotBeNull();
-        retrieved!.Name.Should().Be("Updated Name");
-        retrieved.Description.Should().Be("Updated Description");
-        retrieved.Instructions.Should().Be("Updated Instructions");
-        retrieved.RecommendedTools.Should().Contain("tool2");
-        retrieved.AssignedRoles.Should().BeEquivalentTo([AgentRole.LeadArchitect, AgentRole.PrincipalQAAnalyst]);
+        retrieved.ShouldNotBeNull();
+        retrieved!.Name.ShouldBe("Updated Name");
+        retrieved.Description.ShouldBe("Updated Description");
+        retrieved.Instructions.ShouldBe("Updated Instructions");
+        retrieved.RecommendedTools.ShouldContain("tool2");
+        retrieved.AssignedRoles.ShouldBe([AgentRole.LeadArchitect, AgentRole.PrincipalQAAnalyst], ignoreOrder: true);
 
-        registry.GetSkillsForRole(AgentRole.SoftwareDeveloper).Should().NotContain(s => s.Id == "skill-test-edit");
-        registry.GetSkillsForRole(AgentRole.LeadArchitect).Should().Contain(s => s.Id == "skill-test-edit");
+        registry.GetSkillsForRole(AgentRole.SoftwareDeveloper).ShouldNotContain(s => s.Id == "skill-test-edit");
+        registry.GetSkillsForRole(AgentRole.LeadArchitect).ShouldContain(s => s.Id == "skill-test-edit");
     }
 
     [Fact]
@@ -130,14 +130,14 @@ public class SkillImporterTests
         );
 
         registry.RegisterSkill(skill);
-        registry.GetSkill("skill-to-delete").Should().NotBeNull();
+        registry.GetSkill("skill-to-delete").ShouldNotBeNull();
 
         var unregistered = registry.UnregisterSkill("skill-to-delete");
-        unregistered.Should().BeTrue();
+        unregistered.ShouldBeTrue();
 
-        registry.GetSkill("skill-to-delete").Should().BeNull();
-        registry.GetRolesForSkill("skill-to-delete").Should().BeEmpty();
-        registry.GetSkillsForRole(AgentRole.SecurityEngineer).Should().NotContain(s => s.Id == "skill-to-delete");
+        registry.GetSkill("skill-to-delete").ShouldBeNull();
+        registry.GetRolesForSkill("skill-to-delete").ShouldBeEmpty();
+        registry.GetSkillsForRole(AgentRole.SecurityEngineer).ShouldNotContain(s => s.Id == "skill-to-delete");
     }
 
     [Fact]
@@ -174,15 +174,15 @@ public class SkillImporterTests
         var skill1 = await importer.ImportFromUrlAsync("https://raw.githubusercontent.com/org/repo/main/skills/engineering-backend-architect/SKILL.md");
         var skill2 = await importer.ImportFromUrlAsync("https://raw.githubusercontent.com/org/repo/main/skills/testing-evidence-collector/SKILL.md");
 
-        skill1.Id.Should().NotBe(skill2.Id);
-        skill1.Id.Should().Be("skill-engineering-backend-architect");
-        skill2.Id.Should().Be("skill-testing-evidence-collector");
+        skill1.Id.ShouldNotBe(skill2.Id);
+        skill1.Id.ShouldBe("skill-engineering-backend-architect");
+        skill2.Id.ShouldBe("skill-testing-evidence-collector");
 
         registry.RegisterSkill(skill1);
         registry.RegisterSkill(skill2);
 
-        registry.GetAllSkills().Should().Contain(s => s.Id == "skill-engineering-backend-architect");
-        registry.GetAllSkills().Should().Contain(s => s.Id == "skill-testing-evidence-collector");
+        registry.GetAllSkills().ShouldContain(s => s.Id == "skill-engineering-backend-architect");
+        registry.GetAllSkills().ShouldContain(s => s.Id == "skill-testing-evidence-collector");
     }
 
     private sealed class MockHttpMessageHandler : HttpMessageHandler

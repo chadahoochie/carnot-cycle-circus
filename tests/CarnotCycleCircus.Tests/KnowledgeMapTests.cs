@@ -1,5 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Knowledge;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -23,8 +23,8 @@ public class KnowledgeMapTests
         _service.AddEdge("KN-999", "KN-001", "Implements");
 
         var map = _service.GetFullMap();
-        map.Nodes.Should().Contain(n => n.Id == "KN-999");
-        map.Edges.Should().Contain(e => e.SourceNodeId == "KN-999" && e.TargetNodeId == "KN-001");
+        map.Nodes.ShouldContain(n => n.Id == "KN-999");
+        map.Edges.ShouldContain(e => e.SourceNodeId == "KN-999" && e.TargetNodeId == "KN-001");
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public class KnowledgeMapTests
     {
         var context = _service.ExtractSubGraphContext("zero allocation");
 
-        context.Should().Contain("[AI Knowledge Map Context]");
-        context.Should().Contain("Zero-Allocation ValueTask Pipelines");
+        context.ShouldContain("[AI Knowledge Map Context]");
+        context.ShouldContain("Zero-Allocation ValueTask Pipelines");
     }
 }

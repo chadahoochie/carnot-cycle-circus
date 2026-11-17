@@ -3,8 +3,8 @@
 ## 1. Test Architecture & Tooling
 
 The testing suite for Carnot Cycle Circus is located in `tests/CarnotCycleCircus.Tests/`. It is built with:
-- **[xUnit](https://xunit.net/)** (2.9.2): Modern, extensible test framework.
-- **[FluentAssertions](https://fluentassertions.com/)** (8.0.1): Expressive, human-readable assertion syntax.
+- **[xUnit](https://xunit.net/)** (2.9.3): Modern, extensible test framework.
+- **[Shouldly](https://docs.shouldly.org/)** (4.3.0): Expressive, human-readable assertion syntax.
 - **Microsoft.NET.Test.Sdk** & **coverlet.collector**: Test discovery and code coverage analysis.
 
 ---
@@ -87,8 +87,8 @@ public void CreateTicket_ShouldStoreTicketAndRaiseEvent()
     var created = store.CreateTicket(ticket);
 
     // Assert
-    created.Should().NotBeNull();
-    store.GetTicketById("TICK-001").Should().Be(ticket);
+    created.ShouldNotBeNull();
+    store.GetTicketById("TICK-001").ShouldBe(ticket);
 }
 ```
 

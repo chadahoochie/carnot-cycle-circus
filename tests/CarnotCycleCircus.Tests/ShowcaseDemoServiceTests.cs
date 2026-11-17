@@ -4,7 +4,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Showcase;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -46,22 +46,22 @@ public class ShowcaseDemoServiceTests
     public void GetScenarios_ShouldReturnCuratedScenarios()
     {
         var scenarios = _showcaseService.GetScenarios();
-        scenarios.Should().NotBeEmpty();
-        scenarios.Count.Should().BeGreaterThanOrEqualTo(3);
+        scenarios.ShouldNotBeEmpty();
+        scenarios.Count.ShouldBeGreaterThanOrEqualTo(3);
 
         var fullCircus = _showcaseService.GetScenario("full-circus-sprint");
-        fullCircus.Should().NotBeNull();
-        fullCircus!.HighlightPersona.Should().NotBeEmpty();
+        fullCircus.ShouldNotBeNull();
+        fullCircus!.HighlightPersona.ShouldNotBeEmpty();
     }
 
     [Fact]
     public async Task RunShowcaseAsync_ShouldExecuteWorkflowEndToEnd()
     {
         var success = await _showcaseService.RunShowcaseAsync("full-circus-sprint");
-        success.Should().BeTrue();
+        success.ShouldBeTrue();
 
         // Verify tickets were created and processed
         var allTickets = _ticketStore.GetAllTickets();
-        allTickets.Should().NotBeEmpty();
+        allTickets.ShouldNotBeEmpty();
     }
 }

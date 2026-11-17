@@ -4,7 +4,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -33,22 +33,22 @@ public class AgentExecutionTrackerAndTicketEditingTests
 
         // 1. Rename title
         var renamed = original.WithTitle("Renamed Circus Ticket");
-        renamed.Title.Should().Be("Renamed Circus Ticket");
-        original.Title.Should().Be("Initial Title"); // Immutability verification
+        renamed.Title.ShouldBe("Renamed Circus Ticket");
+        original.Title.ShouldBe("Initial Title"); // Immutability verification
 
         // 2. Update description
         var descUpdated = renamed.WithDescription("Updated Detailed Description");
-        descUpdated.Description.Should().Be("Updated Detailed Description");
-        renamed.Description.Should().Be("Initial Description");
+        descUpdated.Description.ShouldBe("Updated Detailed Description");
+        renamed.Description.ShouldBe("Initial Description");
 
         // 3. Update priority
         var critUpdated = descUpdated.WithPriority(TicketPriority.Critical);
-        critUpdated.Priority.Should().Be(TicketPriority.Critical);
+        critUpdated.Priority.ShouldBe(TicketPriority.Critical);
 
         // 4. Update acceptance criteria
         var acUpdated = critUpdated.WithAcceptanceCriteria(["New Criterion A", "New Criterion B"]);
-        acUpdated.AcceptanceCriteria.Should().HaveCount(2);
-        acUpdated.AcceptanceCriteria.Should().Contain("New Criterion A");
+        acUpdated.AcceptanceCriteria.Count().ShouldBe(2);
+        acUpdated.AcceptanceCriteria.ShouldContain("New Criterion A");
 
         // 5. Atomic UpdateDetails
         var bulkUpdated = original.UpdateDetails(
@@ -58,11 +58,11 @@ public class AgentExecutionTrackerAndTicketEditingTests
             criteria: ["Bulk 1", "Bulk 2", "Bulk 3"]
         );
 
-        bulkUpdated.Title.Should().Be("Bulk Updated Title");
-        bulkUpdated.Description.Should().Be("Bulk Description");
-        bulkUpdated.Priority.Should().Be(TicketPriority.High);
-        bulkUpdated.AcceptanceCriteria.Should().HaveCount(3);
-        bulkUpdated.Id.Should().Be(original.Id);
+        bulkUpdated.Title.ShouldBe("Bulk Updated Title");
+        bulkUpdated.Description.ShouldBe("Bulk Description");
+        bulkUpdated.Priority.ShouldBe(TicketPriority.High);
+        bulkUpdated.AcceptanceCriteria.Count().ShouldBe(3);
+        bulkUpdated.Id.ShouldBe(original.Id);
     }
 
     [Fact]
@@ -93,55 +93,56 @@ public class AgentExecutionTrackerAndTicketEditingTests
             upstreamDeliverables: ["ArchitectureADR.md", "SpecificationPRD.md"]
         );
 
-        tracker.CurrentExecution.Should().NotBeNull();
-        tracker.CurrentExecution!.TicketId.Should().Be("TCK-100");
-        tracker.CurrentExecution.PrimaryModel.Should().Be("primary/fast-coder");
-        tracker.CurrentExecution.FallbackModel.Should().Be("fallback/backup-coder");
-        tracker.CurrentExecution.ActiveModel.Should().Be("primary/fast-coder");
-        tracker.CurrentExecution.IsFallbackActive.Should().BeFalse();
-        tracker.CurrentExecution.IsRunning.Should().BeTrue();
-        tracker.CurrentExecution.SystemPrompt.Should().Contain("elite C# developer");
-        tracker.CurrentExecution.UpstreamDeliverableNames.Should().HaveCount(2);
+        tracker.CurrentExecution.ShouldNotBeNull();
+        tracker.CurrentExecution!.TicketId.ShouldBe("TCK-100");
+        tracker.CurrentExecution.PrimaryModel.ShouldBe("primary/fast-coder");
+        tracker.CurrentExecution.FallbackModel.ShouldBe("fallback/backup-coder");
+        tracker.CurrentExecution.ActiveModel.ShouldBe("primary/fast-coder");
+        tracker.CurrentExecution.IsFallbackActive.ShouldBeFalse();
+        tracker.CurrentExecution.IsRunning.ShouldBeTrue();
+        tracker.CurrentExecution.SystemPrompt.ShouldNotBeNull();
+        tracker.CurrentExecution.SystemPrompt.ShouldContain("elite C# developer");
+        tracker.CurrentExecution.UpstreamDeliverableNames.Count().ShouldBe(2);
 
         // 2. Append chunks
         tracker.AppendChunk("TCK-100", "public class ");
         tracker.AppendChunk("TCK-100", "ApiClient { }");
 
-        tracker.CurrentExecution.ChunksReceived.Should().Be(2);
-        tracker.CurrentExecution.FullStreamOutput.Should().Be("public class ApiClient { }");
-        tracker.CurrentExecution.LiveSnippet.Should().Be("public class ApiClient { }");
+        tracker.CurrentExecution.ChunksReceived.ShouldBe(2);
+        tracker.CurrentExecution.FullStreamOutput.ShouldBe("public class ApiClient { }");
+        tracker.CurrentExecution.LiveSnippet.ShouldBe("public class ApiClient { }");
 
         // 3. Record failover
         tracker.RecordFailover("TCK-100", "fallback/backup-coder", "HTTP 429: Rate limit exceeded");
 
-        tracker.CurrentExecution.IsFallbackActive.Should().BeTrue();
-        tracker.CurrentExecution.ActiveModel.Should().Be("fallback/backup-coder");
-        tracker.CurrentExecution.FailoverReason.Should().Be("HTTP 429: Rate limit exceeded");
-        tracker.CurrentExecution.CurrentPhase.Should().ContainEquivalentOf("autonomous failover");
+        tracker.CurrentExecution.IsFallbackActive.ShouldBeTrue();
+        tracker.CurrentExecution.ActiveModel.ShouldBe("fallback/backup-coder");
+        tracker.CurrentExecution.FailoverReason.ShouldBe("HTTP 429: Rate limit exceeded");
+        tracker.CurrentExecution.CurrentPhase.ShouldContain("autonomous failover", Case.Insensitive);
 
         // 4. Append more chunks on fallback
         tracker.AppendChunk("TCK-100", "\n// Generated via fallback");
-        tracker.CurrentExecution.ChunksReceived.Should().Be(3);
-        tracker.CurrentExecution.FullStreamOutput.Should().Contain("// Generated via fallback");
+        tracker.CurrentExecution.ChunksReceived.ShouldBe(3);
+        tracker.CurrentExecution.FullStreamOutput.ShouldContain("// Generated via fallback");
 
         // 5. Complete execution
         tracker.CompleteExecution("TCK-100", success: true);
 
-        tracker.CurrentExecution.Should().BeNull();
-        tracker.LastExecution.Should().NotBeNull();
-        tracker.LastExecution!.TicketId.Should().Be("TCK-100");
-        tracker.LastExecution.IsSuccess.Should().BeTrue();
-        tracker.LastExecution.IsRunning.Should().BeFalse();
-        tracker.LastExecution.CompletedAt.Should().NotBeNull();
+        tracker.CurrentExecution.ShouldBeNull();
+        tracker.LastExecution.ShouldNotBeNull();
+        tracker.LastExecution!.TicketId.ShouldBe("TCK-100");
+        tracker.LastExecution.IsSuccess.ShouldBeTrue();
+        tracker.LastExecution.IsRunning.ShouldBeFalse();
+        tracker.LastExecution.CompletedAt.ShouldNotBeNull();
 
         // 6. Trace query by ticket ID
         var ticketTrace = tracker.GetExecutionForTicket("TCK-100");
-        ticketTrace.Should().NotBeNull();
-        ticketTrace!.TicketTitle.Should().Be("Implement API Client");
-        ticketTrace.IsFallbackActive.Should().BeTrue();
+        ticketTrace.ShouldNotBeNull();
+        ticketTrace!.TicketTitle.ShouldBe("Implement API Client");
+        ticketTrace.IsFallbackActive.ShouldBeTrue();
 
-        notificationCount.Should().BeGreaterThan(0);
-        lastNotified.Should().NotBeNull();
+        notificationCount.ShouldBeGreaterThan(0);
+        lastNotified.ShouldNotBeNull();
     }
 
     [Fact]
@@ -167,9 +168,9 @@ public class AgentExecutionTrackerAndTicketEditingTests
         );
 
         var configA = resolver.ResolveInferenceConfig(memberWithFallback, team);
-        configA.PrimaryModel.Should().Be("primary/coder-99b");
-        configA.FallbackModel.Should().Be("member/custom-fallback");
-        configA.ApiKey.Should().Be("sk-global-secret-key-12345");
+        configA.PrimaryModel.ShouldBe("primary/coder-99b");
+        configA.FallbackModel.ShouldBe("member/custom-fallback");
+        configA.ApiKey.ShouldBe("sk-global-secret-key-12345");
 
         // Case B: Agent member without explicit fallback model should inherit team default fallback
         var memberNoFallback = new AgentMember(
@@ -181,8 +182,8 @@ public class AgentExecutionTrackerAndTicketEditingTests
         );
 
         var configB = resolver.ResolveInferenceConfig(memberNoFallback, team);
-        configB.PrimaryModel.Should().Be("primary/tpm-model");
-        configB.FallbackModel.Should().Be("squad/default-fallback-model");
+        configB.PrimaryModel.ShouldBe("primary/tpm-model");
+        configB.FallbackModel.ShouldBe("squad/default-fallback-model");
 
         // Case C: When fallback model is identical to primary model, fallback should be null
         var memberDuplicateFallback = new AgentMember(
@@ -195,7 +196,7 @@ public class AgentExecutionTrackerAndTicketEditingTests
         var teamDuplicate = team with { DefaultFallbackModel = "primary/arch-model" };
 
         var configC = resolver.ResolveInferenceConfig(memberDuplicateFallback, teamDuplicate);
-        configC.PrimaryModel.Should().Be("primary/arch-model");
-        configC.FallbackModel.Should().BeNull();
+        configC.PrimaryModel.ShouldBe("primary/arch-model");
+        configC.FallbackModel.ShouldBeNull();
     }
 }

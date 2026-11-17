@@ -2,7 +2,7 @@ using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -39,12 +39,12 @@ public class PersistentMemoryTests
         ));
 
         var secResults = await _store.SearchAsync("authentication tokens signature", topK: 1);
-        secResults.Should().NotBeEmpty();
-        secResults[0].Entry.Id.Should().Be("MEM-1");
+        secResults.ShouldNotBeEmpty();
+        secResults[0].Entry.Id.ShouldBe("MEM-1");
 
         var perfResults = await _store.SearchAsync("garbage collection buffer pools", topK: 1);
-        perfResults.Should().NotBeEmpty();
-        perfResults[0].Entry.Id.Should().Be("MEM-2");
+        perfResults.ShouldNotBeEmpty();
+        perfResults[0].Entry.Id.ShouldBe("MEM-2");
     }
 
     [Fact]
@@ -75,10 +75,10 @@ public class PersistentMemoryTests
         ));
 
         var pruned = await _store.PruneAsync(0.3f, TimeSpan.FromDays(1));
-        pruned.Should().Be(1);
+        pruned.ShouldBe(1);
 
         var remaining = await _store.GetAllAsync();
-        remaining.Should().ContainSingle(m => m.Id == "MEM-KEEP");
+        remaining.Where(m => m.Id == "MEM-KEEP").ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -104,11 +104,11 @@ public class PersistentMemoryTests
 
         var episodic = await consolidation.ConsolidateTaskCompletionAsync(ticket, Array.Empty<AgentMessage>());
 
-        episodic.Should().NotBeNull();
-        episodic.Type.Should().Be(MemoryType.Episodic);
-        episodic.Content.Should().Contain("Implement Fast Parser");
+        episodic.ShouldNotBeNull();
+        episodic.Type.ShouldBe(MemoryType.Episodic);
+        episodic.Content.ShouldContain("Implement Fast Parser");
 
         var retrieved = await _store.GetByIdAsync(episodic.Id);
-        retrieved.Should().NotBeNull();
+        retrieved.ShouldNotBeNull();
     }
 }

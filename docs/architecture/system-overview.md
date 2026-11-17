@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-**Carnot Cycle Circus** is an autonomous engineering agent orchestration platform designed to model, coordinate, and execute complete software engineering lifecycles. Built in **.NET 10 (C# 13)** with an interactive **ASP.NET Core Blazor** web interface, it organizes software engineering into six specialized autonomous roles working concurrently or in structured Closed-Loop Agent Workflow (CLAW) pipelines.
+**Carnot Cycle Circus** is an autonomous engineering agent orchestration platform designed to model, coordinate, and execute complete software engineering lifecycles. Built in **.NET 11 (C# 15)** with an interactive **ASP.NET Core Blazor** web interface, it organizes software engineering into six specialized autonomous roles working concurrently or in structured Closed-Loop Agent Workflow (CLAW) pipelines.
 
 The platform resolves common multi-agent coordination problems through:
 1. **Embedded Ticket Management**: Hierarchical work decomposition ($Epics \to Stories \to Subtasks$) with explicit dependency scheduling.
@@ -24,7 +24,7 @@ C4Context
 
     Person(developer, "Software Engineer / Operator", "Configures teams, creates tickets, designs workflow CLAWs, triggers agent execution, and inspects memory & telemetry.")
     
-    System(circus, "Carnot Cycle Circus", ".NET 10 / Blazor autonomous agent orchestration platform with embedded ticket engine, persistent memory, and workflow CLAW.")
+    System(circus, "Carnot Cycle Circus", ".NET 11 / Blazor autonomous agent orchestration platform with embedded ticket engine, persistent memory, and workflow CLAW.")
     
     System_Ext(openrouter, "OpenRouter API Gateway", "Unified multi-model LLM inference provider (Claude 3.7, GPT-4o, DeepSeek-R1, Qwen 2.5 Coder, o3-mini).")
     System_Ext(ext_memory, "External Vector Stores (Optional)", "OpenViking / Mem0 / Qdrant REST endpoints for enterprise-scale vector synchronization.")
@@ -43,7 +43,7 @@ C4Container
     Person(user, "Engineer", "Uses Web Browser")
 
     Container_Boundary(c1, "Carnot Cycle Circus Application") {
-        Container(web, "Blazor Web Frontend", "ASP.NET Core 10 / Blazor Interactive Server", "Provides Kanban Studio, Visual CLAW Canvas, Execution Dashboard, Memory Inspector, Key Vault Modal, and ADR Hub.")
+        Container(web, "Blazor Web Frontend", "ASP.NET Core 11 / Blazor Interactive Server", "Provides Kanban Studio, Visual CLAW Canvas, Execution Dashboard, Memory Inspector, Key Vault Modal, and ADR Hub.")
         
         Container_Boundary(core, "CarnotCycleCircus.Core (Domain & Engine)") {
             Component(tickets, "Ticket & Handoff Engine", "ITicketStore, IWorkDecompositionEngine, IHandoffRouter", "Manages Epics, Stories, Subtasks, CLAW dependency resolution, and inter-agent handoff packets.")
@@ -78,11 +78,11 @@ The repository follows a clean, decoupled architecture:
 ```
 carnot-cycle-circus/
 ├── CarnotCycleCircus.slnx               # Modern XML-based solution manifest
-├── Directory.Build.props               # Central compiler warnings, C# 13, TreatWarningsAsErrors
+├── Directory.Build.props               # Central compiler warnings, C# 15, TreatWarningsAsErrors
 ├── Directory.Packages.props            # Central Package Management (CPM)
 │
 ├── src/
-│   ├── CarnotCycleCircus.Core/         # Core Domain & Orchestration Library (.NET 10.0)
+│   ├── CarnotCycleCircus.Core/         # Core Domain & Orchestration Library (.NET 11.0)
 │   │   ├── Domain/
 │   │   │   ├── Agents/                 # AgentRole, AgentPersona, EngineeringTeam
 │   │   │   ├── Artifacts/              # ArtifactDescriptor, ArtifactManager, IArtifactManager
@@ -105,7 +105,7 @@ carnot-cycle-circus/
 │   │   │   └── Tools/                  # IToolDefinition, WebSearch, CSharpSyntaxCheck, TestRunner
 │   │   └── Extensions/
 │   │       └── ServiceCollectionExtensions.cs # Centralized DI registration
-│   ├── CarnotCycleCircus.UI/           # Shared Razor Class Library (.NET 10.0)
+│   ├── CarnotCycleCircus.UI/           # Shared Razor Class Library (.NET 11.0)
 │   │   ├── Components/
 │   │   │   ├── Layout/                 # MainLayout, NavMenu
 │   │   │   ├── Pages/                  # 13 Interactive Blazor Pages (ArtifactsHub, Canvas, Dashboard, etc.)
@@ -118,16 +118,16 @@ carnot-cycle-circus/
 │   │   ├── Program.cs                  # Photino native window runner (WebKitGTK on Linux)
 │   │   └── wwwroot/                    # WebKit webview host
 │   │
-│   ├── CarnotCycleCircus.Server/       # Headless Docker Agent Host Server (.NET 10.0)
+│   ├── CarnotCycleCircus.Server/       # Headless Docker Agent Host Server (.NET 11.0)
 │   │   ├── Hubs/                       # AgentStreamHub (SignalR live event streaming)
 │   │   ├── Services/                   # SignalREventBridge background worker
 │   │   └── Program.cs                  # Minimal REST API endpoints & SignalR host
 │   │
-│   └── CarnotCycleCircus.Web/          # Blazor Interactive Web Host (.NET 10.0)
+│   └── CarnotCycleCircus.Web/          # Blazor Interactive Web Host (.NET 11.0)
 │       └── Program.cs                  # Interactive Server web pipeline
 │
 ├── tests/
-│   └── CarnotCycleCircus.Tests/        # Comprehensive Unit & Integration Tests (xUnit + FluentAssertions)
+│   └── CarnotCycleCircus.Tests/        # Comprehensive Unit & Integration Tests (xUnit + Shouldly)
 │       └── [30+ Test Suites]           # Complete coverage across all domain services
 │
 ├── scripts/                            # Local install and Docker orchestration scripts

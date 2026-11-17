@@ -12,7 +12,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
    git clone https://github.com/your-username/carnot-cycle-circus.git
    cd carnot-cycle-circus
    ```
-3. Ensure you have the .NET 10 SDK installed:
+3. Ensure you have the .NET 11 SDK installed:
    ```bash
    dotnet --info
    ```

@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Teams;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -19,7 +19,8 @@ public class OpenRouterClientTests
         );
 
         var act = () => _client.CompleteAsync(request, "");
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*API key is required*");
+        var ex = await Should.ThrowAsync<InvalidOperationException>(act);
+        ex.Message.ShouldContain("API key is required");
     }
 
     [Fact]
@@ -32,8 +33,8 @@ public class OpenRouterClientTests
 
         var (model, apiKey) = resolver.ResolveInferenceParameters(member, team);
 
-        model.Should().NotBeNullOrWhiteSpace();
-        apiKey.Should().BeEmpty();
+        model.ShouldNotBeNullOrWhiteSpace();
+        apiKey.ShouldBeEmpty();
     }
 
     [Theory]
@@ -44,12 +45,12 @@ public class OpenRouterClientTests
     public async Task FetchModelsAsync_WithNullEmptyOrMockKey_ShouldReturnEmptyListWithoutRemoteCall(string? apiKey)
     {
         var models = await _client.FetchModelsAsync(apiKey);
-        models.Should().BeEmpty();
+        models.ShouldBeEmpty();
     }
 
     [Fact]
     public void OpenRouterClient_DefaultTimeout_ShouldBeNinetySeconds()
     {
-        OpenRouterClient.DefaultTimeout.Should().Be(TimeSpan.FromSeconds(90));
+        OpenRouterClient.DefaultTimeout.ShouldBe(TimeSpan.FromSeconds(90));
     }
 }

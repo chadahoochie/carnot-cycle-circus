@@ -1,12 +1,12 @@
 # Carnot Cycle Circus - Engineering Assistant Guidelines
 
-> Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** — operating at theoretical maximum Carnot efficiency to tame the 6-ring circus of autonomous AI engineering roles.
+> Autonomous Engineering Agent Orchestration Platform built in **.NET 11 / C# 15** — operating at theoretical maximum Carnot efficiency to tame the 6-ring circus of autonomous AI engineering roles.
 
 ## 🗺️ Documentation Suite & System Map
 - 📖 **Documentation Portal**: [`docs/README.md`](docs/README.md)
 - 🤖 **Condensed Machine-Readable Spec**: [`docs/LLMS.txt`](docs/LLMS.txt)
 - 🏛️ **Architecture & Topologies**: [`docs/architecture/`](docs/architecture/)
-- 📜 **C# 13 & Quality Standards**: [`docs/standards/`](docs/standards/)
+- 📜 **C# 15 & Quality Standards**: [`docs/standards/`](docs/standards/)
 - 📋 **Architectural Decision Records**: [`docs/adrs/`](docs/adrs/)
 - 🧭 **Developer Guides & Recipes**: [`docs/guides/`](docs/guides/)
 - 🔍 **Core & Web API Reference**: [`docs/api/`](docs/api/)
@@ -26,7 +26,7 @@ dotnet run --project src/CarnotCycleCircus.Web
 ## Solution Structure
 - `src/CarnotCycleCircus.Core/`: Domain models, ticket management & decomposition engine, persistent memory (OpenViking-style), OpenRouter inference hub, agent tool sandbox, and connectable workflow graph. [Core Guidelines](src/CarnotCycleCircus.Core/CLAUDE.md)
 - `src/CarnotCycleCircus.Web/`: Blazor frontend with interactive Ticket Studio (Kanban/CLAW), Memory Inspector, Team Definition Studio, ADR Hub, Standards Manager, Knowledge Map Explorer, and Real-Time Execution Dashboard. [Web Guidelines](src/CarnotCycleCircus.Web/CLAUDE.md)
-- `tests/CarnotCycleCircus.Tests/`: xUnit & FluentAssertions test suites verifying tickets, tools, memory, inference, standards, and workflow routing. [Testing Guidelines](tests/CarnotCycleCircus.Tests/CLAUDE.md)
+- `tests/CarnotCycleCircus.Tests/`: xUnit & Shouldly test suites verifying tickets, tools, memory, inference, standards, and workflow routing. [Testing Guidelines](tests/CarnotCycleCircus.Tests/CLAUDE.md)
 - `skills/`: Preserved engineering, architecture, and .NET best-practice skills.
 
 ## Agent Guidance: Preserved Skills Routing

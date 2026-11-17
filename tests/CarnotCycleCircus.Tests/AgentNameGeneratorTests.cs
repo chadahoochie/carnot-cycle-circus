@@ -1,6 +1,6 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Skills;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -30,8 +30,8 @@ public class AgentNameGeneratorTests
 
         var suggestions = _generator.GenerateNameSuggestions(role, [skill], count: 5, seed: 42);
 
-        suggestions.Should().NotBeEmpty();
-        suggestions.Should().HaveCount(5);
+        suggestions.ShouldNotBeEmpty();
+        suggestions.Count().ShouldBe(5);
 
         // At least one suggestion should reflect the skill's theme or keywords
         var hasSkillMention = suggestions.Any(s =>
@@ -42,7 +42,7 @@ public class AgentNameGeneratorTests
             s.Contains("Chaos", StringComparison.OrdinalIgnoreCase) ||
             s.Contains("Velocity", StringComparison.OrdinalIgnoreCase));
 
-        hasSkillMention.Should().BeTrue();
+        hasSkillMention.ShouldBeTrue();
     }
 
     [Theory]
@@ -58,8 +58,8 @@ public class AgentNameGeneratorTests
     {
         var suggestedName = _generator.GenerateSuggestedName(role, skills: null, seed: 100);
 
-        suggestedName.Should().NotBeNullOrWhiteSpace();
-        suggestedName.Should().Contain(expectedRoleSuffix);
+        suggestedName.ShouldNotBeNullOrWhiteSpace();
+        suggestedName.ShouldContain(expectedRoleSuffix);
     }
 
     [Fact]
@@ -74,8 +74,8 @@ public class AgentNameGeneratorTests
 
         var suggestions = _generator.GenerateNameSuggestions(role, skills, count: 6, seed: 777);
 
-        suggestions.Should().HaveCount(6);
-        suggestions.Distinct().Should().HaveCount(6, "all generated suggestions should be unique");
+        suggestions.Count().ShouldBe(6);
+        suggestions.Distinct().Count().ShouldBe(6, "all generated suggestions should be unique");
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public class AgentNameGeneratorTests
 
         var suggestions = _generator.GenerateNameSuggestions(AgentRole.LeadArchitect, [customSkill], count: 4, seed: 123);
 
-        suggestions.Should().NotBeEmpty();
-        suggestions.Any(s => s.Contains("GraphQL", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
+        suggestions.ShouldNotBeEmpty();
+        suggestions.Any(s => s.Contains("GraphQL", StringComparison.OrdinalIgnoreCase)).ShouldBeTrue();
     }
 
     [Fact]
@@ -106,11 +106,11 @@ public class AgentNameGeneratorTests
 
         var prompt = _generator.GenerateSystemPrompt(role, "Devon 'Zero-Alloc' Crashdump (Senior Developer)", skills);
 
-        prompt.Should().NotBeNullOrWhiteSpace();
-        prompt.Should().Contain("Devon 'Zero-Alloc' Crashdump (Senior Developer)");
-        prompt.Should().Contain("DELIVERABLE ISOLATION CONTRACT");
-        prompt.Should().Contain("Ban all setters and use ReadOnlySpan.");
-        prompt.Should().Contain("strictly professional");
+        prompt.ShouldNotBeNullOrWhiteSpace();
+        prompt.ShouldContain("Devon 'Zero-Alloc' Crashdump (Senior Developer)");
+        prompt.ShouldContain("DELIVERABLE ISOLATION CONTRACT");
+        prompt.ShouldContain("Ban all setters and use ReadOnlySpan.");
+        prompt.ShouldContain("strictly professional");
     }
 
     [Fact]
@@ -125,6 +125,6 @@ public class AgentNameGeneratorTests
         var run1 = _generator.GenerateNameSuggestions(role, skills, count: 4, seed: 9999);
         var run2 = _generator.GenerateNameSuggestions(role, skills, count: 4, seed: 9999);
 
-        run1.Should().BeEquivalentTo(run2);
+        run1.ShouldBe(run2);
     }
 }

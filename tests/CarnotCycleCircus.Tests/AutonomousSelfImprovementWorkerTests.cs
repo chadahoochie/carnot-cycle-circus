@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Learning;
 using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Extensions;
-using FluentAssertions;
+using Shouldly;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Xunit;
@@ -30,11 +30,11 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Before 2s delay expires, no cycle should have run
         timeProvider.Advance(TimeSpan.FromSeconds(1));
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
 
         // After advancing past 2s startup delay, initial cycle should run
         timeProvider.Advance(TimeSpan.FromSeconds(1.1));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Cancel and finish
         await cts.CancelAsync();
@@ -42,7 +42,7 @@ public class AutonomousSelfImprovementWorkerTests
         await executeTask;
 
         // Assert
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -65,22 +65,22 @@ public class AutonomousSelfImprovementWorkerTests
 
         // After 2s, still 0 because startup run is disabled
         timeProvider.Advance(TimeSpan.FromSeconds(2));
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
 
         // After 29s total, still 0
         timeProvider.Advance(TimeSpan.FromSeconds(27));
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
 
         // After 30s interval expires, first periodic cycle runs
         timeProvider.Advance(TimeSpan.FromSeconds(2));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Cancel and cleanup
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(30));
         await executeTask;
 
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -108,10 +108,10 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Await completion - should return cleanly without throwing unhandled exception
         var act = async () => await executeTask;
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
 
         // Assert
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
     }
 
     [Fact]
@@ -136,18 +136,18 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Advance past 2s startup delay - initial cycle triggers and throws, swallowed by catch
         timeProvider.Advance(TimeSpan.FromSeconds(2.1));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Worker should continue into periodic loop; advance past 20s interval
         timeProvider.Advance(TimeSpan.FromSeconds(20));
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
 
         // Cancel and cleanup
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(20));
         await executeTask;
 
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
     }
 
     [Fact]
@@ -177,10 +177,10 @@ public class AutonomousSelfImprovementWorkerTests
         timeProvider.Advance(TimeSpan.FromSeconds(2.1));
 
         var act = async () => await executeTask;
-        await act.Should().NotThrowAsync();
+        await Should.NotThrowAsync(act);
 
         // Assert
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -203,26 +203,26 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Startup run
         timeProvider.Advance(TimeSpan.FromSeconds(2.1));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Cycle 1: +15s
         timeProvider.Advance(TimeSpan.FromSeconds(15));
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
 
         // Cycle 2: +15s
         timeProvider.Advance(TimeSpan.FromSeconds(15));
-        fakeEngine.CallCount.Should().Be(3);
+        fakeEngine.CallCount.ShouldBe(3);
 
         // Cycle 3: +15s
         timeProvider.Advance(TimeSpan.FromSeconds(15));
-        fakeEngine.CallCount.Should().Be(4);
+        fakeEngine.CallCount.ShouldBe(4);
 
         // Cancel
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(15));
         await executeTask;
 
-        fakeEngine.CallCount.Should().Be(4);
+        fakeEngine.CallCount.ShouldBe(4);
     }
 
     [Fact]
@@ -245,18 +245,18 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Advance 5 seconds - should NOT have executed yet (because interval is clamped to 10s)
         timeProvider.Advance(TimeSpan.FromSeconds(5));
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
 
         // Advance another 5.1 seconds - 10s boundary reached, cycle executes
         timeProvider.Advance(TimeSpan.FromSeconds(5.1));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Cancel and cleanup
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(10));
         await executeTask;
 
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -279,18 +279,18 @@ public class AutonomousSelfImprovementWorkerTests
         // First tick throws an error
         fakeEngine.SetException(new TimeoutException("Temporary storage backend timeout"));
         timeProvider.Advance(TimeSpan.FromSeconds(10.1));
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Second tick succeeds
         timeProvider.Advance(TimeSpan.FromSeconds(10));
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
 
         // Cancel
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(10));
         await executeTask;
 
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
     }
 
     [Fact]
@@ -312,15 +312,15 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Advance 10s into 20s interval
         timeProvider.Advance(TimeSpan.FromSeconds(10));
-        fakeEngine.CallCount.Should().Be(0);
+        fakeEngine.CallCount.ShouldBe(0);
 
         // Cancel token during wait
         await cts.CancelAsync();
         timeProvider.Advance(TimeSpan.FromSeconds(20));
 
         var act = async () => await executeTask;
-        await act.Should().NotThrowAsync();
-        fakeEngine.CallCount.Should().Be(0);
+        await Should.NotThrowAsync(act);
+        fakeEngine.CallCount.ShouldBe(0);
     }
 
     [Fact]
@@ -349,8 +349,8 @@ public class AutonomousSelfImprovementWorkerTests
         timeProvider.Advance(TimeSpan.FromSeconds(10.1));
 
         var act = async () => await executeTask;
-        await act.Should().NotThrowAsync();
-        fakeEngine.CallCount.Should().Be(1);
+        await Should.NotThrowAsync(act);
+        fakeEngine.CallCount.ShouldBe(1);
     }
 
     [Fact]
@@ -375,8 +375,8 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Assert
         var act = async () => await executeTask;
-        await act.Should().NotThrowAsync();
-        fakeEngine.CallCount.Should().Be(0);
+        await Should.NotThrowAsync(act);
+        fakeEngine.CallCount.ShouldBe(0);
     }
 
     [Fact]
@@ -404,19 +404,19 @@ public class AutonomousSelfImprovementWorkerTests
 
         // Wait until periodic loop timer is registered
         await timeProvider.WaitForTimerAsync();
-        fakeEngine.CallCount.Should().Be(1);
+        fakeEngine.CallCount.ShouldBe(1);
 
         // Advance past periodic interval
         timeProvider.Advance(TimeSpan.FromSeconds(10));
         await timeProvider.WaitForTimerAsync();
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
 
         // Act - Stop background service gracefully
         await worker.StopAsync(CancellationToken.None);
 
         // Assert worker stopped cleanly without additional executions
         timeProvider.Advance(TimeSpan.FromSeconds(10));
-        fakeEngine.CallCount.Should().Be(2);
+        fakeEngine.CallCount.ShouldBe(2);
     }
 
     [Fact]
@@ -431,7 +431,7 @@ public class AutonomousSelfImprovementWorkerTests
         var hostedServices = serviceProvider.GetServices<IHostedService>();
 
         // Assert
-        hostedServices.Should().ContainSingle(s => s is AutonomousSelfImprovementWorker);
+        hostedServices.Where(s => s is AutonomousSelfImprovementWorker).ShouldHaveSingleItem();
     }
 
     private sealed class TestableAutonomousSelfImprovementWorker(

@@ -9,7 +9,7 @@ using CarnotCycleCircus.Core.Domain.Skills;
 using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -45,10 +45,10 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
 
         // Assert
         var exists = await _storageService.FileExistsAsync("test/sample.json");
-        exists.Should().BeTrue();
-        loaded.Should().NotBeNull();
-        loaded!.Name.Should().Be("Carnot Cycle");
-        loaded.Entropy.Should().Be(0.001);
+        exists.ShouldBeTrue();
+        loaded.ShouldNotBeNull();
+        loaded!.Name.ShouldBe("Carnot Cycle");
+        loaded.Entropy.ShouldBe(0.001);
     }
 
     private record SampleTestData(string Name, double Entropy);
@@ -64,11 +64,11 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         var health = await _storageService.GetStorageHealthAsync();
 
         // Assert
-        health.IsHealthy.Should().BeTrue();
-        health.RootDirectory.Should().Be(_testTempDir);
-        health.TotalFilesCount.Should().Be(2);
-        health.TotalSizeBytes.Should().BeGreaterThan(0);
-        health.Files.Should().Contain(f => f.RelativePath.Contains("file1.txt"));
+        health.IsHealthy.ShouldBeTrue();
+        health.RootDirectory.ShouldBe(_testTempDir);
+        health.TotalFilesCount.ShouldBe(2);
+        health.TotalSizeBytes.ShouldBeGreaterThan(0);
+        health.Files.ShouldContain(f => f.RelativePath.Contains("file1.txt"));
     }
 
     [Fact]
@@ -98,9 +98,9 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         var memStore2 = new EmbeddedVectorMemoryStore(_storageService);
         var retrieved = await memStore2.GetByIdAsync("MEM-TEST-01");
 
-        retrieved.Should().NotBeNull();
-        retrieved!.Content.Should().Be("Persistent vector memory verification");
-        retrieved.Role.Should().Be(AgentRole.LeadArchitect);
+        retrieved.ShouldNotBeNull();
+        retrieved!.Content.ShouldBe("Persistent vector memory verification");
+        retrieved.Role.ShouldBe(AgentRole.LeadArchitect);
     }
 
     [Fact]
@@ -144,10 +144,10 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         var loadedTicket = ticketStore2.GetTicketById("TCK-PERSIST-1");
         var loadedHandoffs = ticketStore2.GetHandoffsForTicket("TCK-PERSIST-1");
 
-        loadedTicket.Should().NotBeNull();
-        loadedTicket!.Title.Should().Be("Persistent Ticket");
-        loadedHandoffs.Should().HaveCount(1);
-        loadedHandoffs[0].ContextSummary.Should().Be("ADR ready for implementation");
+        loadedTicket.ShouldNotBeNull();
+        loadedTicket!.Title.ShouldBe("Persistent Ticket");
+        loadedHandoffs.Count().ShouldBe(1);
+        loadedHandoffs[0].ContextSummary.ShouldBe("ADR ready for implementation");
     }
 
     [Fact]
@@ -196,23 +196,24 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         var report = await engine.RunSelfImprovementCycleAsync();
 
         // Assert
-        report.TotalCyclesRun.Should().Be(1);
-        report.DistilledInsights.Should().NotBeEmpty();
-        report.ProceduralRecipesGenerated.Should().BeGreaterThan(0);
-        report.SemanticRulesReinforced.Should().BeGreaterThan(0);
+        report.TotalCyclesRun.ShouldBe(1);
+        report.DistilledInsights.ShouldNotBeEmpty();
+        report.ProceduralRecipesGenerated.ShouldBeGreaterThan(0);
+        report.SemanticRulesReinforced.ShouldBeGreaterThan(0);
 
         // Verify knowledge map received new learned insight
         var node = knowledgeMap.GetNode("KN-LI-REM-TCK-FAIL-01");
-        node.Should().NotBeNull();
-        node!.Category.Should().Be("LearnedInsight");
-        node.Summary.Should().Contain("remediation required: 'Enforce regex validation on all query params'");
+        node.ShouldNotBeNull();
+        node!.Category.ShouldBe("LearnedInsight");
+        node.Summary.ShouldContain("remediation required: 'Enforce regex validation on all query params'");
 
         // Verify markdown report was generated in storage
         var exists = await _storageService.FileExistsAsync("artifacts/LEARNED_INSIGHTS.md");
-        exists.Should().BeTrue();
+        exists.ShouldBeTrue();
         var content = await _storageService.LoadTextAsync("artifacts/LEARNED_INSIGHTS.md");
-        content.Should().Contain("Autonomous Self-Improvement & Continuous Learning Report");
-        content.Should().Contain("KN-LI-REM-TCK-FAIL-01");
+        content.ShouldNotBeNull();
+        content.ShouldContain("Autonomous Self-Improvement & Continuous Learning Report");
+        content.ShouldContain("KN-LI-REM-TCK-FAIL-01");
     }
 
     [Fact]
@@ -255,29 +256,30 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
         // Assert instance 2 loads persisted data
         var adrManager2 = new AdrDocumentManager(_storageService);
         var loadedAdr = adrManager2.GetAdr("ADR-099");
-        loadedAdr.Should().NotBeNull();
-        loadedAdr!.Title.Should().Be("Persistent Volume Docker Stack");
+        loadedAdr.ShouldNotBeNull();
+        loadedAdr!.Title.ShouldBe("Persistent Volume Docker Stack");
 
         var skillRegistry2 = new SkillRegistry(importer, _storageService);
         var loadedSkill = skillRegistry2.GetSkill("skill-docker-persistence");
-        loadedSkill.Should().NotBeNull();
-        loadedSkill!.Name.Should().Be("Docker Persistence Master");
-        loadedSkill.AssignedRoles.Should().Contain(AgentRole.LeadArchitect);
+        loadedSkill.ShouldNotBeNull();
+        loadedSkill!.Name.ShouldBe("Docker Persistence Master");
+        loadedSkill.AssignedRoles.ShouldNotBeNull();
+        loadedSkill.AssignedRoles.ShouldContain(AgentRole.LeadArchitect);
     }
 
     [Fact]
     public void CarnotStorageOptions_DefaultResolution_ShouldIncludeUserCarnotDirectory()
     {
         var options = new CarnotStorageOptions();
-        options.DataDirectory.Should().NotBeNullOrWhiteSpace();
-        options.ArtifactsDirectory.Should().NotBeNullOrWhiteSpace();
-        options.WorkspaceDirectory.Should().NotBeNullOrWhiteSpace();
-        options.SkillsDirectory.Should().Contain("skills");
-        options.AdrsDirectory.Should().Contain("adrs");
-        options.VaultDirectory.Should().Contain("vault");
+        options.DataDirectory.ShouldNotBeNullOrWhiteSpace();
+        options.ArtifactsDirectory.ShouldNotBeNullOrWhiteSpace();
+        options.WorkspaceDirectory.ShouldNotBeNullOrWhiteSpace();
+        options.SkillsDirectory.ShouldContain("skills");
+        options.AdrsDirectory.ShouldContain("adrs");
+        options.VaultDirectory.ShouldContain("vault");
 
         var userCarnot = CarnotStorageOptions.ResolveUserCarnotRoot();
-        userCarnot.Should().EndWith(".carnot");
+        userCarnot.ShouldEndWith(".carnot");
     }
 
     [Fact]
@@ -298,9 +300,9 @@ public class PersistentStorageAndSelfImprovementTests : IDisposable
             Environment.SetEnvironmentVariable("CARNOT_WORKSPACE_DIR", customWorkspace);
 
             var options = new CarnotStorageOptions();
-            options.DataDirectory.Should().Be(customData);
-            options.ArtifactsDirectory.Should().Be(customArtifacts);
-            options.WorkspaceDirectory.Should().Be(customWorkspace);
+            options.DataDirectory.ShouldBe(customData);
+            options.ArtifactsDirectory.ShouldBe(customArtifacts);
+            options.WorkspaceDirectory.ShouldBe(customWorkspace);
         }
         finally
         {

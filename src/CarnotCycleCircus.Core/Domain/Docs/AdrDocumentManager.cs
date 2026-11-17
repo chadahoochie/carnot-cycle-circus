@@ -511,7 +511,7 @@ public class AdrDocumentManager : IAdrDocumentManager
             C4Context
                 title System Context Diagram for Carnot Cycle Circus
                 Person(engineer, "Software Engineer", "Configures teams, triggers workflows, inspects tickets & memory.")
-                System(circus, "Carnot Cycle Circus", "Autonomous engineering agent orchestration platform in .NET 10 / Blazor.")
+                System(circus, "Carnot Cycle Circus", "Autonomous engineering agent orchestration platform in .NET 11 / Blazor.")
                 System_Ext(openrouter, "OpenRouter AI Hub", "Provides multi-model LLM inference via unified API.")
                 System_Ext(external_mem, "External Vector DB", "Optional OpenViking / Mem0 / Qdrant storage.")
 

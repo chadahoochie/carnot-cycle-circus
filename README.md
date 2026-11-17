@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/chadahoochie/carnot-cycle-circus/actions/workflows/ci.yml/badge.svg)](https://github.com/chadahoochie/carnot-cycle-circus/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-11.0-purple.svg)](https://dotnet.microsoft.com/)
 
 > *"Operating at theoretical maximum Carnot thermodynamic efficiency to orchestrate the chaotic 6-ring circus of autonomous engineering agents."*
 >
 > 🎪 **The Squad**: TPM invents fantasy deadlines $\to$ Architect draws cathedral abstractions $\to$ Developer brews caffeine into code $\to$ Security panics over everything $\to$ Optimizer micro-benchmarks nanoseconds $\to$ QA gleefully obliterates developer confidence.
 
-**Carnot Cycle Circus** is a high-efficiency Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend. It enables software teams to compose, configure, and orchestrate specialized AI engineering roles across complete software lifecycles without violating the laws of thermodynamics (or failing quality gates).
+**Carnot Cycle Circus** is a high-efficiency Autonomous Engineering Agent Orchestration Platform built in **.NET 11 / C# 15** with an interactive **Blazor** frontend. It enables software teams to compose, configure, and orchestrate specialized AI engineering roles across complete software lifecycles without violating the laws of thermodynamics (or failing quality gates).
 
 ---
 
@@ -26,7 +26,7 @@ A comprehensive documentation suite is maintained under [`docs/`](docs/README.md
   - [Inference Hub, Key Vault & Security](docs/architecture/inference-and-security.md)
   - [AI Knowledge Maps & Skill Registry](docs/architecture/knowledge-and-skills.md)
 - 📜 **Engineering Standards & Policies**:
-  - [C# 13 & .NET 10 Coding Standards](docs/standards/coding-standards.md)
+  - [C# 15 & .NET 11 Coding Standards](docs/standards/coding-standards.md)
   - [Quality Gates & Ticket Policies](docs/standards/quality-gates.md)
   - [Documentation & ADR Standards](docs/standards/documentation-standards.md)
 - 📋 **[Architectural Decision Records (ADRs)](docs/adrs/README.md)**: Complete catalog of formal architectural decisions (ADR-0001 through ADR-0007).
@@ -119,7 +119,7 @@ flowchart TB
         StandardsEngine["Standards & Quality Gates Engine"]
         KMapEngine["AI Knowledge Map Engine"]
         SkillReg["Dynamic Skill Registry"]
-        ToolSandbox["Agent Tool Sandbox (.NET 10 SDK)"]
+        ToolSandbox["Agent Tool Sandbox (.NET 11 SDK)"]
         MemorySystem["Hierarchical Persistent Memory Store"]
         GraphOrchestrator["Connectable Graph Orchestrator"]
         OpenRouterLayer["OpenRouter Inference Hub"]
@@ -138,7 +138,7 @@ flowchart TB
 ## 🚀 Getting Started
 
 ### Prerequisites
-- [.NET 10 SDK](https://dotnet.microsoft.com/) (`10.0.300+`)
+- [.NET 11 SDK](https://dotnet.microsoft.com/) (`11.0.100+`)
 - On Linux Desktop: `libwebkit2gtk-4.1` (or `4.0`) for Photino native window rendering.
 
 ### Running Options

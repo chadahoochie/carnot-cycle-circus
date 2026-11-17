@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -30,9 +30,9 @@ public class AgentPersonaTests
     {
         var persona = AgentPersona.CreateDefault(role);
 
-        persona.Should().NotBeNull();
-        persona.SystemPrompt.Should().Contain("DELIVERABLE ISOLATION CONTRACT");
-        persona.SystemPrompt.Should().Contain("professional");
+        persona.ShouldNotBeNull();
+        persona.SystemPrompt.ShouldContain("DELIVERABLE ISOLATION CONTRACT");
+        persona.SystemPrompt.ShouldContain("professional");
     }
 
     [Theory]
@@ -69,22 +69,22 @@ public class AgentPersonaTests
 
         var artifacts = await _executionEngine.ExecuteRoleTaskAsync(role, ticket);
 
-        artifacts.Should().NotBeEmpty();
+        artifacts.ShouldNotBeEmpty();
         foreach (var artifact in artifacts)
         {
-            artifact.Name.Should().NotBeNullOrWhiteSpace();
-            artifact.Content.Should().NotBeNullOrWhiteSpace();
-            artifact.ContentType.Should().BeOneOf("markdown", "csharp", "json");
+            artifact.Name.ShouldNotBeNullOrWhiteSpace();
+            artifact.Content.ShouldNotBeNullOrWhiteSpace();
+            artifact.ContentType.ShouldBeOneOf("markdown", "csharp", "json");
 
             // Deliverables must not contain conversational snark / joke commentary
-            artifact.Content.Should().NotContain("shareholders might experience mild existential discomfort");
-            artifact.Content.Should().NotContain("Devon has to type readonly record struct 400 times");
-            artifact.Content.Should().NotContain("Powered by Cold Brew & Cynicism");
-            artifact.Content.Should().NotContain("circus burns down");
-            artifact.Content.Should().NotContain("It works on my machine");
-            artifact.Content.Should().NotContain("rogue clowns");
-            artifact.Content.Should().NotContain("Otto's blood pressure");
-            artifact.Content.Should().NotContain("Torture-tested by Quinn");
+            artifact.Content.ShouldNotContain("shareholders might experience mild existential discomfort");
+            artifact.Content.ShouldNotContain("Devon has to type readonly record struct 400 times");
+            artifact.Content.ShouldNotContain("Powered by Cold Brew & Cynicism");
+            artifact.Content.ShouldNotContain("circus burns down");
+            artifact.Content.ShouldNotContain("It works on my machine");
+            artifact.Content.ShouldNotContain("rogue clowns");
+            artifact.Content.ShouldNotContain("Otto's blood pressure");
+            artifact.Content.ShouldNotContain("Torture-tested by Quinn");
         }
     }
 }
