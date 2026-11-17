@@ -72,7 +72,7 @@ public class ProjectBlueprintServiceTests
 
         // Verify Knowledge Map has new nodes
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.ShouldContain(n => n.Attributes.ContainsKey("Project") && n.Attributes["Project"].Contains("Order & Payment Saga"));
+        map.Nodes.ShouldContain(n => n.Attributes.TryGetValue("Project", out var projectValue) && projectValue.Contains("Order & Payment Saga"));
 
         // Verify Active Team switched
         var currentTeam = _teamManager.GetCurrentTeam();
