@@ -72,7 +72,7 @@ public class ProjectBlueprintServiceTests
 
         // Verify Knowledge Map has new nodes
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.ShouldContain(n => n.Attributes.TryGetValue("Project", out var projectValue) && projectValue.Contains("Order & Payment Saga"));
+        map.Nodes.Where(n => n.Attributes.TryGetValue("Project", out var projectValue) && projectValue.Contains("Order & Payment Saga")).ShouldNotBeEmpty();
 
         // Verify Active Team switched
         var currentTeam = _teamManager.GetCurrentTeam();
@@ -106,7 +106,7 @@ public class ProjectBlueprintServiceTests
         adr!.Title.ShouldContain("Real-time Auction Microservice");
 
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.ShouldContain(n => n.Attributes.TryGetValue("Stack", out var stack) && stack.Contains("Redis Streams"));
+        map.Nodes.Where(n => n.Attributes.TryGetValue("Stack", out var stack) && stack.Contains("Redis Streams")).ShouldNotBeEmpty();
     }
 
     [Fact]
