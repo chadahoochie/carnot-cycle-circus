@@ -4,7 +4,7 @@ using CarnotCycleCircus.Core.Domain.Harvester;
 using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -38,27 +38,27 @@ public class CodebaseHarvesterServiceTests
         var currentDir = Directory.GetCurrentDirectory();
         var report = await _harvesterService.HarvestDirectoryAsync(currentDir, autoGenerateBacklog: true);
 
-        report.Should().NotBeNull();
-        report.TotalFiles.Should().BeGreaterThan(0);
-        report.CSharpFilesCount.Should().BeGreaterThan(0);
-        report.Projects.Should().NotBeEmpty();
-        report.DetectedPatterns.Should().NotBeEmpty();
-        report.QualityInsights.Should().NotBeEmpty();
-        report.GeneratedTicketIds.Should().NotBeEmpty();
+        report.ShouldNotBeNull();
+        report.TotalFiles.ShouldBeGreaterThan(0);
+        report.CSharpFilesCount.ShouldBeGreaterThan(0);
+        report.Projects.ShouldNotBeEmpty();
+        report.DetectedPatterns.ShouldNotBeEmpty();
+        report.QualityInsights.ShouldNotBeEmpty();
+        report.GeneratedTicketIds.ShouldNotBeEmpty();
 
         // Verify report cached in latest
         var latest = _harvesterService.GetLatestReport();
-        latest.Should().BeSameAs(report);
+        latest.ShouldBeSameAs(report);
 
         // Verify Knowledge Map populated with discovered projects
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Framework"));
+        map.Nodes.ShouldContain(n => n.Attributes.ContainsKey("Framework"));
 
         // Verify Tickets generated in store
         foreach (var ticketId in report.GeneratedTicketIds)
         {
             var ticket = _ticketStore.GetTicketById(ticketId);
-            ticket.Should().NotBeNull();
+            ticket.ShouldNotBeNull();
         }
     }
 
@@ -67,9 +67,9 @@ public class CodebaseHarvesterServiceTests
     {
         var shortcuts = _harvesterService.GetStandardMountShortcuts();
 
-        shortcuts.Should().NotBeEmpty();
-        shortcuts.Should().Contain(s => s.FullPath == "/workspace");
-        shortcuts.Should().Contain(s => s.FullPath == Directory.GetCurrentDirectory());
+        shortcuts.ShouldNotBeEmpty();
+        shortcuts.ShouldContain(s => s.FullPath == "/workspace");
+        shortcuts.ShouldContain(s => s.FullPath == Directory.GetCurrentDirectory());
     }
 
     [Fact]
@@ -78,11 +78,11 @@ public class CodebaseHarvesterServiceTests
         var currentDir = Directory.GetCurrentDirectory();
         var inspection = _harvesterService.InspectDirectory(currentDir);
 
-        inspection.Should().NotBeNull();
-        inspection.IsAccessible.Should().BeTrue();
-        inspection.CurrentPath.Should().Be(currentDir);
-        inspection.QuickMountShortcuts.Should().NotBeEmpty();
-        inspection.DiscoveredSolutions.Should().NotBeNull();
+        inspection.ShouldNotBeNull();
+        inspection.IsAccessible.ShouldBeTrue();
+        inspection.CurrentPath.ShouldBe(currentDir);
+        inspection.QuickMountShortcuts.ShouldNotBeEmpty();
+        inspection.DiscoveredSolutions.ShouldNotBeNull();
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public class CodebaseHarvesterServiceTests
         var bogusPath = "/non/existent/directory/path/that/never/exists";
         var inspection = _harvesterService.InspectDirectory(bogusPath);
 
-        inspection.Should().NotBeNull();
-        inspection.IsAccessible.Should().BeFalse();
-        inspection.ErrorMessage.Should().NotBeNullOrEmpty();
+        inspection.ShouldNotBeNull();
+        inspection.IsAccessible.ShouldBeFalse();
+        inspection.ErrorMessage.ShouldNotBeNullOrEmpty();
     }
 }

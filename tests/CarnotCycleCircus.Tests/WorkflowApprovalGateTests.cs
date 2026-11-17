@@ -5,7 +5,7 @@ using CarnotCycleCircus.Core.Domain.Graph;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -44,9 +44,9 @@ public class WorkflowApprovalGateTests
     {
         var service = new WorkflowApprovalService(requireUserApproval: true);
 
-        service.IsGateApproved("EPIC-101", ApprovalGateStage.TpmToArchitect).Should().BeFalse();
-        service.IsGateApproved("EPIC-101", ApprovalGateStage.ArchitectToCoder).Should().BeFalse();
-        service.CurrentPendingRequest.Should().BeNull();
+        service.IsGateApproved("EPIC-101", ApprovalGateStage.TpmToArchitect).ShouldBeFalse();
+        service.IsGateApproved("EPIC-101", ApprovalGateStage.ArchitectToCoder).ShouldBeFalse();
+        service.CurrentPendingRequest.ShouldBeNull();
     }
 
     [Fact]
@@ -69,9 +69,9 @@ public class WorkflowApprovalGateTests
 
         var result = await service.RequestApprovalAsync(request);
 
-        result.Status.Should().Be(ApprovalStatus.Approved);
-        service.IsGateApproved("EPIC-AUTO", ApprovalGateStage.TpmToArchitect).Should().BeTrue();
-        service.CurrentPendingRequest.Should().BeNull();
+        result.Status.ShouldBe(ApprovalStatus.Approved);
+        service.IsGateApproved("EPIC-AUTO", ApprovalGateStage.TpmToArchitect).ShouldBeTrue();
+        service.CurrentPendingRequest.ShouldBeNull();
     }
 
     [Fact]
@@ -99,20 +99,20 @@ public class WorkflowApprovalGateTests
 
         var requestTask = service.RequestApprovalAsync(request);
 
-        service.CurrentPendingRequest.Should().NotBeNull();
-        service.CurrentPendingRequest!.Id.Should().Be("APPR-TEST-1");
-        requestedEvent.Should().NotBeNull();
-        requestedEvent!.Id.Should().Be("APPR-TEST-1");
+        service.CurrentPendingRequest.ShouldNotBeNull();
+        service.CurrentPendingRequest!.Id.ShouldBe("APPR-TEST-1");
+        requestedEvent.ShouldNotBeNull();
+        requestedEvent!.Id.ShouldBe("APPR-TEST-1");
 
         service.Approve("APPR-TEST-1", "Approved by human ringmaster.");
 
         var resolved = await requestTask;
-        resolved.Status.Should().Be(ApprovalStatus.Approved);
-        resolved.UserFeedback.Should().Be("Approved by human ringmaster.");
-        service.IsGateApproved("EPIC-MANUAL", ApprovalGateStage.TpmToArchitect).Should().BeTrue();
-        service.CurrentPendingRequest.Should().BeNull();
-        resolvedEvent.Should().NotBeNull();
-        resolvedEvent!.Status.Should().Be(ApprovalStatus.Approved);
+        resolved.Status.ShouldBe(ApprovalStatus.Approved);
+        resolved.UserFeedback.ShouldBe("Approved by human ringmaster.");
+        service.IsGateApproved("EPIC-MANUAL", ApprovalGateStage.TpmToArchitect).ShouldBeTrue();
+        service.CurrentPendingRequest.ShouldBeNull();
+        resolvedEvent.ShouldNotBeNull();
+        resolvedEvent!.Status.ShouldBe(ApprovalStatus.Approved);
     }
 
     [Fact]
@@ -138,10 +138,10 @@ public class WorkflowApprovalGateTests
         service.Reject("APPR-TEST-REJ", "Scope too complex. Simplify architecture.");
 
         var resolved = await requestTask;
-        resolved.Status.Should().Be(ApprovalStatus.Rejected);
-        resolved.UserFeedback.Should().Be("Scope too complex. Simplify architecture.");
-        service.IsGateApproved("EPIC-REJ", ApprovalGateStage.ArchitectToCoder).Should().BeFalse();
-        service.CurrentPendingRequest.Should().BeNull();
+        resolved.Status.ShouldBe(ApprovalStatus.Rejected);
+        resolved.UserFeedback.ShouldBe("Scope too complex. Simplify architecture.");
+        service.IsGateApproved("EPIC-REJ", ApprovalGateStage.ArchitectToCoder).ShouldBeFalse();
+        service.CurrentPendingRequest.ShouldBeNull();
     }
 
     [Fact(Timeout = 15000)]
@@ -162,18 +162,18 @@ public class WorkflowApprovalGateTests
         }
 
         var gate1 = approvalService.CurrentPendingRequest;
-        gate1.Should().NotBeNull();
-        gate1!.Stage.Should().Be(ApprovalGateStage.TpmToArchitect);
-        gate1.GateTitle.Should().Contain("PRD & User Story");
-        gate1.PrecedingRole.Should().Be(AgentRole.TechnicalProductManager);
-        gate1.ProceedingRole.Should().Be(AgentRole.LeadArchitect);
-        gate1.ItemsToApprove.Should().NotBeEmpty();
-        gate1.ItemsToApprove.Should().Contain(i => i.Category.Contains("PRD"));
-        gate1.ItemsToApprove.Should().Contain(i => i.Category.Contains("User Story"));
-        gate1.Deliverables.Should().NotBeEmpty();
+        gate1.ShouldNotBeNull();
+        gate1!.Stage.ShouldBe(ApprovalGateStage.TpmToArchitect);
+        gate1.GateTitle.ShouldContain("PRD & User Story");
+        gate1.PrecedingRole.ShouldBe(AgentRole.TechnicalProductManager);
+        gate1.ProceedingRole.ShouldBe(AgentRole.LeadArchitect);
+        gate1.ItemsToApprove.ShouldNotBeEmpty();
+        gate1.ItemsToApprove.ShouldContain(i => i.Category.Contains("PRD"));
+        gate1.ItemsToApprove.ShouldContain(i => i.Category.Contains("User Story"));
+        gate1.Deliverables.ShouldNotBeEmpty();
 
         var tpmNode = executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.TechnicalProductManager);
-        tpmNode.State.Should().Be(NodeExecutionState.WaitingForApproval);
+        tpmNode.State.ShouldBe(NodeExecutionState.WaitingForApproval);
 
         // Approve Gate 1
         approvalService.Approve(gate1.Id, "PRD approved by Lead Engineer.");
@@ -185,29 +185,29 @@ public class WorkflowApprovalGateTests
         }
 
         var gate2 = approvalService.CurrentPendingRequest;
-        gate2.Should().NotBeNull();
-        gate2!.Stage.Should().Be(ApprovalGateStage.ArchitectToCoder);
-        gate2.GateTitle.Should().Contain("Architecture Design");
-        gate2.PrecedingRole.Should().Be(AgentRole.LeadArchitect);
-        gate2.ProceedingRole.Should().Be(AgentRole.SoftwareDeveloper);
-        gate2.ItemsToApprove.Should().NotBeEmpty();
-        gate2.ItemsToApprove.Should().Contain(i => i.Category.Contains("ADR"));
-        gate2.ItemsToApprove.Should().Contain(i => i.Category.Contains("Technical Subtask"));
+        gate2.ShouldNotBeNull();
+        gate2!.Stage.ShouldBe(ApprovalGateStage.ArchitectToCoder);
+        gate2.GateTitle.ShouldContain("Architecture Design");
+        gate2.PrecedingRole.ShouldBe(AgentRole.LeadArchitect);
+        gate2.ProceedingRole.ShouldBe(AgentRole.SoftwareDeveloper);
+        gate2.ItemsToApprove.ShouldNotBeEmpty();
+        gate2.ItemsToApprove.ShouldContain(i => i.Category.Contains("ADR"));
+        gate2.ItemsToApprove.ShouldContain(i => i.Category.Contains("Technical Subtask"));
 
         var devNode = executor.CurrentGraph.Nodes.First(n => n.Role == AgentRole.SoftwareDeveloper);
-        devNode.State.Should().Be(NodeExecutionState.WaitingForApproval);
+        devNode.State.ShouldBe(NodeExecutionState.WaitingForApproval);
 
         // Approve Gate 2
         approvalService.Approve(gate2.Id, "Architecture approved. Unleash the coder!");
 
         // Workflow should now finish to completion
         var workflowSuccess = await workflowTask;
-        workflowSuccess.Should().BeTrue();
+        workflowSuccess.ShouldBeTrue();
 
-        executor.CurrentGraph.Nodes.Should().OnlyContain(n => n.State == NodeExecutionState.Completed);
+        executor.CurrentGraph.Nodes.ShouldAllBe(n => n.State == NodeExecutionState.Completed);
         var subtasks = _ticketStore.GetAllTickets().Where(t => t.Type == TicketType.Subtask).ToList();
-        subtasks.Should().NotBeEmpty();
-        subtasks.Should().OnlyContain(t => t.Status == TicketStatus.Done);
+        subtasks.ShouldNotBeEmpty();
+        subtasks.ShouldAllBe(t => t.Status == TicketStatus.Done);
     }
 
     [Fact(Timeout = 15000)]
@@ -227,26 +227,26 @@ public class WorkflowApprovalGateTests
         }
 
         var gate1 = approvalService.CurrentPendingRequest;
-        gate1.Should().NotBeNull();
-        gate1!.Stage.Should().Be(ApprovalGateStage.TpmToArchitect);
+        gate1.ShouldNotBeNull();
+        gate1!.Stage.ShouldBe(ApprovalGateStage.TpmToArchitect);
 
         // Reject Gate 1
         approvalService.Reject(gate1.Id, "Business priority shifted. Initiative canceled.");
 
         var workflowSuccess = await workflowTask;
-        workflowSuccess.Should().BeFalse();
+        workflowSuccess.ShouldBeFalse();
 
         // Lead Architect and Coder subtasks should not have been executed
         var allTickets = _ticketStore.GetAllTickets();
         var subtasks = allTickets.Where(t => t.Type == TicketType.Subtask).ToList();
-        subtasks.Should().BeEmpty();
+        subtasks.ShouldBeEmpty();
 
         var epic = allTickets.FirstOrDefault(t => t.Type == TicketType.Epic);
-        epic.Should().NotBeNull();
-        epic!.Status.Should().Be(TicketStatus.Review);
-        epic.AssigneeRole.Should().Be(AgentRole.EndUser);
-        epic.Metadata.Should().ContainKey("RejectionReason");
-        epic.Metadata["RejectionReason"].Should().Be("Business priority shifted. Initiative canceled.");
+        epic.ShouldNotBeNull();
+        epic!.Status.ShouldBe(TicketStatus.Review);
+        epic.AssigneeRole.ShouldBe(AgentRole.EndUser);
+        epic.Metadata.ShouldContainKey("RejectionReason");
+        epic.Metadata["RejectionReason"].ShouldBe("Business priority shifted. Initiative canceled.");
     }
 
     [Fact(Timeout = 15000)]
@@ -273,44 +273,44 @@ public class WorkflowApprovalGateTests
         }
 
         var gate2 = approvalService.CurrentPendingRequest;
-        gate2.Should().NotBeNull();
-        gate2!.Stage.Should().Be(ApprovalGateStage.ArchitectToCoder);
+        gate2.ShouldNotBeNull();
+        gate2!.Stage.ShouldBe(ApprovalGateStage.ArchitectToCoder);
 
         // Reject Gate 2
         approvalService.Reject(gate2.Id, "ADR rejected. Do not use Kafka; use local Channels.");
 
         var workflowSuccess = await workflowTask;
-        workflowSuccess.Should().BeFalse();
+        workflowSuccess.ShouldBeFalse();
 
         // Developer subtask should remain unexecuted (not Done) and routed to In Review assigned to EndUser
         var devOrReviewSubtasks = _ticketStore.GetAllTickets()
             .Where(t => t.Type == TicketType.Subtask && t.AssigneeRole is AgentRole.EndUser or AgentRole.SoftwareDeveloper)
             .ToList();
 
-        devOrReviewSubtasks.Should().NotBeEmpty();
-        devOrReviewSubtasks.Should().OnlyContain(t => t.Status != TicketStatus.Done);
-        devOrReviewSubtasks.Should().Contain(t => t.Status == TicketStatus.Review && t.AssigneeRole == AgentRole.EndUser);
+        devOrReviewSubtasks.ShouldNotBeEmpty();
+        devOrReviewSubtasks.ShouldAllBe(t => t.Status != TicketStatus.Done);
+        devOrReviewSubtasks.ShouldContain(t => t.Status == TicketStatus.Review && t.AssigneeRole == AgentRole.EndUser);
         var rejectedTicket = devOrReviewSubtasks.First(t => t.Status == TicketStatus.Review && t.AssigneeRole == AgentRole.EndUser);
-        rejectedTicket.Metadata.Should().ContainKey("RejectionReason");
-        rejectedTicket.Metadata["RejectionReason"].Should().Be("ADR rejected. Do not use Kafka; use local Channels.");
+        rejectedTicket.Metadata.ShouldContainKey("RejectionReason");
+        rejectedTicket.Metadata["RejectionReason"].ShouldBe("ADR rejected. Do not use Kafka; use local Channels.");
     }
 
     [Fact]
     public void AgentRole_EndUser_ShouldHaveCorrectMetadataAndDefaults()
     {
-        AgentRole.EndUser.ToEmoji().Should().Be("👤");
-        AgentRole.EndUser.ToColorHex().Should().Be("#f59e0b");
-        AgentRole.EndUser.ToDisplayName().Should().Be("End User");
+        AgentRole.EndUser.ToEmoji().ShouldBe("👤");
+        AgentRole.EndUser.ToColorHex().ShouldBe("#f59e0b");
+        AgentRole.EndUser.ToDisplayName().ShouldBe("End User");
 
         var persona = AgentPersona.CreateDefault(AgentRole.EndUser);
-        persona.Name.Should().Be("Major Korben \"Meat-Popsicle\" Dallas (End User)");
-        persona.Role.Should().Be(AgentRole.EndUser);
-        persona.SystemPrompt.Should().Contain("meat popsicle");
+        persona.Name.ShouldBe("Major Korben \"Meat-Popsicle\" Dallas (End User)");
+        persona.Role.ShouldBe(AgentRole.EndUser);
+        persona.SystemPrompt.ShouldContain("meat popsicle");
 
         var generator = new AgentNameGenerator();
         var suggestedName = generator.GenerateSuggestedName(AgentRole.EndUser);
-        suggestedName.Should().NotBeNullOrWhiteSpace();
-        suggestedName.Should().Contain("(End User)");
+        suggestedName.ShouldNotBeNullOrWhiteSpace();
+        suggestedName.ShouldContain("(End User)");
     }
 
     [Fact]
@@ -334,33 +334,33 @@ public class WorkflowApprovalGateTests
 
         var task = service.RequestApprovalAsync(request);
 
-        service.CurrentPendingRequest.Should().NotBeNull();
+        service.CurrentPendingRequest.ShouldNotBeNull();
         service.Reject("GATE-REJ-01", "Requires revision on criteria 3.");
 
         var rejectedRes = await task;
-        rejectedRes.Status.Should().Be(ApprovalStatus.Rejected);
-        rejectedRes.UserFeedback.Should().Be("Requires revision on criteria 3.");
+        rejectedRes.Status.ShouldBe(ApprovalStatus.Rejected);
+        rejectedRes.UserFeedback.ShouldBe("Requires revision on criteria 3.");
 
         // Verify rejected retention
-        service.CurrentPendingRequest.Should().BeNull();
-        service.RejectedRequests.Should().HaveCount(1);
-        service.GetRequestById("GATE-REJ-01").Should().NotBeNull();
-        service.GetRequestById("GATE-REJ-01")!.Status.Should().Be(ApprovalStatus.Rejected);
-        service.GetLatestPendingOrRejectedRequestForProject("proj-123").Should().NotBeNull();
-        service.GetLatestPendingOrRejectedRequestForProject("proj-123")!.Id.Should().Be("GATE-REJ-01");
-        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).Should().BeFalse();
+        service.CurrentPendingRequest.ShouldBeNull();
+        service.RejectedRequests.Count().ShouldBe(1);
+        service.GetRequestById("GATE-REJ-01").ShouldNotBeNull();
+        service.GetRequestById("GATE-REJ-01")!.Status.ShouldBe(ApprovalStatus.Rejected);
+        service.GetLatestPendingOrRejectedRequestForProject("proj-123").ShouldNotBeNull();
+        service.GetLatestPendingOrRejectedRequestForProject("proj-123")!.Id.ShouldBe("GATE-REJ-01");
+        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).ShouldBeFalse();
 
         // Now re-approve the previously rejected request
         WorkflowApprovalRequest? resolvedEvent = null;
         service.OnApprovalResolved += r => resolvedEvent = r;
 
         var approved = service.Approve("GATE-REJ-01", "Revised criteria accepted.");
-        approved.Should().BeTrue();
+        approved.ShouldBeTrue();
 
-        service.RejectedRequests.Should().BeEmpty();
-        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).Should().BeTrue();
-        resolvedEvent.Should().NotBeNull();
-        resolvedEvent!.Status.Should().Be(ApprovalStatus.Approved);
-        resolvedEvent.UserFeedback.Should().Be("Revised criteria accepted.");
+        service.RejectedRequests.ShouldBeEmpty();
+        service.IsGateApproved("EPIC-TEST-01", ApprovalGateStage.TpmToArchitect).ShouldBeTrue();
+        resolvedEvent.ShouldNotBeNull();
+        resolvedEvent!.Status.ShouldBe(ApprovalStatus.Approved);
+        resolvedEvent.UserFeedback.ShouldBe("Revised criteria accepted.");
     }
 }

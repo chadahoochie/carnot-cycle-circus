@@ -1,7 +1,7 @@
 using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Projects;
 using CarnotCycleCircus.Core.Domain.Storage;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -71,10 +71,10 @@ public class ProjectManagerTests
 
         var project = await manager.CreateAsync("Order Gateway", "New API gateway project");
 
-        project.Id.Should().StartWith("proj-");
-        project.Status.Should().Be(ProjectStatus.Active);
-        manager.GetById(project.Id).Should().Be(project);
-        raised.Should().Be(project);
+        project.Id.ShouldStartWith("proj-");
+        project.Status.ShouldBe(ProjectStatus.Active);
+        manager.GetById(project.Id).ShouldBe(project);
+        raised.ShouldBe(project);
     }
 
     [Fact]
@@ -89,10 +89,11 @@ public class ProjectManagerTests
 
         var updated = await manager.UpdateAsync(project.WithStatus(ProjectStatus.Paused));
 
-        updated.Status.Should().Be(ProjectStatus.Paused);
-        updated.LastActivityAt.Should().BeOnOrAfter(originalTouch ?? DateTimeOffset.MinValue);
-        manager.GetById(project.Id)!.Status.Should().Be(ProjectStatus.Paused);
-        raised.Should().Be(updated);
+        updated.Status.ShouldBe(ProjectStatus.Paused);
+        updated.LastActivityAt.ShouldNotBeNull();
+        updated.LastActivityAt.Value.ShouldBeGreaterThanOrEqualTo(originalTouch ?? DateTimeOffset.MinValue);
+        manager.GetById(project.Id)!.Status.ShouldBe(ProjectStatus.Paused);
+        raised.ShouldBe(updated);
     }
 
     [Fact]
@@ -106,8 +107,8 @@ public class ProjectManagerTests
 
         await manager.DeleteAsync(project.Id);
 
-        manager.GetById(project.Id).Should().BeNull();
-        deletedId.Should().Be(project.Id);
+        manager.GetById(project.Id).ShouldBeNull();
+        deletedId.ShouldBe(project.Id);
     }
 
     [Fact]
@@ -116,8 +117,8 @@ public class ProjectManagerTests
         var manager = new ProjectManager();
         var project = await manager.CreateAsync("IoT Ingestion", "Ingestion pipeline", teamId: "team-1");
 
-        project.TeamId.Should().Be("team-1");
-        manager.GetById(project.Id)!.TeamId.Should().Be("team-1");
+        project.TeamId.ShouldBe("team-1");
+        manager.GetById(project.Id)!.TeamId.ShouldBe("team-1");
     }
 
     [Fact]
@@ -126,12 +127,12 @@ public class ProjectManagerTests
         var project = Project.Create("Zero-Trust Identity", "Auth overhaul");
 
         var paused = project.WithStatus(ProjectStatus.Paused);
-        paused.Status.Should().Be(ProjectStatus.Paused);
-        project.Status.Should().Be(ProjectStatus.Active);
+        paused.Status.ShouldBe(ProjectStatus.Paused);
+        project.Status.ShouldBe(ProjectStatus.Active);
 
         var withTeam = project.WithTeam("team-42");
-        withTeam.TeamId.Should().Be("team-42");
-        project.TeamId.Should().BeNull();
+        withTeam.TeamId.ShouldBe("team-42");
+        project.TeamId.ShouldBeNull();
     }
 
     [Fact]
@@ -144,8 +145,8 @@ public class ProjectManagerTests
         await manager.FlushAsync();
 
         var reloaded = new ProjectManager(storage);
-        reloaded.GetById(project.Id).Should().NotBeNull();
-        reloaded.GetById(project.Id)!.Name.Should().Be("Distributed CQRS");
+        reloaded.GetById(project.Id).ShouldNotBeNull();
+        reloaded.GetById(project.Id)!.Name.ShouldBe("Distributed CQRS");
     }
 
     [Fact]
@@ -158,7 +159,7 @@ public class ProjectManagerTests
 
         var all = manager.GetAll();
 
-        all.First().Id.Should().Be(second.Id);
-        all.Last().Id.Should().Be(first.Id);
+        all.First().Id.ShouldBe(second.Id);
+        all.Last().Id.ShouldBe(first.Id);
     }
 }

@@ -5,7 +5,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -56,9 +56,9 @@ public class AgentPeckingOrderTests
 
         var readyTickets = store.GetReadyTickets();
 
-        readyTickets.Should().HaveCount(2);
-        readyTickets[0].Id.Should().Be("TCK-REMEDIATING");
-        readyTickets[1].Id.Should().Be("TCK-READY");
+        readyTickets.Count().ShouldBe(2);
+        readyTickets[0].Id.ShouldBe("TCK-REMEDIATING");
+        readyTickets[1].Id.ShouldBe("TCK-READY");
     }
 
     [Fact]
@@ -101,8 +101,9 @@ public class AgentPeckingOrderTests
 
         var readyTickets = store.GetReadyTickets();
 
-        readyTickets.Should().HaveCount(8);
-        readyTickets.Select(t => t.AssigneeRole).Should().ContainInOrder(
+        readyTickets.Count().ShouldBe(8);
+        readyTickets.Select(t => t.AssigneeRole).ShouldBe(
+        [
             AgentRole.RequirementsResearcher,
             AgentRole.TechnicalProductManager,
             AgentRole.LeadArchitect,
@@ -111,7 +112,7 @@ public class AgentPeckingOrderTests
             AgentRole.OptimizationEngineer,
             AgentRole.PrincipalQAAnalyst,
             AgentRole.IntegrationEngineer
-        );
+        ]);
     }
 
     [Fact]
@@ -156,13 +157,13 @@ public class AgentPeckingOrderTests
         store.CreateTicket(devTicket);
 
         var executed = await executor.ExecuteTicketAsync(devTicket.Id);
-        executed.Should().BeTrue();
+        executed.ShouldBeTrue();
 
         var handoffs = store.GetHandoffsForTicket(devTicket.Id);
 
         // Must route handoffs to BOTH Security AND Optimization downstream roles!
-        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.SecurityEngineer);
-        handoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.OptimizationEngineer);
+        handoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.SecurityEngineer);
+        handoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.OptimizationEngineer);
     }
 
     [Fact]
@@ -192,20 +193,20 @@ public class AgentPeckingOrderTests
             "Build complete Raft consensus engine across all 8 agent roles."
         );
 
-        success.Should().BeTrue();
+        success.ShouldBeTrue();
 
         var allHandoffs = store.GetAllHandoffs();
-        allHandoffs.Should().NotBeEmpty();
+        allHandoffs.ShouldNotBeEmpty();
 
         // Verify handoff chain across all 8 roles
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.RequirementsResearcher && h.ToAgentRole == AgentRole.TechnicalProductManager);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.TechnicalProductManager && h.ToAgentRole == AgentRole.LeadArchitect);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.LeadArchitect && h.ToAgentRole == AgentRole.SoftwareDeveloper);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.SecurityEngineer);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.OptimizationEngineer);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.SecurityEngineer && h.ToAgentRole == AgentRole.PrincipalQAAnalyst);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.OptimizationEngineer && h.ToAgentRole == AgentRole.PrincipalQAAnalyst);
-        allHandoffs.Should().Contain(h => h.FromAgentRole == AgentRole.PrincipalQAAnalyst && h.ToAgentRole == AgentRole.IntegrationEngineer);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.RequirementsResearcher && h.ToAgentRole == AgentRole.TechnicalProductManager);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.TechnicalProductManager && h.ToAgentRole == AgentRole.LeadArchitect);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.LeadArchitect && h.ToAgentRole == AgentRole.SoftwareDeveloper);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.SecurityEngineer);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SoftwareDeveloper && h.ToAgentRole == AgentRole.OptimizationEngineer);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.SecurityEngineer && h.ToAgentRole == AgentRole.PrincipalQAAnalyst);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.OptimizationEngineer && h.ToAgentRole == AgentRole.PrincipalQAAnalyst);
+        allHandoffs.ShouldContain(h => h.FromAgentRole == AgentRole.PrincipalQAAnalyst && h.ToAgentRole == AgentRole.IntegrationEngineer);
     }
 
     [Fact]
@@ -238,17 +239,17 @@ public class AgentPeckingOrderTests
 
         // Initially, ONLY the Research ticket is ready!
         var readyInitial = store.GetReadyTickets();
-        readyInitial.Should().ContainSingle(t => t.AssigneeRole == AgentRole.RequirementsResearcher);
+        readyInitial.Where(t => t.AssigneeRole == AgentRole.RequirementsResearcher).ShouldHaveSingleItem();
 
         // Execute all ready tickets incrementally through completion
         var executed = await executor.ExecuteReadyTicketsAsync();
-        executed.Should().BeTrue();
+        executed.ShouldBeTrue();
 
         var allTickets = store.GetAllTickets();
-        allTickets.Where(t => t.Type == TicketType.Subtask).Should().OnlyContain(t => t.Status == TicketStatus.Done);
-        allTickets.Where(t => t.Type == TicketType.Feature).Should().OnlyContain(t => t.Status == TicketStatus.Done);
-        allTickets.Where(t => t.Type == TicketType.ResearchSpike).Should().OnlyContain(t => t.Status == TicketStatus.Done);
-        allTickets.Where(t => t.Type == TicketType.Epic).Should().OnlyContain(t => t.Status == TicketStatus.Done);
+        allTickets.Where(t => t.Type == TicketType.Subtask).ShouldAllBe(t => t.Status == TicketStatus.Done);
+        allTickets.Where(t => t.Type == TicketType.Feature).ShouldAllBe(t => t.Status == TicketStatus.Done);
+        allTickets.Where(t => t.Type == TicketType.ResearchSpike).ShouldAllBe(t => t.Status == TicketStatus.Done);
+        allTickets.Where(t => t.Type == TicketType.Epic).ShouldAllBe(t => t.Status == TicketStatus.Done);
     }
 
     [Fact]
@@ -323,15 +324,16 @@ public class AgentPeckingOrderTests
 
         await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket);
 
-        mockClient.LastRequest.Should().NotBeNull();
+        mockClient.LastRequest.ShouldNotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
+        userMessage.ShouldNotBeNull();
 
         // Verify large ADR was NOT truncated with the old 2500 character limit
-        userMessage.Should().Contain(new string('A', 8000));
-        userMessage.Should().Contain("ICompleteService");
+        userMessage.ShouldContain(new string('A', 8000));
+        userMessage.ShouldContain("ICompleteService");
 
         // Verify critical remediation directive was injected
-        userMessage.Should().Contain("🚨 CRITICAL REMEDIATION DIRECTIVE");
-        userMessage.Should().Contain("MUST NOT use dynamic Regex constructor");
+        userMessage.ShouldContain("🚨 CRITICAL REMEDIATION DIRECTIVE");
+        userMessage.ShouldContain("MUST NOT use dynamic Regex constructor");
     }
 }

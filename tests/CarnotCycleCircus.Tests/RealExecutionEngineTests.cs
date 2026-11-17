@@ -5,7 +5,7 @@ using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -49,13 +49,13 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
 
-        deliverables.Should().HaveCount(1);
-        mockClient.LastRequest.Should().NotBeNull();
-        mockClient.LastApiKey.Should().Be("sk-or-v1-9876543210fedcba");
+        deliverables.Count().ShouldBe(1);
+        mockClient.LastRequest.ShouldNotBeNull();
+        mockClient.LastApiKey.ShouldBe("sk-or-v1-9876543210fedcba");
 
         var artifact = deliverables[0];
-        artifact.ContentType.Should().Be("csharp");
-        artifact.Content.Should().Contain("class Service");
+        artifact.ContentType.ShouldBe("csharp");
+        artifact.Content.ShouldContain("class Service");
     }
 
     [Fact]
@@ -137,13 +137,14 @@ public class RealExecutionEngineTests
 
         await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, devTicket);
 
-        mockClient.LastRequest.Should().NotBeNull();
+        mockClient.LastRequest.ShouldNotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
+        userMessage.ShouldNotBeNull();
 
         // Upstream deliverables MUST be chained into prompt!
-        userMessage.Should().Contain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
-        userMessage.Should().Contain("IRateLimiterPipeline");
-        userMessage.Should().Contain("Token Bucket Algorithm Requirements");
+        userMessage.ShouldContain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
+        userMessage.ShouldContain("IRateLimiterPipeline");
+        userMessage.ShouldContain("Token Bucket Algorithm Requirements");
     }
 
     [Fact]
@@ -199,8 +200,8 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
 
-        deliverables.Should().HaveCount(3);
-        deliverables.Select(d => d.Name).Should().Contain(["IPubSubStream.cs", "PubSubStreamService.cs", "PubSubStreamTests.cs"]);
+        deliverables.Count().ShouldBe(3);
+        new[] { "IPubSubStream.cs", "PubSubStreamService.cs", "PubSubStreamTests.cs" }.ShouldBeSubsetOf(deliverables.Select(d => d.Name));
     }
 
     [Fact]
@@ -257,13 +258,14 @@ public class RealExecutionEngineTests
 
         await engine.ExecuteRoleTaskAsync(AgentRole.SecurityEngineer, secTicket);
 
-        mockClient.LastRequest.Should().NotBeNull();
+        mockClient.LastRequest.ShouldNotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
+        userMessage.ShouldNotBeNull();
 
         // Upstream C# code MUST be injected into Security review prompt!
-        userMessage.Should().Contain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
-        userMessage.Should().Contain("AesGcmVaultService.cs");
-        userMessage.Should().Contain("public sealed class AesGcmVaultService");
+        userMessage.ShouldContain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
+        userMessage.ShouldContain("AesGcmVaultService.cs");
+        userMessage.ShouldContain("public sealed class AesGcmVaultService");
     }
 
     [Fact]
@@ -323,13 +325,14 @@ public class RealExecutionEngineTests
 
         await engine.ExecuteRoleTaskAsync(AgentRole.PrincipalQAAnalyst, qaTicket);
 
-        mockClient.LastRequest.Should().NotBeNull();
+        mockClient.LastRequest.ShouldNotBeNull();
         var userMessage = mockClient.LastRequest!.Messages.First(m => m.Role == "user").Content;
+        userMessage.ShouldNotBeNull();
 
         // Upstream code and unit tests MUST be injected into QA prompt!
-        userMessage.Should().Contain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
-        userMessage.Should().Contain("TelemetryService.cs");
-        userMessage.Should().Contain("TelemetryServiceTests.cs");
+        userMessage.ShouldContain("UPSTREAM INTER-AGENT DELIVERABLE CONTEXT");
+        userMessage.ShouldContain("TelemetryService.cs");
+        userMessage.ShouldContain("TelemetryServiceTests.cs");
     }
 
     [Fact]
@@ -364,9 +367,10 @@ public class RealExecutionEngineTests
         );
 
         var act = () => engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
-        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*API key*");
+        var ex = await Should.ThrowAsync<InvalidOperationException>(act);
+        ex.Message.ShouldContain("API key");
 
-        eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
+        eventStream.GetHistory().ShouldContain(m => m.Type == MessageType.Alert && m.Content.Contains("No active OpenRouter API key"));
     }
 
     [Fact]
@@ -430,20 +434,20 @@ public class RealExecutionEngineTests
         ticketStore.CreateTicket(devTicket);
 
         // Initially dev is not ready
-        ticketStore.AreDependenciesSatisfied(devTicket.Id).Should().BeFalse();
+        ticketStore.AreDependenciesSatisfied(devTicket.Id).ShouldBeFalse();
 
         // Execute Arch ticket
         var result = await executor.ExecuteTicketAsync("TCK-ARCH-01");
-        result.Should().BeTrue();
+        result.ShouldBeTrue();
 
         var completedArch = ticketStore.GetTicketById("TCK-ARCH-01");
-        completedArch!.Status.Should().Be(TicketStatus.Done);
-        completedArch.Deliverables.Should().NotBeEmpty();
+        completedArch!.Status.ShouldBe(TicketStatus.Done);
+        completedArch.Deliverables.ShouldNotBeEmpty();
 
         // Dev ticket should now automatically be Ready!
         var updatedDev = ticketStore.GetTicketById("TCK-DEV-01");
-        updatedDev!.Status.Should().Be(TicketStatus.Ready);
-        ticketStore.AreDependenciesSatisfied("TCK-DEV-01").Should().BeTrue();
+        updatedDev!.Status.ShouldBe(TicketStatus.Ready);
+        ticketStore.AreDependenciesSatisfied("TCK-DEV-01").ShouldBeTrue();
     }
 
     [Fact]
@@ -509,14 +513,14 @@ public class RealExecutionEngineTests
 
         // Run ready tickets
         var executed = await executor.ExecuteReadyTicketsAsync();
-        executed.Should().BeTrue();
+        executed.ShouldBeTrue();
 
         // Ready ticket is now Done
-        ticketStore.GetTicketById("TCK-READY-01")!.Status.Should().Be(TicketStatus.Done);
+        ticketStore.GetTicketById("TCK-READY-01")!.Status.ShouldBe(TicketStatus.Done);
 
         // Backlog ticket MUST NOT BE SWEPT TO DONE
         var preservedBacklog = ticketStore.GetTicketById("TCK-FUTURE-01");
-        preservedBacklog!.Status.Should().Be(TicketStatus.Backlog);
+        preservedBacklog!.Status.ShouldBe(TicketStatus.Backlog);
     }
 
     [Fact]
@@ -575,17 +579,17 @@ public class RealExecutionEngineTests
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket);
 
         // Should produce BOTH the ADR markdown deliverable AND the companion IOrderSequencer.cs
-        deliverables.Should().HaveCount(2);
+        deliverables.Count().ShouldBe(2);
 
         var adrArtifact = deliverables.FirstOrDefault(d => d.ContentType == "markdown");
-        adrArtifact.Should().NotBeNull();
-        adrArtifact!.Name.Should().Be("TCK-ARCH-001_ADR.md");
-        adrArtifact.Content.Should().Contain("# ADR-042: High-Performance Order Dispatch Engine");
+        adrArtifact.ShouldNotBeNull();
+        adrArtifact!.Name.ShouldBe("TCK-ARCH-001_ADR.md");
+        adrArtifact.Content.ShouldContain("# ADR-042: High-Performance Order Dispatch Engine");
 
         var codeArtifact = deliverables.FirstOrDefault(d => d.ContentType == "csharp");
-        codeArtifact.Should().NotBeNull();
-        codeArtifact!.Name.Should().Be("IOrderSequencer.cs");
-        codeArtifact.Content.Should().Contain("public interface IOrderSequencer");
+        codeArtifact.ShouldNotBeNull();
+        codeArtifact!.Name.ShouldBe("IOrderSequencer.cs");
+        codeArtifact.Content.ShouldContain("public interface IOrderSequencer");
     }
 
     [Fact]
@@ -625,12 +629,12 @@ public class RealExecutionEngineTests
         );
 
         Func<Task> act = async () => await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
-        await act.Should().ThrowAsync<HttpRequestException>();
+        await Should.ThrowAsync<HttpRequestException>(act);
 
         // Verify alert was published to event stream with details
         var alerts = eventStream.GetHistory().Where(m => m.Type == MessageType.Alert).ToList();
-        alerts.Should().NotBeEmpty();
-        alerts.First().Content.Should().Contain("401 Unauthorized");
+        alerts.ShouldNotBeEmpty();
+        alerts.First().Content.ShouldContain("401 Unauthorized");
     }
 
     [Fact]
@@ -702,13 +706,13 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
 
-        deliverables.Should().NotBeEmpty();
-        deliverables[0].Content.Should().Contain("# ADR-014: High-Performance Architecture");
+        deliverables.ShouldNotBeEmpty();
+        deliverables[0].Content.ShouldContain("# ADR-014: High-Performance Architecture");
 
         // Verify failover event was published
         var events = eventStream.GetHistory().ToList();
-        events.Should().Contain(e => e.Content.Contains("Primary model [deepseek/deepseek-v4-pro-0813] produced empty deliverable content") && e.Content.Contains("Initiating autonomous failover to fallback model [anthropic/claude-3.7-sonnet]"));
-        events.Should().Contain(e => e.Content.Contains("Fallback model [anthropic/claude-3.7-sonnet] successfully generated"));
+        events.ShouldContain(e => e.Content.Contains("Primary model [deepseek/deepseek-v4-pro-0813] produced empty deliverable content") && e.Content.Contains("Initiating autonomous failover to fallback model [anthropic/claude-3.7-sonnet]"));
+        events.ShouldContain(e => e.Content.Contains("Fallback model [anthropic/claude-3.7-sonnet] successfully generated"));
     }
 
     [Fact]
@@ -752,10 +756,10 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
 
-        deliverables.Should().NotBeEmpty();
-        deliverables[0].Content.Should().NotContain("<think>");
-        deliverables[0].Content.Should().NotContain("</think>");
-        deliverables[0].Content.Should().Contain("# ADR-014: High-Performance Clean Architecture");
+        deliverables.ShouldNotBeEmpty();
+        deliverables[0].Content.ShouldNotContain("<think>");
+        deliverables[0].Content.ShouldNotContain("</think>");
+        deliverables[0].Content.ShouldContain("# ADR-014: High-Performance Clean Architecture");
     }
 
     [Fact]
@@ -801,9 +805,9 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
 
-        deliverables.Should().NotBeEmpty();
-        deliverables.Should().Contain(d => d.ContentType == "markdown" && d.Content.Contains("# ADR-014: Clean Scaffolding Blueprint"));
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "IPipeline.cs");
+        deliverables.ShouldNotBeEmpty();
+        deliverables.ShouldContain(d => d.ContentType == "markdown" && d.Content.Contains("# ADR-014: Clean Scaffolding Blueprint"));
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "IPipeline.cs");
     }
 
     [Fact]
@@ -847,8 +851,8 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
 
-        deliverables.Should().NotBeEmpty();
-        deliverables[0].Content.Should().Contain("# ADR-014: High-Performance Architecture");
+        deliverables.ShouldNotBeEmpty();
+        deliverables[0].Content.ShouldContain("# ADR-014: High-Performance Architecture");
     }
 
     [Fact]
@@ -903,8 +907,9 @@ public class RealExecutionEngineTests
         );
 
         var act = () => engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Both primary model [deepseek/deepseek-v4-pro-0813]*and fallback model [anthropic/claude-3.7-sonnet]*");
+        var ex = await Should.ThrowAsync<InvalidOperationException>(act);
+        ex.Message.ShouldContain("Both primary model [deepseek/deepseek-v4-pro-0813]");
+        ex.Message.ShouldContain("and fallback model [anthropic/claude-3.7-sonnet]");
     }
 
     [Fact]
@@ -974,9 +979,9 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
 
-        deliverables.Should().NotBeEmpty();
-        deliverables[0].Content.Should().Contain("# ADR-015: Fallback Architecture");
-        eventStream.GetHistory().Should().Contain(m => m.Content.Contains("Initiating autonomous failover to fallback model [anthropic/claude-3.7-sonnet]"));
+        deliverables.ShouldNotBeEmpty();
+        deliverables[0].Content.ShouldContain("# ADR-015: Fallback Architecture");
+        eventStream.GetHistory().ShouldContain(m => m.Content.Contains("Initiating autonomous failover to fallback model [anthropic/claude-3.7-sonnet]"));
     }
 
     [Fact]
@@ -1028,9 +1033,9 @@ public class RealExecutionEngineTests
         );
 
         var act = () => engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket, cts.Token);
-        await act.Should().ThrowAsync<OperationCanceledException>();
+        await Should.ThrowAsync<OperationCanceledException>(act);
 
-        eventStream.GetHistory().Should().NotContain(m => m.Content.Contains("Initiating autonomous failover"));
+        eventStream.GetHistory().ShouldNotContain(m => m.Content.Contains("Initiating autonomous failover"));
     }
 
     [Fact]
@@ -1084,10 +1089,10 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket);
 
-        deliverables.Should().HaveCount(3);
-        deliverables.Should().Contain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-01_ADR.md");
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "IOrderSagaService.cs");
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "OrderSagaModels.cs");
+        deliverables.Count().ShouldBe(3);
+        deliverables.ShouldContain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-01_ADR.md");
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "IOrderSagaService.cs");
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "OrderSagaModels.cs");
     }
 
     [Fact]
@@ -1129,10 +1134,10 @@ public class RealExecutionEngineTests
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, archTicket);
 
-        deliverables.Should().Contain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-02_ADR.md");
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "IRealTimeTelemetryPipelineService.cs");
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineModels.cs");
-        deliverables.Should().Contain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineServiceCollectionExtensions.cs");
+        deliverables.ShouldContain(d => d.ContentType == "markdown" && d.Name == "SUB-ARCH-02_ADR.md");
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "IRealTimeTelemetryPipelineService.cs");
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineModels.cs");
+        deliverables.ShouldContain(d => d.ContentType == "csharp" && d.Name == "RealTimeTelemetryPipelineServiceCollectionExtensions.cs");
     }
 
     [Theory]
@@ -1145,6 +1150,6 @@ public class RealExecutionEngineTests
     public void DetermineMaxTokensForModel_ShouldAllocateAppropriateTokenHeadroom(string model, AgentRole role, int expectedTokens)
     {
         var tokens = AgentExecutionEngine.DetermineMaxTokensForModel(model, role);
-        tokens.Should().Be(expectedTokens);
+        tokens.ShouldBe(expectedTokens);
     }
 }

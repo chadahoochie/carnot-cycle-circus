@@ -1,5 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Docs;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -27,9 +27,9 @@ public class AdrDocumentManagerTests
         _manager.SaveAdr(adr);
         var retrieved = _manager.GetAdr("ADR-100");
 
-        retrieved.Should().NotBeNull();
-        retrieved!.ToMarkdown().Should().Contain("# ADR-100: Test Decision");
-        retrieved.ToMarkdown().Should().Contain("Clear traceability");
+        retrieved.ShouldNotBeNull();
+        retrieved!.ToMarkdown().ShouldContain("# ADR-100: Test Decision");
+        retrieved.ToMarkdown().ShouldContain("Clear traceability");
     }
 
     [Fact]
@@ -37,9 +37,9 @@ public class AdrDocumentManagerTests
     {
         var bundle = _manager.ExportCompleteMarkdownBundle();
 
-        bundle.Should().Contain("Project Documentation Bundle");
-        bundle.Should().Contain("Architectural Decision Records");
-        bundle.Should().Contain("ADR-001");
-        bundle.Should().Contain("C4 System Architecture Model");
+        bundle.ShouldContain("Project Documentation Bundle");
+        bundle.ShouldContain("Architectural Decision Records");
+        bundle.ShouldContain("ADR-001");
+        bundle.ShouldContain("C4 System Architecture Model");
     }
 }

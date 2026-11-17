@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -33,9 +33,9 @@ public class TicketStoreTests
         _store.CreateTicket(ticket);
         var retrieved = _store.GetTicketById("TCK-001");
 
-        retrieved.Should().NotBeNull();
-        retrieved!.Title.Should().Be("Test Feature");
-        retrieved.Status.Should().Be(TicketStatus.Ready);
+        retrieved.ShouldNotBeNull();
+        retrieved!.Title.ShouldBe("Test Feature");
+        retrieved.Status.ShouldBe(TicketStatus.Ready);
     }
 
     [Fact]
@@ -77,11 +77,11 @@ public class TicketStoreTests
         );
         _store.CreateTicket(dependent);
 
-        _store.AreDependenciesSatisfied("DEV-001").Should().BeFalse();
+        _store.AreDependenciesSatisfied("DEV-001").ShouldBeFalse();
 
         // Complete dependency
         _store.UpdateTicket(dep.WithStatus(TicketStatus.Done));
-        _store.AreDependenciesSatisfied("DEV-001").Should().BeTrue();
+        _store.AreDependenciesSatisfied("DEV-001").ShouldBeTrue();
     }
 
     [Fact]
@@ -98,8 +98,8 @@ public class TicketStoreTests
         _store.RecordHandoff(handoff);
         var handoffs = _store.GetHandoffsForTicket("TCK-100");
 
-        handoffs.Should().ContainSingle();
-        handoffs[0].FromAgentRole.Should().Be(AgentRole.LeadArchitect);
-        handoffs[0].ToAgentRole.Should().Be(AgentRole.SoftwareDeveloper);
+        handoffs.ShouldHaveSingleItem();
+        handoffs[0].FromAgentRole.ShouldBe(AgentRole.LeadArchitect);
+        handoffs[0].ToAgentRole.ShouldBe(AgentRole.SoftwareDeveloper);
     }
 }

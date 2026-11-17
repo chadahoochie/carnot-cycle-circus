@@ -1,3 +1,11 @@
+#### 1.2.0 November 16th 2026 ####
+
+- .NET 11 & C# 15 Upgrade: Upgraded `global.json` (`11.0.100`), all solution projects (`net11.0`), `Dockerfile`, and GitHub Actions workflows to .NET 11.
+- NuGet Package Updates: Upgraded `Microsoft.Extensions.*` and `Microsoft.AspNetCore.*` packages to `11.0.0` (resolving `GHSA-334f-vvp4-7g6p`), updated test tooling (`Microsoft.NET.Test.Sdk` `18.12.0`, `xunit.runner.visualstudio` `4.0.1`, `coverlet.collector` `10.1.1`), and removed redundant `Microsoft.Extensions.Hosting.Abstractions` (`NU1510`).
+- Shouldly Test Migration: Replaced `FluentAssertions` with MIT-licensed `Shouldly` (`4.3.0`) across all 32 test suites.
+- Blazor Analyzer Compliance: Removed redundant `StateHasChanged()` calls flagged by .NET 11 analyzer `BL0012`.
+- ADR-0020: Upgrade to .NET 11 (C# 15) and Migrate Test Assertions to Shouldly.
+
 #### 1.1.0 August 24th 2026 ####
 
 - Dynamic Agent Troupe Lifecycle: Add and remove autonomous circus agents on-the-fly with persistent atomic storage and event bus synchronization.

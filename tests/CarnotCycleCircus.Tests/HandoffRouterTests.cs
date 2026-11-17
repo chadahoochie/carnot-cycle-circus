@@ -1,7 +1,7 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -28,12 +28,12 @@ public class HandoffRouterTests
             "Implement feature"
         );
 
-        packet.Should().NotBeNull();
-        packet.TicketId.Should().Be("TCK-200");
-        packet.FromAgentRole.Should().Be(AgentRole.LeadArchitect);
-        packet.ToAgentRole.Should().Be(AgentRole.SoftwareDeveloper);
+        packet.ShouldNotBeNull();
+        packet.TicketId.ShouldBe("TCK-200");
+        packet.FromAgentRole.ShouldBe(AgentRole.LeadArchitect);
+        packet.ToAgentRole.ShouldBe(AgentRole.SoftwareDeveloper);
 
-        _eventStream.GetHistory().Should().ContainSingle(m => m.Type == MessageType.Handoff);
+        _eventStream.GetHistory().Where(m => m.Type == MessageType.Handoff).ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -65,12 +65,13 @@ public class HandoffRouterTests
             "Remove secret and use environment variables"
         );
 
-        packet.RemediationNotes.Should().Contain("environment variables");
+        packet.RemediationNotes.ShouldNotBeNull();
+        packet.RemediationNotes.ShouldContain("environment variables");
         var updated = _ticketStore.GetTicketById("TCK-FAIL");
-        updated!.Status.Should().Be(TicketStatus.Remediating);
-        updated.AssigneeRole.Should().Be(AgentRole.SoftwareDeveloper);
+        updated!.Status.ShouldBe(TicketStatus.Remediating);
+        updated.AssigneeRole.ShouldBe(AgentRole.SoftwareDeveloper);
 
-        _eventStream.GetHistory().Should().Contain(m => m.Type == MessageType.Alert);
+        _eventStream.GetHistory().ShouldContain(m => m.Type == MessageType.Alert);
     }
 
     [Fact]
@@ -114,8 +115,8 @@ public class HandoffRouterTests
 
         var activated = _router.AdvanceWorkflowOnTicketCompletion("T1");
 
-        activated.Should().ContainSingle();
-        activated[0].Id.Should().Be("T2");
-        activated[0].Status.Should().Be(TicketStatus.Ready);
+        activated.ShouldHaveSingleItem();
+        activated[0].Id.ShouldBe("T2");
+        activated[0].Status.ShouldBe(TicketStatus.Ready);
     }
 }

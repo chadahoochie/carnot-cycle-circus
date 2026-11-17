@@ -299,7 +299,7 @@ public class SkillRegistry : ISkillRegistry
         // Seed default skills
         var s1 = new SkillDefinition(
             Id: "skill-csharp-standards",
-            Name: "Modern C# 13 & Zero-Allocation Dogma",
+            Name: "Modern C# 15 & Zero-Allocation Dogma",
             Description: "Patterns for readonly record structs, pattern matching, Span/Memory, and async/await.",
             Instructions: "Enforce zero-allocation Span/Memory where possible, use records for immutable domain modeling, and ban all setters.",
             RecommendedTools: ["csharp_syntax_check"],

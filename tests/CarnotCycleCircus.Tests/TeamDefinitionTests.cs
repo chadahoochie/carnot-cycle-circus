@@ -6,7 +6,7 @@ using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Storage;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -19,22 +19,23 @@ public class TeamDefinitionTests
     public void DefaultPresets_ShouldContainExpectedSquads()
     {
         var presets = TeamDefinition.DefaultPresets;
-        presets.Should().HaveCount(6);
+        presets.Count().ShouldBe(6);
 
-        presets.Select(p => p.Id).Should().BeEquivalentTo([
+        presets.Select(p => p.Id).ShouldBe(
+        [
             "team-balanced",
             "team-move-fast",
             "team-ivory-tower",
             "team-security-hardened",
             "team-high-performance",
             "team-chaos-monkey"
-        ]);
+        ], ignoreOrder: true);
 
         foreach (var preset in presets)
         {
-            preset.Graph.Should().NotBeNull();
-            preset.Graph.Nodes.Should().NotBeEmpty();
-            preset.Members.Should().NotBeEmpty();
+            preset.Graph.ShouldNotBeNull();
+            preset.Graph.Nodes.ShouldNotBeEmpty();
+            preset.Members.ShouldNotBeEmpty();
         }
     }
 
@@ -52,48 +53,48 @@ public class TeamDefinitionTests
 
         var switched = _manager.SwitchToTeam(teamId);
 
-        switched.Should().BeTrue();
-        _manager.GetCurrentTeam().Id.Should().Be(teamId);
-        notifiedTeam.Should().NotBeNull();
-        notifiedTeam!.Id.Should().Be(teamId);
+        switched.ShouldBeTrue();
+        _manager.GetCurrentTeam().Id.ShouldBe(teamId);
+        notifiedTeam.ShouldNotBeNull();
+        notifiedTeam!.Id.ShouldBe(teamId);
     }
 
     [Fact]
     public void MoveFast_Preset_ShouldHaveConfiguredWorkflowGraph()
     {
         var team = _manager.GetTeam("team-move-fast");
-        team.Should().NotBeNull();
+        team.ShouldNotBeNull();
 
         var engTeam = team!.ToEngineeringTeam();
-        engTeam.Graph.Should().NotBeNull();
-        engTeam.Graph.Nodes.Should().HaveCountGreaterThanOrEqualTo(3);
+        engTeam.Graph.ShouldNotBeNull();
+        engTeam.Graph.Nodes.Count().ShouldBeGreaterThanOrEqualTo(3);
 
         var dev = engTeam.GetMember(AgentRole.SoftwareDeveloper);
         var tpm = engTeam.GetMember(AgentRole.TechnicalProductManager);
 
-        dev.Should().NotBeNull();
-        tpm.Should().NotBeNull();
-        dev!.IsEnabled.Should().BeTrue();
-        tpm!.IsEnabled.Should().BeTrue();
+        dev.ShouldNotBeNull();
+        tpm.ShouldNotBeNull();
+        dev!.IsEnabled.ShouldBeTrue();
+        tpm!.IsEnabled.ShouldBeTrue();
     }
 
     [Fact]
     public void ExportAndImport_ShouldPreserveTeamConfigurationAndGraph()
     {
         var original = _manager.GetTeam("team-security-hardened");
-        original.Should().NotBeNull();
+        original.ShouldNotBeNull();
 
         var json = _manager.ExportToJson(original!.Id);
 
-        json.Should().NotBeNullOrWhiteSpace();
-        json.Should().Contain("team-security-hardened");
+        json.ShouldNotBeNullOrWhiteSpace();
+        json.ShouldContain("team-security-hardened");
 
         var imported = _manager.ImportFromJson(json);
-        imported.Should().NotBeNull();
-        imported.Members.Should().HaveCount(original.Members.Count);
-        imported.Graph.Nodes.Should().HaveCount(original.Graph.Nodes.Count);
-        imported.Graph.Connections.Should().HaveCount(original.Graph.Connections.Count);
-        imported.DefaultFallbackModel.Should().Be(original.DefaultFallbackModel);
+        imported.ShouldNotBeNull();
+        imported.Members.Count().ShouldBe(original.Members.Count);
+        imported.Graph.Nodes.Count().ShouldBe(original.Graph.Nodes.Count);
+        imported.Graph.Connections.Count().ShouldBe(original.Graph.Connections.Count);
+        imported.DefaultFallbackModel.ShouldBe(original.DefaultFallbackModel);
     }
 
     [Fact]
@@ -115,9 +116,9 @@ public class TeamDefinitionTests
         _manager.UpdateCurrentTeamGraph(updatedGraph);
 
         var current = _manager.GetCurrentTeam();
-        current.Graph.Nodes.Should().Contain(n => n.Id == "node-custom-test");
-        current.Graph.Connections.Should().Contain(c => c.TargetNodeId == "node-custom-test");
-        notified.Should().NotBeNull();
+        current.Graph.Nodes.ShouldContain(n => n.Id == "node-custom-test");
+        current.Graph.Connections.ShouldContain(c => c.TargetNodeId == "node-custom-test");
+        notified.ShouldNotBeNull();
     }
 
     [Fact]
@@ -143,9 +144,9 @@ public class TeamDefinitionTests
 
         var resolved = team.GetMemberForNode(nodeWithAgent, [customAgent]);
 
-        resolved.Should().NotBeNull();
-        resolved.Persona.Name.Should().Be("Madame Genevieve 'Zero-Alloc' Trapeze");
-        resolved.EffectiveModel.Should().Be("anthropic/claude-3.7-sonnet");
+        resolved.ShouldNotBeNull();
+        resolved.Persona.Name.ShouldBe("Madame Genevieve 'Zero-Alloc' Trapeze");
+        resolved.EffectiveModel.ShouldBe("anthropic/claude-3.7-sonnet");
     }
 
     [Fact]
@@ -176,13 +177,13 @@ public class TeamDefinitionTests
         _manager.SaveTeam(team);
         var json = _manager.ExportToJson(team.Id);
 
-        json.Should().Contain("skill-edge-case-torture");
-        json.Should().Contain("Demonic-Payload");
+        json.ShouldContain("skill-edge-case-torture");
+        json.ShouldContain("Demonic-Payload");
 
         var imported = _manager.ImportFromJson(json);
-        imported.Members.Should().HaveCount(1);
-        imported.Members[0].Persona.AssignedSkillIds.Should().Contain("skill-edge-case-torture");
-        imported.Members[0].Persona.Name.Should().Be(persona.Name);
+        imported.Members.Count().ShouldBe(1);
+        imported.Members[0].Persona.AssignedSkillIds.ShouldContain("skill-edge-case-torture");
+        imported.Members[0].Persona.Name.ShouldBe(persona.Name);
     }
 
     [Fact]
@@ -196,13 +197,13 @@ public class TeamDefinitionTests
             var manager = new TeamDefinitionManager(storage);
 
             // Switch to HighPerformance
-            manager.SwitchToTeam("team-high-performance").Should().BeTrue();
+            manager.SwitchToTeam("team-high-performance").ShouldBeTrue();
             await manager.FlushAsync();
 
             var current = manager.GetCurrentTeam();
-            current.Id.Should().Be("team-high-performance");
+            current.Id.ShouldBe("team-high-performance");
             var dev = current.GetMember(AgentRole.SoftwareDeveloper);
-            dev!.EffectiveModel.Should().Be("qwen/qwen-2.5-coder-32b-instruct");
+            dev!.EffectiveModel.ShouldBe("qwen/qwen-2.5-coder-32b-instruct");
 
             // Custom change to Developer on HighPerformance
             var customizedDev = dev with
@@ -217,10 +218,10 @@ public class TeamDefinitionTests
             var restartedManager = new TeamDefinitionManager(storage);
             var restartedTeam = restartedManager.GetCurrentTeam();
 
-            restartedTeam.Id.Should().Be("team-high-performance");
+            restartedTeam.Id.ShouldBe("team-high-performance");
             var restartedDev = restartedTeam.GetMember(AgentRole.SoftwareDeveloper);
-            restartedDev.Should().NotBeNull();
-            restartedDev!.EffectiveModel.Should().Be("deepseek/deepseek-r1");
+            restartedDev.ShouldNotBeNull();
+            restartedDev!.EffectiveModel.ShouldBe("deepseek/deepseek-r1");
         }
         finally
         {
@@ -278,10 +279,10 @@ public class TeamDefinitionTests
         );
 
         Func<Task> act = async () => await engine.ExecuteRoleTaskAsync(AgentRole.SoftwareDeveloper, ticket);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*No inference model selected for Software Developer*");
+        var ex = await Should.ThrowAsync<InvalidOperationException>(act);
+        ex.Message.ShouldContain("No inference model selected for Software Developer");
 
-        eventStream.GetHistory().Should().Contain(m =>
+        eventStream.GetHistory().ShouldContain(m =>
             m.Type == MessageType.Alert &&
             m.Content.Contains("No inference model selected for Software Developer"));
     }
@@ -306,16 +307,16 @@ public class TeamDefinitionTests
         teamManager.UpdateMemberInCurrentTeam(customizedDevA);
 
         // 3. Switch to Team Beta and verify
-        teamManager.SwitchToTeam(squadB.Id).Should().BeTrue();
-        teamManager.GetCurrentTeam().Id.Should().Be(squadB.Id);
+        teamManager.SwitchToTeam(squadB.Id).ShouldBeTrue();
+        teamManager.GetCurrentTeam().Id.ShouldBe(squadB.Id);
 
         // 4. Switch back to Team Alpha and verify custom model was NOT reset to defaults
-        teamManager.SwitchToTeam(squadA.Id).Should().BeTrue();
+        teamManager.SwitchToTeam(squadA.Id).ShouldBeTrue();
         var currentAlpha = teamManager.GetCurrentTeam();
-        currentAlpha.Id.Should().Be(squadA.Id);
+        currentAlpha.Id.ShouldBe(squadA.Id);
         var devAfterSwitch = currentAlpha.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper);
-        devAfterSwitch.EffectiveModel.Should().Be("meta-llama/llama-3.3-70b-instruct");
-        devAfterSwitch.Persona.SystemPrompt.Should().Be("Alpha Custom Prompt");
+        devAfterSwitch.EffectiveModel.ShouldBe("meta-llama/llama-3.3-70b-instruct");
+        devAfterSwitch.Persona.SystemPrompt.ShouldBe("Alpha Custom Prompt");
     }
 
     [Fact]
@@ -326,12 +327,13 @@ public class TeamDefinitionTests
 
         var duplicated = teamManager.DuplicateTeam(sourceSquad.Id, "Duplicated Squad");
 
-        duplicated.Should().NotBeNull();
-        duplicated.Id.Should().NotBe(sourceSquad.Id);
-        duplicated.Name.Should().Be("Duplicated Squad");
-        duplicated.Members.Count.Should().Be(sourceSquad.Members.Count);
-        duplicated.Graph.Nodes.Count.Should().Be(sourceSquad.Graph.Nodes.Count);
-        duplicated.Members.Select(m => m.Id).Should().NotIntersectWith(sourceSquad.Members.Select(m => m.Id));
+        duplicated.ShouldNotBeNull();
+        duplicated.Id.ShouldNotBe(sourceSquad.Id);
+        duplicated.Name.ShouldBe("Duplicated Squad");
+        duplicated.Members.Count.ShouldBe(sourceSquad.Members.Count);
+        duplicated.Graph.Nodes.Count.ShouldBe(sourceSquad.Graph.Nodes.Count);
+        var sourceIds = sourceSquad.Members.Select(m => m.Id).ToHashSet();
+        duplicated.Members.Select(m => m.Id).ShouldAllBe(id => !sourceIds.Contains(id));
     }
 
     [Fact]
@@ -339,19 +341,19 @@ public class TeamDefinitionTests
     {
         var teamManager = new TeamDefinitionManager();
         var customSquad = teamManager.CreateTeam("Doomed Squad", "Squad to be deleted", "team-balanced");
-        teamManager.SwitchToTeam(customSquad.Id).Should().BeTrue();
-        teamManager.GetCurrentTeam().Id.Should().Be(customSquad.Id);
+        teamManager.SwitchToTeam(customSquad.Id).ShouldBeTrue();
+        teamManager.GetCurrentTeam().Id.ShouldBe(customSquad.Id);
 
         EngineeringTeam? notifiedTeam = null;
         teamManager.OnCurrentTeamChanged += team => notifiedTeam = team;
 
         var deleted = teamManager.DeleteTeam(customSquad.Id);
 
-        deleted.Should().BeTrue();
-        teamManager.GetAllTeams().Should().NotContain(t => t.Id == customSquad.Id);
-        teamManager.GetCurrentTeam().Id.Should().NotBe(customSquad.Id);
-        notifiedTeam.Should().NotBeNull();
-        notifiedTeam!.Id.Should().NotBe(customSquad.Id);
+        deleted.ShouldBeTrue();
+        teamManager.GetAllTeams().ShouldNotContain(t => t.Id == customSquad.Id);
+        teamManager.GetCurrentTeam().Id.ShouldNotBe(customSquad.Id);
+        notifiedTeam.ShouldNotBeNull();
+        notifiedTeam!.Id.ShouldNotBe(customSquad.Id);
     }
 
     [Fact]
@@ -361,27 +363,27 @@ public class TeamDefinitionTests
         var squadA = teamManager.CreateTeam("Active Squad", "Keep this squad", "team-balanced");
         var squadB = teamManager.CreateTeam("Inactive Squad", "Delete this squad", "team-move-fast");
 
-        teamManager.SwitchToTeam(squadA.Id).Should().BeTrue();
+        teamManager.SwitchToTeam(squadA.Id).ShouldBeTrue();
 
         EngineeringTeam? notifiedTeam = null;
         teamManager.OnCurrentTeamChanged += team => notifiedTeam = team;
 
         var deleted = teamManager.DeleteTeam(squadB.Id);
 
-        deleted.Should().BeTrue();
-        teamManager.GetAllTeams().Should().NotContain(t => t.Id == squadB.Id);
-        teamManager.GetAllTeams().Should().Contain(t => t.Id == squadA.Id);
-        teamManager.GetCurrentTeam().Id.Should().Be(squadA.Id);
-        notifiedTeam.Should().NotBeNull();
-        notifiedTeam!.Id.Should().Be(squadA.Id);
+        deleted.ShouldBeTrue();
+        teamManager.GetAllTeams().ShouldNotContain(t => t.Id == squadB.Id);
+        teamManager.GetAllTeams().ShouldContain(t => t.Id == squadA.Id);
+        teamManager.GetCurrentTeam().Id.ShouldBe(squadA.Id);
+        notifiedTeam.ShouldNotBeNull();
+        notifiedTeam!.Id.ShouldBe(squadA.Id);
     }
 
     [Fact]
     public void DeleteTeam_WithInvalidOrEmptyId_ShouldReturnFalse()
     {
         var teamManager = new TeamDefinitionManager();
-        teamManager.DeleteTeam("").Should().BeFalse();
-        teamManager.DeleteTeam("non-existent-team-id-999").Should().BeFalse();
+        teamManager.DeleteTeam("").ShouldBeFalse();
+        teamManager.DeleteTeam("non-existent-team-id-999").ShouldBeFalse();
     }
 
     [Fact]
@@ -433,10 +435,10 @@ public class TeamDefinitionTests
         );
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
-        deliverables.Should().NotBeEmpty();
+        deliverables.ShouldNotBeEmpty();
 
-        mockClient.LastRequest.Should().NotBeNull();
-        mockClient.LastRequest!.Model.Should().Be("google/gemini-2.0-flash-001");
+        mockClient.LastRequest.ShouldNotBeNull();
+        mockClient.LastRequest!.Model.ShouldBe("google/gemini-2.0-flash-001");
     }
 
     [Fact]
@@ -451,7 +453,7 @@ public class TeamDefinitionTests
 
         // 1. Update Lead Architect in Agent Studio to DeepSeek
         var archAgent = agentDefManager.GetAgentForRole(AgentRole.LeadArchitect);
-        archAgent.Should().NotBeNull();
+        archAgent.ShouldNotBeNull();
         var updatedArch = archAgent! with
         {
             OverrideModel = "deepseek/deepseek-chat",
@@ -485,10 +487,10 @@ public class TeamDefinitionTests
         );
 
         var deliverables = await engine.ExecuteRoleTaskAsync(AgentRole.LeadArchitect, ticket);
-        deliverables.Should().NotBeEmpty();
+        deliverables.ShouldNotBeEmpty();
 
-        mockClient.LastRequest.Should().NotBeNull();
-        mockClient.LastRequest!.Model.Should().Be("deepseek/deepseek-chat");
+        mockClient.LastRequest.ShouldNotBeNull();
+        mockClient.LastRequest!.Model.ShouldBe("deepseek/deepseek-chat");
     }
 
     [Fact]
@@ -508,7 +510,7 @@ public class TeamDefinitionTests
 
         var (model, apiKey) = resolver.ResolveInferenceParameters(unconfiguredMember, squadWithFallback);
 
-        model.Should().Be("meta-llama/llama-3.3-70b-instruct");
-        apiKey.Should().Be("sk-or-v1-testkey12345");
+        model.ShouldBe("meta-llama/llama-3.3-70b-instruct");
+        apiKey.ShouldBe("sk-or-v1-testkey12345");
     }
 }

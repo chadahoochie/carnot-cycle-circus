@@ -572,7 +572,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
         var repoContext = harvestReport != null
             ? $"\n=== HOST REPOSITORY CONTEXT ===\nSolution: {harvestReport.SolutionName}\nTarget Namespace: {targetNamespace}\nProjects: {string.Join(", ", harvestReport.Projects.Select(p => p.Name))}\nKey Patterns: {string.Join(", ", harvestReport.DetectedPatterns)}\n"
-            : $"\n=== HOST REPOSITORY CONTEXT ===\nTarget Namespace: {targetNamespace}\nTarget Runtime: .NET 10.0 / C# 13\n";
+            : $"\n=== HOST REPOSITORY CONTEXT ===\nTarget Namespace: {targetNamespace}\nTarget Runtime: .NET 11.0 / C# 15\n";
 
         string userPrompt;
         string defaultArtifactName;
@@ -599,7 +599,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 # Requirements Research & Technical Feasibility Brief: {ticket.Title}
                 ## 1. Problem Space & Domain Context
                 ## 2. Standards, RFCs & Technical Specifications (Specify exact RFC/industry standard numbers, wire protocols, and constraints)
-                ## 3. Ecosystem, Frameworks & Library Landscape (Evaluate modern .NET 10 / C# 13 packages, dependencies, and performance implications)
+                ## 3. Ecosystem, Frameworks & Library Landscape (Evaluate modern .NET 11 / C# 15 packages, dependencies, and performance implications)
                 ## 4. Codebase Dependency & Architecture Footprint (Identify existing interfaces, models, and boundaries impacted)
                 ## 5. Potential Edge Cases, Security Hazards & Failure Modes
                 ## 6. Recommendations for Technical Product Manager (Scope boundaries, user story decomposition advice, acceptance criteria guidelines)
@@ -740,9 +740,9 @@ public class AgentExecutionEngine : IAgentExecutionEngine
             case AgentRole.SoftwareDeveloper:
                 defaultArtifactName = $"{domainContext}Service.cs";
                 contentType = "csharp";
-                description = "C# 13 Multi-File Production Implementation & Test Suite";
+                description = "C# 15 Multi-File Production Implementation & Test Suite";
                 userPrompt = $$"""
-                Produce a complete, compilable, production-ready C# 13 (.NET 10) multi-file implementation bundle for:
+                Produce a complete, compilable, production-ready C# 15 (.NET 11) multi-file implementation bundle for:
                 Ticket: {{ticket.Id}} - {{ticket.Title}}
                 Description: {{ticket.Description}}
                 Acceptance Criteria:
@@ -848,7 +848,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
                 ```
 
                 Technical Requirements:
-                - Use modern C# 13 / .NET 10 constructs (file-scoped namespaces, sealed classes, readonly record structs, primary constructors).
+                - Use modern C# 15 / .NET 11 constructs (file-scoped namespaces, sealed classes, readonly record structs, primary constructors).
                 - Zero heap allocations on hot path routines (use ValueTask, ReadOnlyMemory<byte>, ReadOnlySpan<char>, MemoryPool, bounded Channels).
                 - Accept CancellationToken cancellationToken = default on all async methods and check for cancellation.
                 - Include comprehensive xUnit unit tests verifying acceptance criteria.
@@ -899,7 +899,7 @@ public class AgentExecutionEngine : IAgentExecutionEngine
 
                 Structure the document with:
                 # Performance & Allocation Benchmark Report: {ticket.Title}
-                ## Benchmark Execution Environment (.NET 10.0, RyuJIT, AVX-512)
+                ## Benchmark Execution Environment (.NET 11.0, RyuJIT, AVX-512)
                 ## Evaluated Methods & Hot Paths (Reference actual methods in the implementation)
                 ## Benchmark Metrics Table (Columns: Method | Mean | Error | StdDev | P99 | Gen0 | Gen1 | Gen2 | Allocated)
                 ## Diagnostic Conclusions (Verify 0 B Gen0 heap allocations and sub-5ms P99 latency SLA conformance)

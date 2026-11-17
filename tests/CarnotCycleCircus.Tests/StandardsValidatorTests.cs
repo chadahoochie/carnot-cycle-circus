@@ -2,7 +2,7 @@ using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
 using CarnotCycleCircus.Core.Domain.Standards;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -32,8 +32,8 @@ public class StandardsValidatorTests
         );
 
         var result = _validator.ValidateTicketForCompletion(ticket);
-        result.IsValid.Should().BeFalse();
-        result.Violations.Should().Contain(v => v.Contains("automated unit tests"));
+        result.IsValid.ShouldBeFalse();
+        result.Violations.ShouldContain(v => v.Contains("automated unit tests"));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class StandardsValidatorTests
         );
 
         var result = _validator.ValidateTicketForCompletion(ticket);
-        result.IsValid.Should().BeTrue();
+        result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
@@ -81,8 +81,8 @@ public class StandardsValidatorTests
         );
 
         var result = _validator.ValidateArchitecturalCompliance(ticket, Array.Empty<ArtifactItem>());
-        result.IsValid.Should().BeFalse();
-        result.Violations.Should().Contain(v => v.Contains("Missing Architectural Decision Record (ADR)"));
+        result.IsValid.ShouldBeFalse();
+        result.Violations.ShouldContain(v => v.Contains("Missing Architectural Decision Record (ADR)"));
     }
 
     [Fact]
@@ -112,6 +112,6 @@ public class StandardsValidatorTests
         };
 
         var result = _validator.ValidateArchitecturalCompliance(ticket, upstreamArtifacts);
-        result.IsValid.Should().BeTrue();
+        result.IsValid.ShouldBeTrue();
     }
 }

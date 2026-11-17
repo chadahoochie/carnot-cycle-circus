@@ -4,7 +4,7 @@ using System.Text.Json;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Security;
 using CarnotCycleCircus.Core.Domain.Storage;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -40,11 +40,11 @@ public class SecureKeyStorageTests : IDisposable
         var decrypted = encryptor.Decrypt(payload, aad);
 
         // Assert
-        payload.Algorithm.Should().Be("AES-256-GCM");
-        payload.CiphertextBase64.Should().NotBeNullOrEmpty();
-        payload.NonceBase64.Should().NotBeNullOrEmpty();
-        payload.TagBase64.Should().NotBeNullOrEmpty();
-        decrypted.Should().Be(plainSecret);
+        payload.Algorithm.ShouldBe("AES-256-GCM");
+        payload.CiphertextBase64.ShouldNotBeNullOrEmpty();
+        payload.NonceBase64.ShouldNotBeNullOrEmpty();
+        payload.TagBase64.ShouldNotBeNullOrEmpty();
+        decrypted.ShouldBe(plainSecret);
     }
 
     [Fact]
@@ -60,9 +60,9 @@ public class SecureKeyStorageTests : IDisposable
         var success = encryptor.TryDecrypt(payload, buffer, out var charsWritten);
 
         // Assert
-        success.Should().BeTrue();
-        charsWritten.Should().Be(plainSecret.Length);
-        buffer[..charsWritten].ToString().Should().Be(plainSecret);
+        success.ShouldBeTrue();
+        charsWritten.ShouldBe(plainSecret.Length);
+        buffer[..charsWritten].ToString().ShouldBe(plainSecret);
     }
 
     [Fact]
@@ -80,8 +80,8 @@ public class SecureKeyStorageTests : IDisposable
 
         // Act & Assert
         var act = () => encryptor.Decrypt(tamperedPayload);
-        act.Should().Throw<CryptographicException>()
-            .WithMessage("*Authentication tag verification failed*");
+        var ex = Should.Throw<CryptographicException>(act);
+        ex.Message.ShouldContain("Authentication tag verification failed");
     }
 
     [Fact]
@@ -99,8 +99,8 @@ public class SecureKeyStorageTests : IDisposable
 
         // Act & Assert
         var act = () => encryptor.Decrypt(tamperedPayload);
-        act.Should().Throw<CryptographicException>()
-            .WithMessage("*Authentication tag verification failed*");
+        var ex = Should.Throw<CryptographicException>(act);
+        ex.Message.ShouldContain("Authentication tag verification failed");
     }
 
     [Fact]
@@ -116,8 +116,8 @@ public class SecureKeyStorageTests : IDisposable
 
         // Act & Assert
         var act = () => encryptor.Decrypt(payload, aadWrong);
-        act.Should().Throw<CryptographicException>()
-            .WithMessage("*Authentication tag verification failed*");
+        var ex = Should.Throw<CryptographicException>(act);
+        ex.Message.ShouldContain("Authentication tag verification failed");
     }
 
     [Fact]
@@ -133,8 +133,8 @@ public class SecureKeyStorageTests : IDisposable
         MasterKeyProvider.DeriveKeyFromPassphrase("SuperSecurePassword123!", salt, key2, 10_000);
 
         // Assert
-        key1.SequenceEqual(key2).Should().BeTrue();
-        MasterKeyProvider.ComputeFingerprint(key1).Should().StartWith("sha256:");
+        key1.SequenceEqual(key2).ShouldBeTrue();
+        MasterKeyProvider.ComputeFingerprint(key1).ShouldStartWith("sha256:");
     }
 
     [Fact]
@@ -153,19 +153,19 @@ public class SecureKeyStorageTests : IDisposable
 
         // Assert: Check that raw text is NOT present in storage file
         var fileContent = await _storageService.LoadTextAsync(ApiKeyVaultService.EncryptedStorageFileName);
-        fileContent.Should().NotBeNullOrEmpty();
-        fileContent.Should().NotContain("sk-or-v1-topsecretproductionkey123");
-        fileContent.Should().Contain("Production Claude 3.7 Key");
-        fileContent.Should().Contain("AES-256-GCM");
-        fileContent.Should().Contain("CiphertextBase64");
+        fileContent.ShouldNotBeNullOrEmpty();
+        fileContent.ShouldNotContain("sk-or-v1-topsecretproductionkey123");
+        fileContent.ShouldContain("Production Claude 3.7 Key");
+        fileContent.ShouldContain("AES-256-GCM");
+        fileContent.ShouldContain("CiphertextBase64");
 
         // Assert: Instance 2 with same key provider can decrypt and retrieve
         var vault2 = new ApiKeyVaultService(null, _storageService, encryptor);
         var loadedKey = vault2.GetKey(key.KeyId);
-        loadedKey.Should().NotBeNull();
-        loadedKey!.RawApiKey.Should().Be("sk-or-v1-topsecretproductionkey123");
-        loadedKey.ApiKeyMasked.Should().Be("sk-o...y123");
-        loadedKey.EncryptionAlgorithm.Should().Be("AES-256-GCM");
+        loadedKey.ShouldNotBeNull();
+        loadedKey!.RawApiKey.ShouldBe("sk-or-v1-topsecretproductionkey123");
+        loadedKey.ApiKeyMasked.ShouldBe("sk-o...y123");
+        loadedKey.EncryptionAlgorithm.ShouldBe("AES-256-GCM");
     }
 
     [Fact]
@@ -186,17 +186,17 @@ public class SecureKeyStorageTests : IDisposable
         await vault.RotateMasterKeyAsync("BrandNewMasterPassphrase2026!");
 
         var updatedStatus = vault.GetSecurityStatus();
-        updatedStatus.MasterKeyFingerprint.Should().NotBe(initialFingerprint);
+        updatedStatus.MasterKeyFingerprint.ShouldNotBe(initialFingerprint);
 
         // Verify keys remain decrypted and valid in memory
-        vault.GetKey(key1.KeyId)!.RawApiKey.Should().Be("sk-or-v1-alpha1111111111");
-        vault.GetKey(key2.KeyId)!.RawApiKey.Should().Be("sk-or-v1-beta2222222222");
+        vault.GetKey(key1.KeyId)!.RawApiKey.ShouldBe("sk-or-v1-alpha1111111111");
+        vault.GetKey(key2.KeyId)!.RawApiKey.ShouldBe("sk-or-v1-beta2222222222");
 
         // Verify instance 3 using new master key can load persisted vault
         var vaultNew = new ApiKeyVaultService(null, _storageService, encryptor);
         var loadedKey1 = vaultNew.GetKey(key1.KeyId);
-        loadedKey1.Should().NotBeNull();
-        loadedKey1!.RawApiKey.Should().Be("sk-or-v1-alpha1111111111");
+        loadedKey1.ShouldNotBeNull();
+        loadedKey1!.RawApiKey.ShouldBe("sk-or-v1-alpha1111111111");
     }
 
     [Fact]
@@ -218,17 +218,17 @@ public class SecureKeyStorageTests : IDisposable
 
         // Assert: Keys loaded into vault
         var key1 = vault.GetKey("key-legacy-1");
-        key1.Should().NotBeNull();
-        key1!.RawApiKey.Should().Be("sk-or-v1-legacyplaintextsecret1");
-        key1.EncryptionAlgorithm.Should().Be("AES-256-GCM");
+        key1.ShouldNotBeNull();
+        key1!.RawApiKey.ShouldBe("sk-or-v1-legacyplaintextsecret1");
+        key1.EncryptionAlgorithm.ShouldBe("AES-256-GCM");
 
         // Assert: Encrypted vault file exists
         var encryptedExists = await _storageService.FileExistsAsync(ApiKeyVaultService.EncryptedStorageFileName);
-        encryptedExists.Should().BeTrue();
+        encryptedExists.ShouldBeTrue();
 
         // Assert: Plaintext file removed
         var legacyExists = await _storageService.FileExistsAsync(ApiKeyVaultService.LegacyStorageFileName);
-        legacyExists.Should().BeFalse();
+        legacyExists.ShouldBeFalse();
     }
 
     [Fact]
@@ -244,10 +244,10 @@ public class SecureKeyStorageTests : IDisposable
         // Act: Export package
         var encryptedPackageJson = await vaultSource.ExportEncryptedVaultAsync(exportPassphrase);
 
-        encryptedPackageJson.Should().NotBeNullOrEmpty();
-        encryptedPackageJson.Should().NotContain("sk-or-v1-exportablekey1111");
-        encryptedPackageJson.Should().Contain("PackageVersion");
-        encryptedPackageJson.Should().Contain("KdfSaltBase64");
+        encryptedPackageJson.ShouldNotBeNullOrEmpty();
+        encryptedPackageJson.ShouldNotContain("sk-or-v1-exportablekey1111");
+        encryptedPackageJson.ShouldContain("PackageVersion");
+        encryptedPackageJson.ShouldContain("KdfSaltBase64");
 
         // Import into a fresh isolated vault instance
         var freshTempDir = Path.Combine(Path.GetTempPath(), $"carnot_import_test_{Guid.NewGuid():N}");
@@ -257,14 +257,14 @@ public class SecureKeyStorageTests : IDisposable
         var importedCount = await vaultDestination.ImportEncryptedVaultAsync(encryptedPackageJson, exportPassphrase);
 
         // Assert
-        importedCount.Should().BeGreaterThanOrEqualTo(2);
+        importedCount.ShouldBeGreaterThanOrEqualTo(2);
         var allKeys = vaultDestination.GetAllKeys();
-        allKeys.Should().Contain(k => k.RawApiKey == "sk-or-v1-exportablekey1111");
-        allKeys.Should().Contain(k => k.RawApiKey == "sk-or-v1-exportablekey2222");
+        allKeys.ShouldContain(k => k.RawApiKey == "sk-or-v1-exportablekey1111");
+        allKeys.ShouldContain(k => k.RawApiKey == "sk-or-v1-exportablekey2222");
 
         // Test wrong passphrase fails
         var wrongPassAct = () => vaultDestination.ImportEncryptedVaultAsync(encryptedPackageJson, "WrongPassphrase123!");
-        await wrongPassAct.Should().ThrowAsync<CryptographicException>();
+        await Should.ThrowAsync<CryptographicException>(wrongPassAct);
 
         try { Directory.Delete(freshTempDir, true); } catch { }
     }
@@ -280,12 +280,12 @@ public class SecureKeyStorageTests : IDisposable
         var status = vault.GetSecurityStatus();
 
         // Assert
-        status.IsEncryptedAtRest.Should().BeTrue();
-        status.EncryptionAlgorithm.Should().Be("AES-256-GCM");
-        status.KeyDerivationAlgorithm.Should().Contain("PBKDF2-HMAC-SHA256");
-        status.MasterKeyFingerprint.Should().StartWith("sha256:");
-        status.TotalKeysCount.Should().Be(1);
-        status.ActiveKeyId.Should().Be(added.KeyId);
+        status.IsEncryptedAtRest.ShouldBeTrue();
+        status.EncryptionAlgorithm.ShouldBe("AES-256-GCM");
+        status.KeyDerivationAlgorithm.ShouldContain("PBKDF2-HMAC-SHA256");
+        status.MasterKeyFingerprint.ShouldStartWith("sha256:");
+        status.TotalKeysCount.ShouldBe(1);
+        status.ActiveKeyId.ShouldBe(added.KeyId);
     }
 
     [Fact]
@@ -301,12 +301,12 @@ public class SecureKeyStorageTests : IDisposable
             var rawKey = $"sk-or-v1-concurrent-{i:D4}-key";
             var entry = vault.AddOrUpdateKey(keyName, rawKey, isActive: i % 10 == 0);
             var retrieved = vault.GetKey(entry.KeyId);
-            retrieved.Should().NotBeNull();
-            retrieved!.RawApiKey.Should().Be(rawKey);
+            retrieved.ShouldNotBeNull();
+            retrieved!.RawApiKey.ShouldBe(rawKey);
         });
 
         // Assert
-        vault.GetAllKeys().Count.Should().BeGreaterThanOrEqualTo(50);
+        vault.GetAllKeys().Count.ShouldBeGreaterThanOrEqualTo(50);
     }
 
     public void Dispose()

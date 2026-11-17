@@ -217,8 +217,8 @@ public class CodebaseHarvesterService : ICodebaseHarvesterService
 
         // Detect Architectural Patterns
         var detectedPatterns = new List<string>();
-        if (allPackages.Any(p => p.Contains("xunit", StringComparison.OrdinalIgnoreCase) || p.Contains("fluentassertions", StringComparison.OrdinalIgnoreCase)))
-            detectedPatterns.Add("🧪 xUnit & FluentAssertions Automated Quality Harness");
+        if (allPackages.Any(p => p.Contains("xunit", StringComparison.OrdinalIgnoreCase) || p.Contains("shouldly", StringComparison.OrdinalIgnoreCase) || p.Contains("fluentassertions", StringComparison.OrdinalIgnoreCase)))
+            detectedPatterns.Add("🧪 xUnit & Shouldly Automated Quality Harness");
         if (allPackages.Any(p => p.Contains("blazor", StringComparison.OrdinalIgnoreCase)) || allFiles.Any(f => f.EndsWith(".razor", StringComparison.OrdinalIgnoreCase)))
             detectedPatterns.Add("🌐 Interactive Blazor Web Architecture");
         if (allPackages.Any(p => p.Contains("opentelemetry", StringComparison.OrdinalIgnoreCase)))

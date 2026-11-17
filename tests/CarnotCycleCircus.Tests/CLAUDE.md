@@ -4,7 +4,7 @@ Unit and integration test suites for Carnot Cycle Circus.
 
 ## Frameworks & Tooling
 - **xUnit** for test execution.
-- **FluentAssertions** for expressive and maintainable assertions.
+- **Shouldly** for expressive and maintainable assertions.
 - **Microsoft.NET.Test.Sdk** and **coverlet.collector** for test discovery and code coverage.
 
 ## Test Suite Structure

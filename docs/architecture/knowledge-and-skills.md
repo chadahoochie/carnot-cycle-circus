@@ -74,7 +74,7 @@ The `SkillImporter` supports three ingestion formats:
 
 ```markdown
 ---
-name: Modern C# 13 & Zero-Allocation Dogma
+name: Modern C# 15 & Zero-Allocation Dogma
 description: Patterns for readonly record structs, pattern matching, Span/Memory, and async/await.
 category: Architecture
 ---
@@ -92,7 +92,7 @@ The platform maps skills to roles dynamically using the `ISkillRegistry` interfa
 ```mermaid
 graph LR
     subgraph Skills ["Registered Engineering Skills"]
-        S1["Modern C# 13 & Zero-Allocation"]
+        S1["Modern C# 15 & Zero-Allocation"]
         S2["STRIDE Threat Modeling"]
         S3["Nanosecond Obsession (Perf)"]
         S4["Buzzword & PRD Mastery"]

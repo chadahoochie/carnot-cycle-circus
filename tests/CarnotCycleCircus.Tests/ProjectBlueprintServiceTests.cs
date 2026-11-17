@@ -6,7 +6,7 @@ using CarnotCycleCircus.Core.Domain.Knowledge;
 using CarnotCycleCircus.Core.Domain.Memory;
 using CarnotCycleCircus.Core.Domain.Teams;
 using CarnotCycleCircus.Core.Domain.Tickets;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -40,14 +40,14 @@ public class ProjectBlueprintServiceTests
     public void GetAvailableBlueprints_ShouldReturnCuratedList()
     {
         var blueprints = _blueprintService.GetAvailableBlueprints();
-        blueprints.Should().NotBeEmpty();
-        blueprints.Count.Should().BeGreaterThanOrEqualTo(5);
+        blueprints.ShouldNotBeEmpty();
+        blueprints.Count.ShouldBeGreaterThanOrEqualTo(5);
 
         var pipelineBp = _blueprintService.GetBlueprint("realtime-telemetry-pipeline");
-        pipelineBp.Should().NotBeNull();
-        pipelineBp!.RecommendedTeamId.Should().Be("team-high-performance");
-        pipelineBp.KeyPatterns.Should().NotBeEmpty();
-        pipelineBp.SecurityRules.Should().NotBeEmpty();
+        pipelineBp.ShouldNotBeNull();
+        pipelineBp!.RecommendedTeamId.ShouldBe("team-high-performance");
+        pipelineBp.KeyPatterns.ShouldNotBeEmpty();
+        pipelineBp.SecurityRules.ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -55,28 +55,28 @@ public class ProjectBlueprintServiceTests
     {
         var result = await _blueprintService.LaunchBlueprintAsync("distributed-order-saga");
 
-        result.Should().NotBeNull();
-        result.EpicId.Should().StartWith("EPIC-");
-        result.AdrId.Should().StartWith("ADR-");
-        result.CreatedTickets.Count.Should().BeGreaterThanOrEqualTo(6);
+        result.ShouldNotBeNull();
+        result.EpicId.ShouldStartWith("EPIC-");
+        result.AdrId.ShouldStartWith("ADR-");
+        result.CreatedTickets.Count.ShouldBeGreaterThanOrEqualTo(6);
 
         // Verify Epic ticket exists in store
         var epicTicket = _ticketStore.GetTicketById(result.EpicId);
-        epicTicket.Should().NotBeNull();
-        epicTicket!.AssigneeRole.Should().Be(AgentRole.TechnicalProductManager);
+        epicTicket.ShouldNotBeNull();
+        epicTicket!.AssigneeRole.ShouldBe(AgentRole.TechnicalProductManager);
 
         // Verify ADR exists in manager
         var adr = _adrManager.GetAdr(result.AdrId);
-        adr.Should().NotBeNull();
-        adr!.Title.Should().Contain("Order & Payment Saga");
+        adr.ShouldNotBeNull();
+        adr!.Title.ShouldContain("Order & Payment Saga");
 
         // Verify Knowledge Map has new nodes
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Project") && n.Attributes["Project"].Contains("Order & Payment Saga"));
+        map.Nodes.Where(n => n.Attributes.TryGetValue("Project", out var projectValue) && projectValue.Contains("Order & Payment Saga")).ShouldNotBeEmpty();
 
         // Verify Active Team switched
         var currentTeam = _teamManager.GetCurrentTeam();
-        currentTeam.Should().NotBeNull();
+        currentTeam.ShouldNotBeNull();
     }
 
     [Fact]
@@ -92,21 +92,21 @@ public class ProjectBlueprintServiceTests
             SecurityGuardrails: ["HMAC signature check"]
         ));
 
-        result.Should().NotBeNull();
-        result.EpicId.Should().StartWith("EPIC-");
-        result.AdrId.Should().StartWith("ADR-");
-        result.CreatedTickets.Should().NotBeEmpty();
+        result.ShouldNotBeNull();
+        result.EpicId.ShouldStartWith("EPIC-");
+        result.AdrId.ShouldStartWith("ADR-");
+        result.CreatedTickets.ShouldNotBeEmpty();
 
         var epic = _ticketStore.GetTicketById(result.EpicId);
-        epic.Should().NotBeNull();
-        epic!.Title.Should().Be("Real-time Auction Microservice");
+        epic.ShouldNotBeNull();
+        epic!.Title.ShouldBe("Real-time Auction Microservice");
 
         var adr = _adrManager.GetAdr(result.AdrId);
-        adr.Should().NotBeNull();
-        adr!.Title.Should().Contain("Real-time Auction Microservice");
+        adr.ShouldNotBeNull();
+        adr!.Title.ShouldContain("Real-time Auction Microservice");
 
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.Should().Contain(n => n.Attributes.ContainsKey("Stack") && n.Attributes["Stack"].Contains("Redis Streams"));
+        map.Nodes.Where(n => n.Attributes.TryGetValue("Stack", out var stack) && stack.Contains("Redis Streams")).ShouldNotBeEmpty();
     }
 
     [Fact]
@@ -119,18 +119,18 @@ public class ProjectBlueprintServiceTests
             teamId: "team-high-performance"
         );
 
-        result.Should().NotBeNull();
-        result.EpicId.Should().StartWith("EPIC-");
-        result.AdrId.Should().StartWith("ADR-");
-        result.CreatedTickets.Should().NotBeEmpty();
+        result.ShouldNotBeNull();
+        result.EpicId.ShouldStartWith("EPIC-");
+        result.AdrId.ShouldStartWith("ADR-");
+        result.CreatedTickets.ShouldNotBeEmpty();
 
         var epic = _ticketStore.GetTicketById(result.EpicId);
-        epic.Should().NotBeNull();
-        epic!.Title.Should().Be("Real-time Auction Microservice");
+        epic.ShouldNotBeNull();
+        epic!.Title.ShouldBe("Real-time Auction Microservice");
 
         var adr = _adrManager.GetAdr(result.AdrId);
-        adr.Should().NotBeNull();
-        adr!.Title.Should().Contain("Real-time Auction Microservice");
+        adr.ShouldNotBeNull();
+        adr!.Title.ShouldContain("Real-time Auction Microservice");
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class ProjectBlueprintServiceTests
 
         // Verify team has the custom model
         _teamManager.GetCurrentTeam().Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
-            .EffectiveModel.Should().Be("anthropic/claude-3.5-sonnet");
+            .EffectiveModel.ShouldBe("anthropic/claude-3.5-sonnet");
 
         // Launch project with this explicit defined TeamId
         var result = await _blueprintService.LaunchProjectAsync(new ProjectIgnitionRequest(
@@ -158,14 +158,14 @@ public class ProjectBlueprintServiceTests
             TeamId: customTeam.Id
         ));
 
-        result.Should().NotBeNull();
+        result.ShouldNotBeNull();
 
         // Verify active team is still the customized squad and dev still has custom model
         var activeTeam = _teamManager.GetCurrentTeam();
-        activeTeam.Id.Should().Be(customTeam.Id);
+        activeTeam.Id.ShouldBe(customTeam.Id);
         activeTeam.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
-            .EffectiveModel.Should().Be("anthropic/claude-3.5-sonnet");
+            .EffectiveModel.ShouldBe("anthropic/claude-3.5-sonnet");
         activeTeam.Members.First(m => m.Persona.Role == AgentRole.SoftwareDeveloper)
-            .Persona.SystemPrompt.Should().Be("Custom Strict Zero-Allocation Prompt");
+            .Persona.SystemPrompt.ShouldBe("Custom Strict Zero-Allocation Prompt");
     }
 }

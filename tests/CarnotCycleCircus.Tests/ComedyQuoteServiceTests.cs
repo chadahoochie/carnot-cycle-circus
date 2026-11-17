@@ -1,5 +1,5 @@
 using CarnotCycleCircus.Core.Domain.Quotes;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -12,8 +12,8 @@ public class ComedyQuoteServiceTests
     public void GetAllQuotes_ShouldContainQuotesFromAllCultClassics()
     {
         var quotes = _quoteService.GetAllQuotes();
-        quotes.Should().NotBeEmpty();
-        quotes.Count.Should().BeGreaterThanOrEqualTo(40);
+        quotes.ShouldNotBeEmpty();
+        quotes.Count.ShouldBeGreaterThanOrEqualTo(40);
 
         // Verify quotes from key requested movies
         var expectedMovies = new[]
@@ -43,8 +43,8 @@ public class ComedyQuoteServiceTests
 
         foreach (var movie in expectedMovies)
         {
-            quotes.Should().Contain(q => q.Movie.Contains(movie, StringComparison.OrdinalIgnoreCase),
-                because: $"ComedyQuoteService must include quotes from {movie}");
+            quotes.ShouldContain(q => q.Movie.Contains(movie, StringComparison.OrdinalIgnoreCase),
+                $"ComedyQuoteService must include quotes from {movie}");
         }
     }
 
@@ -52,26 +52,26 @@ public class ComedyQuoteServiceTests
     public void GetRandomQuote_ShouldReturnValidQuote()
     {
         var quote = _quoteService.GetRandomQuote();
-        quote.Should().NotBeNull();
-        quote.Quote.Should().NotBeNullOrWhiteSpace();
-        quote.Movie.Should().NotBeNullOrWhiteSpace();
-        quote.Character.Should().NotBeNullOrWhiteSpace();
-        quote.Category.Should().NotBeNullOrWhiteSpace();
+        quote.ShouldNotBeNull();
+        quote.Quote.ShouldNotBeNullOrWhiteSpace();
+        quote.Movie.ShouldNotBeNullOrWhiteSpace();
+        quote.Character.ShouldNotBeNullOrWhiteSpace();
+        quote.Category.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
     public void GetQuotesByMovie_WithSpaceballs_ShouldReturnSpaceballsQuotes()
     {
         var quotes = _quoteService.GetQuotesByMovie("Spaceballs");
-        quotes.Should().NotBeEmpty();
-        quotes.Should().Contain(q => q.Quote.Contains("Ludicrous speed"));
+        quotes.ShouldNotBeEmpty();
+        quotes.ShouldContain(q => q.Quote.Contains("Ludicrous speed"));
     }
 
     [Fact]
     public void GetQuotesByCategory_ShouldFilterCorrectly()
     {
         var quotes = _quoteService.GetQuotesByCategory("Velocity");
-        quotes.Should().NotBeEmpty();
-        quotes.Should().AllSatisfy(q => q.Category.Should().Contain("Velocity"));
+        quotes.ShouldNotBeEmpty();
+        quotes.ShouldAllBe(q => q.Category.Contains("Velocity"));
     }
 }

@@ -1,12 +1,12 @@
 # Carnot Cycle Circus - Autonomous Agent & Assistant Guide 🎪🤖
 
-> Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** — operating at theoretical maximum Carnot efficiency to tame the 6-ring circus of autonomous AI engineering roles.
+> Autonomous Engineering Agent Orchestration Platform built in **.NET 11 / C# 15** — operating at theoretical maximum Carnot efficiency to tame the 6-ring circus of autonomous AI engineering roles.
 
 ## 🗺️ Documentation Portal & LLM System Specification
 - 📖 **Documentation Portal**: [`docs/README.md`](docs/README.md)
 - 🤖 **Condensed Machine-Readable Spec**: [`docs/LLMS.txt`](docs/LLMS.txt)
 - 🏛️ **Architecture & Topologies**: [`docs/architecture/`](docs/architecture/)
-- 📜 **C# 13 & Quality Standards**: [`docs/standards/`](docs/standards/)
+- 📜 **C# 15 & Quality Standards**: [`docs/standards/`](docs/standards/)
 - 📋 **Architectural Decision Records**: [`docs/adrs/`](docs/adrs/)
 - 🧭 **Developer Guides & Recipes**: [`docs/guides/`](docs/guides/)
 - 🔍 **Core & Web API Reference**: [`docs/api/`](docs/api/)

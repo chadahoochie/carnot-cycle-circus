@@ -24,7 +24,7 @@ public class WebSearchTool : IToolDefinition
                 "Search Results [owasp.org]:\n- STRIDE: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege.\n- Ensure all external inputs are bounded and validated with strict allow-lists.",
             var q when q.Contains("caching") || q.Contains("pubsub") =>
                 "Search Results [.NET Architecture]:\n- EventStream & Channel<T> provide high-performance in-process pub/sub messaging with zero-allocation ValueTask pipelines.",
-            _ => $"Search Results for '{query}':\n- Modern C# 13 / .NET 10 standards recommend immutable records, primary constructors, and pattern matching switch expressions."
+            _ => $"Search Results for '{query}':\n- Modern C# 15 / .NET 11 standards recommend immutable records, primary constructors, and pattern matching switch expressions."
         };
 
         return Task.FromResult(ToolResult.Ok(results, new Dictionary<string, string> { ["Query"] = query }));

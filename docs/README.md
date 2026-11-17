@@ -1,6 +1,6 @@
 # Carnot Cycle Circus Documentation Portal 🎪⚡
 
-Welcome to the comprehensive documentation suite for **Carnot Cycle Circus**, an Autonomous Engineering Agent Orchestration Platform built in **.NET 10 / C# 13** with an interactive **Blazor** frontend — operating at theoretical maximum Carnot thermodynamic efficiency to tame the chaotic 6-ring circus of autonomous engineering agents.
+Welcome to the comprehensive documentation suite for **Carnot Cycle Circus**, an Autonomous Engineering Agent Orchestration Platform built in **.NET 11 / C# 15** with an interactive **Blazor** frontend — operating at theoretical maximum Carnot thermodynamic efficiency to tame the chaotic 6-ring circus of autonomous engineering agents.
 
 This documentation is designed to enable both **human engineers** (rapid onboarding, architectural comprehension, extension recipes) and **Large Language Models / Autonomous Agents** (deterministic context retrieval, explicit coding contracts, machine-readable schemas).
 
@@ -22,7 +22,7 @@ docs/
 │   └── knowledge-and-skills.md    # Knowledge map graph, semantic extraction, & dynamic skill registry
 │
 ├── standards/                     # Non-negotiable engineering standards & governance policies
-│   ├── coding-standards.md        # C# 13 / .NET 10 zero-allocation dogma, immutability, & async rules
+│   ├── coding-standards.md        # C# 15 / .NET 11 zero-allocation dogma, immutability, & async rules
 │   ├── quality-gates.md           # Feature/Bug/Spike policies, RCA rules, STRIDE audits, & coverage
 │   └── documentation-standards.md # MADR/Nygard ADR rules, docs-as-code principles, & maintenance
 │
@@ -47,13 +47,14 @@ docs/
 │   ├── 0016-photino-desktop-client-headless-docker-server-and-local-user-storage.md
 │   ├── 0017-system-area-separation-and-team-archetype-elimination.md
 │   ├── 0018-project-scoping-and-application-versus-project-level-separation.md
-│   └── 0019-transition-from-dag-to-closed-loop-agent-workflow-claw.md
+│   ├── 0019-transition-from-dag-to-closed-loop-agent-workflow-claw.md
+│   └── 0020-upgrade-to-dotnet-11-and-migrate-tests-to-shouldly.md
 │
 ├── guides/                        # Step-by-step developer and agent execution guides
 │   ├── developer-onboarding.md    # Quickstart, local build, test execution, & project tour
 │   ├── extending-the-platform.md  # Adding roles, custom tools, archetypes, & external connectors
 │   ├── llm-agent-guide.md         # LLM context protocol, prompt schemas, & tool execution contracts
-│   └── testing-guide.md           # Test suite architecture, xUnit, FluentAssertions, & test recipes
+│   └── testing-guide.md           # Test suite architecture, xUnit, Shouldly, & test recipes
 │
 └── api/                           # Exhaustive technical reference for Core & Web libraries
     ├── core-domain-reference.md   # Core interfaces, domain models, services, & DI registrations

@@ -28,7 +28,7 @@ graph LR
     subgraph OpenRouter ["OpenRouter AI Gateway"]
         M1["openai/gpt-4o<br/>(PRDs & Acceptance Criteria)"]
         M2["anthropic/claude-3.7-sonnet<br/>(ADRs, System Design, Benchmarks)"]
-        M3["qwen/qwen-2.5-coder-32b-instruct<br/>(C# 13 Code Generation)"]
+        M3["qwen/qwen-2.5-coder-32b-instruct<br/>(C# 15 Code Generation)"]
         M4["openai/o3-mini<br/>(STRIDE Threat Modeling)"]
         M5["deepseek/deepseek-r1<br/>(Exhaustive QA Edge-Case Reasoning)"]
     end
@@ -47,7 +47,7 @@ graph LR
 | :--- | :--- | :--- | :--- | :--- |
 | **TPM** | `openai/gpt-4o` | `anthropic/claude-3.5-haiku` | `0.2` | Broad business logic, PRD formatting, user story clarity. |
 | **Lead Architect** | `anthropic/claude-3.7-sonnet` | `openai/gpt-4o` | `0.1` | Extended reasoning, clean architectural abstractions, MADR structure. |
-| **Software Developer** | `qwen/qwen-2.5-coder-32b-instruct` | `anthropic/claude-3.7-sonnet` | `0.1` | Specialized coding syntax, C# 13 features, low latency. |
+| **Software Developer** | `qwen/qwen-2.5-coder-32b-instruct` | `anthropic/claude-3.7-sonnet` | `0.1` | Specialized coding syntax, C# 15 features, low latency. |
 | **Security Engineer** | `openai/o3-mini` | `deepseek/deepseek-r1` | `0.0` | Deep deterministic reasoning for STRIDE threat models and vulnerability detection. |
 | **Optimization Engineer** | `anthropic/claude-3.7-sonnet` | `openai/gpt-4o` | `0.0` | Algorithmic analysis, asymptotic complexity, ValueTask / Span memory auditing. |
 | **Principal QA Analyst** | `deepseek/deepseek-r1` | `openai/o3-mini` | `0.1` | Adversarial reasoning, demonic edge cases, fuzzing matrices. |

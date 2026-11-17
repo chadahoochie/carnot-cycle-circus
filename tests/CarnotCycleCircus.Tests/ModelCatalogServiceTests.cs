@@ -3,7 +3,7 @@ using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Inference;
 using CarnotCycleCircus.Core.Domain.Models;
 using CarnotCycleCircus.Core.Domain.Storage;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -91,7 +91,7 @@ public class ModelCatalogServiceTests
     public void DetermineCostTier_ShouldClassifyPricingAccurately(decimal promptPrice, string modelId, ModelCostTier expectedTier)
     {
         var tier = OpenRouterModelCatalogService.DetermineCostTier(promptPrice, modelId);
-        tier.Should().Be(expectedTier);
+        tier.ShouldBe(expectedTier);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class ModelCatalogServiceTests
             new OpenRouterArchitecture("text->text"),
             ModelCostTier.Budget);
 
-        coderAreas.Should().Contain(ModelStrengthArea.CodeGeneration);
+        coderAreas.ShouldContain(ModelStrengthArea.CodeGeneration);
 
         var reasoningAreas = OpenRouterModelCatalogService.ClassifyStrengthAreas(
             "deepseek/deepseek-r1",
@@ -113,7 +113,7 @@ public class ModelCatalogServiceTests
             new OpenRouterArchitecture("text->text"),
             ModelCostTier.Budget);
 
-        reasoningAreas.Should().Contain(ModelStrengthArea.DeepReasoning);
+        reasoningAreas.ShouldContain(ModelStrengthArea.DeepReasoning);
 
         var visionAreas = OpenRouterModelCatalogService.ClassifyStrengthAreas(
             "google/gemini-2.0-flash-001",
@@ -122,8 +122,8 @@ public class ModelCatalogServiceTests
             new OpenRouterArchitecture("text+image->text"),
             ModelCostTier.Budget);
 
-        visionAreas.Should().Contain(ModelStrengthArea.MultimodalVision);
-        visionAreas.Should().Contain(ModelStrengthArea.LowLatencyFallback);
+        visionAreas.ShouldContain(ModelStrengthArea.MultimodalVision);
+        visionAreas.ShouldContain(ModelStrengthArea.LowLatencyFallback);
     }
 
     [Fact]
@@ -137,16 +137,16 @@ public class ModelCatalogServiceTests
 
         var models = await service.GetModelsAsync();
 
-        models.Should().NotBeEmpty();
-        models.Should().Contain(m => m.Id == "anthropic/claude-3.7-sonnet");
-        models.Should().Contain(m => m.Id == "openai/gpt-4o");
-        models.Should().Contain(m => m.Id == "deepseek/deepseek-r1");
-        models.Should().Contain(m => m.Id == "qwen/qwen-2.5-coder-32b-instruct");
+        models.ShouldNotBeEmpty();
+        models.ShouldContain(m => m.Id == "anthropic/claude-3.7-sonnet");
+        models.ShouldContain(m => m.Id == "openai/gpt-4o");
+        models.ShouldContain(m => m.Id == "deepseek/deepseek-r1");
+        models.ShouldContain(m => m.Id == "qwen/qwen-2.5-coder-32b-instruct");
 
         var sonnet = models.First(m => m.Id == "anthropic/claude-3.7-sonnet");
-        sonnet.IsFavorite.Should().BeTrue();
-        sonnet.SupportsVision.Should().BeTrue();
-        sonnet.CostTier.Should().Be(ModelCostTier.Standard);
+        sonnet.IsFavorite.ShouldBeTrue();
+        sonnet.SupportsVision.ShouldBeTrue();
+        sonnet.CostTier.ShouldBe(ModelCostTier.Standard);
     }
 
     [Fact]
@@ -176,15 +176,15 @@ public class ModelCatalogServiceTests
 
         var models = await service.GetModelsAsync();
 
-        models.Should().Contain(m => m.Id == "custom/super-coder-99b");
+        models.ShouldContain(m => m.Id == "custom/super-coder-99b");
         var custom = models.First(m => m.Id == "custom/super-coder-99b");
-        custom.CostTier.Should().Be(ModelCostTier.Budget);
-        custom.StrengthAreas.Should().Contain(ModelStrengthArea.CodeGeneration);
-        custom.PromptPerMillion.Should().Be(0.50m);
-        custom.CompletionPerMillion.Should().Be(1.00m);
+        custom.CostTier.ShouldBe(ModelCostTier.Budget);
+        custom.StrengthAreas.ShouldContain(ModelStrengthArea.CodeGeneration);
+        custom.PromptPerMillion.ShouldBe(0.50m);
+        custom.CompletionPerMillion.ShouldBe(1.00m);
 
         // Verify storage file was saved
-        storage.Files.Should().ContainKey("data/openrouter-models-cache.json");
+        storage.Files.ShouldContainKey("data/openrouter-models-cache.json");
     }
 
     [Fact]
@@ -198,21 +198,21 @@ public class ModelCatalogServiceTests
 
         // Initial default favorites include claude-3.7-sonnet
         var isFav = (await service.GetFavoritesAsync()).Any(m => m.Id == "anthropic/claude-3.7-sonnet");
-        isFav.Should().BeTrue();
+        isFav.ShouldBeTrue();
 
         // Toggle favorite off
         var toggled = await service.ToggleFavoriteAsync("anthropic/claude-3.7-sonnet");
-        toggled.Should().BeFalse();
+        toggled.ShouldBeFalse();
 
         var favoritesAfter = await service.GetFavoritesAsync();
-        favoritesAfter.Should().NotContain(m => m.Id == "anthropic/claude-3.7-sonnet");
+        favoritesAfter.ShouldNotContain(m => m.Id == "anthropic/claude-3.7-sonnet");
 
         // Toggle favorite back on
         var toggledOn = await service.ToggleFavoriteAsync("anthropic/claude-3.7-sonnet");
-        toggledOn.Should().BeTrue();
+        toggledOn.ShouldBeTrue();
 
         var favoritesFinal = await service.GetFavoritesAsync();
-        favoritesFinal.Should().Contain(m => m.Id == "anthropic/claude-3.7-sonnet");
+        favoritesFinal.ShouldContain(m => m.Id == "anthropic/claude-3.7-sonnet");
     }
 
     [Fact]
@@ -225,14 +225,14 @@ public class ModelCatalogServiceTests
         var service = new OpenRouterModelCatalogService(client, storage, vault);
 
         var devModels = await service.GetRecommendedModelsAsync(AgentRole.SoftwareDeveloper);
-        devModels.Should().OnlyContain(m => m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration));
-        devModels.Should().Contain(m => m.Id == "qwen/qwen-2.5-coder-32b-instruct");
+        devModels.ShouldAllBe(m => m.StrengthAreas.Contains(ModelStrengthArea.CodeGeneration));
+        devModels.ShouldContain(m => m.Id == "qwen/qwen-2.5-coder-32b-instruct");
 
         var qaModels = await service.GetRecommendedModelsAsync(AgentRole.PrincipalQAAnalyst);
-        qaModels.Should().Contain(m => m.Id == "deepseek/deepseek-r1");
+        qaModels.ShouldContain(m => m.Id == "deepseek/deepseek-r1");
 
         var secModels = await service.GetRecommendedModelsAsync(AgentRole.SecurityEngineer);
-        secModels.Should().Contain(m => m.Id == "openai/o3-mini");
+        secModels.ShouldContain(m => m.Id == "openai/o3-mini");
     }
 
     [Fact]
@@ -245,8 +245,8 @@ public class ModelCatalogServiceTests
         var service = new OpenRouterModelCatalogService(client, storage, vault);
 
         var status = await service.GetCatalogStatusAsync();
-        status.TotalModels.Should().BeGreaterThan(5);
-        status.TotalFavorites.Should().BeGreaterThan(0);
-        status.IsStale.Should().BeFalse();
+        status.TotalModels.ShouldBeGreaterThan(5);
+        status.TotalFavorites.ShouldBeGreaterThan(0);
+        status.IsStale.ShouldBeFalse();
     }
 }

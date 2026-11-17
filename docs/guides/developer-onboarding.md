@@ -6,7 +6,7 @@ Welcome to **Carnot Cycle Circus**! This guide walks you through setting up your
 
 ## 1. Prerequisites
 
-- **[.NET 10 SDK](https://dotnet.microsoft.com/)** (`10.0.300+` or newer).
+- **[.NET 11 SDK](https://dotnet.microsoft.com/)** (`11.0.100+` or newer).
 - **Modern Web Browser** (Chrome, Firefox, Edge, Safari).
 - **Git** version control.
 - *(Optional)* **OpenRouter API Key** if you want to run live LLM completions (an offline simulation engine runs automatically if no key is provided).
@@ -69,7 +69,7 @@ carnot-cycle-circus/
 │   └── CarnotCycleCircus.Web/          # Blazor Interactive Server Web Host
 │
 ├── tests/
-│   └── CarnotCycleCircus.Tests/        # 30+ xUnit & FluentAssertions test suites
+│   └── CarnotCycleCircus.Tests/        # 30+ xUnit & Shouldly test suites
 │
 ├── scripts/                            # Local install & Docker scripts
 ├── skills/                             # Preserved engineering skills & .NET standards

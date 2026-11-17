@@ -148,7 +148,7 @@
 
                 <div class="form-group">
                     <label class="form-label">Skill Name</label>
-                    <input class="form-control" @bind="editName" placeholder="e.g. Modern C# 13 & Zero-Allocation Dogma" />
+                    <input class="form-control" @bind="editName" placeholder="e.g. Modern C# 15 & Zero-Allocation Dogma" />
                 </div>
 
                 <div class="form-group">
@@ -452,7 +452,6 @@
         if (string.IsNullOrWhiteSpace(importUrl)) return;
         isFetching = true;
         statusMessage = "Fetching skill manifest...";
-        StateHasChanged();
 
         try
         {

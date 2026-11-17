@@ -152,7 +152,7 @@ Agents have access to specialized tools via the `IToolDefinition` interface. Too
 
 Before emitting C# code for this codebase, verify against this checklist:
 - [ ] Multi-file bundles formatted as ````csharp:FileName.cs```` code blocks.
-- [ ] Uses C# 13 syntax (primary constructors, collection expressions `[...]`, pattern matching).
+- [ ] Uses C# 15 syntax (primary constructors, collection expressions `[...]`, pattern matching).
 - [ ] All entities are immutable `record` or `readonly record struct`.
 - [ ] No public property setters (`set;`).
 - [ ] All async methods accept `CancellationToken cancellationToken = default`.
@@ -160,4 +160,4 @@ Before emitting C# code for this codebase, verify against this checklist:
 - [ ] Hot path methods use `ValueTask` and `Span<T>` / `Memory<T>`.
 - [ ] Thread-safe collections used for in-memory stores (`ConcurrentDictionary`, `ConcurrentQueue`).
 - [ ] 0 compiler warnings (compiles under `TreatWarningsAsErrors`).
-- [ ] Accompanied by xUnit + FluentAssertions test suite.
+- [ ] Accompanied by xUnit + Shouldly test suite.

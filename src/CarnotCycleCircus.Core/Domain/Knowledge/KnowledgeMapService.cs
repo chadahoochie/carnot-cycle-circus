@@ -111,7 +111,7 @@ public class KnowledgeMapService : IKnowledgeMapService
             Label: "Zero-Allocation ValueTask Pipelines",
             Category: "Pattern",
             Summary: "Using ValueTask and ReadOnlyMemory<byte> on hot paths eliminates GC Gen0 pressure and keeps Otto's blood pressure under control.",
-            Attributes: new Dictionary<string, string> { ["Language"] = "C# 13", ["Target"] = ".NET 10", ["Vibe"] = "Blisteringly Fast" }
+            Attributes: new Dictionary<string, string> { ["Language"] = "C# 15", ["Target"] = ".NET 11", ["Vibe"] = "Blisteringly Fast" }
         );
         _nodes[node1.Id] = node1;
 

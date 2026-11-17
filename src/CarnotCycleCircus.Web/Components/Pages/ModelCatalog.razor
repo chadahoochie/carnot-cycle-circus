@@ -371,7 +371,6 @@
     {
         isLoading = true;
         statusMessage = "Pulling fresh models and live pricing from OpenRouter API...";
-        StateHasChanged();
 
         await LoadCatalogAsync(true);
         statusMessage = $"Successfully refreshed OpenRouter catalog! Total models: {allModels.Count}";
@@ -426,7 +425,6 @@
         if (testModalModel == null) return;
         isTesting = true;
         testOutput = null;
-        StateHasChanged();
 
         try
         {

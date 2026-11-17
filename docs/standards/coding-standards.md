@@ -1,8 +1,8 @@
-# C# 13 & .NET 10 Coding Standards 💻⚡
+# C# 15 & .NET 11 Coding Standards 💻⚡
 
 ## 1. Overview & Core Philosophy
 
-All C# code in **Carnot Cycle Circus** must adhere to modern .NET 10 and C# 13 best practices. Code must be **immutable by default**, **thread-safe**, **zero-allocation on hot paths**, and **fully deterministic**.
+All C# code in **Carnot Cycle Circus** must adhere to modern .NET 11 and C# 15 best practices. Code must be **immutable by default**, **thread-safe**, **zero-allocation on hot paths**, and **fully deterministic**.
 
 ---
 

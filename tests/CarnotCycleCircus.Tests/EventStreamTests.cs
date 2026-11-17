@@ -1,6 +1,6 @@
 using CarnotCycleCircus.Core.Domain.Agents;
 using CarnotCycleCircus.Core.Domain.Events;
-using FluentAssertions;
+using Shouldly;
 using Xunit;
 
 namespace CarnotCycleCircus.Tests;
@@ -24,9 +24,9 @@ public class EventStreamTests
 
         _stream.Publish(message);
 
-        received.Should().NotBeNull();
-        received!.Content.Should().Be("Architecture verified");
-        _stream.GetHistory().Should().ContainSingle();
+        received.ShouldNotBeNull();
+        received!.Content.ShouldBe("Architecture verified");
+        _stream.GetHistory().ShouldHaveSingleItem();
     }
 
     [Fact]
@@ -35,9 +35,9 @@ public class EventStreamTests
         _stream.Publish(AgentMessage.Create(null, "System", "Message 1"));
         _stream.Publish(AgentMessage.Create(null, "System", "Message 2"));
 
-        _stream.GetHistory().Should().HaveCount(2);
+        _stream.GetHistory().Count().ShouldBe(2);
 
         _stream.Clear();
-        _stream.GetHistory().Should().BeEmpty();
+        _stream.GetHistory().ShouldBeEmpty();
     }
 }
