@@ -106,7 +106,7 @@ public class ProjectBlueprintServiceTests
         adr!.Title.ShouldContain("Real-time Auction Microservice");
 
         var map = _knowledgeMap.GetFullMap();
-        map.Nodes.ShouldContain(n => n.Attributes.ContainsKey("Stack") && n.Attributes["Stack"].Contains("Redis Streams"));
+        map.Nodes.ShouldContain(n => n.Attributes.TryGetValue("Stack", out var stack) && stack.Contains("Redis Streams"));
     }
 
     [Fact]
