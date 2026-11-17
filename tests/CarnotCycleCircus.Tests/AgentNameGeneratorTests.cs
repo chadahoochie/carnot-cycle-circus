@@ -10,7 +10,7 @@ public class AgentNameGeneratorTests
     private readonly IAgentNameGenerator _generator = new AgentNameGenerator();
 
     [Theory]
-    [InlineData(AgentRole.SoftwareDeveloper, "Modern C# 13 & Zero-Allocation Dogma", "Zero-Alloc")]
+    [InlineData(AgentRole.SoftwareDeveloper, "Modern C# 15 & Zero-Allocation Dogma", "Zero-Alloc")]
     [InlineData(AgentRole.SecurityEngineer, "STRIDE Threat Modeling (Paranoid Mode)", "STRIDE")]
     [InlineData(AgentRole.OptimizationEngineer, "Nanosecond Obsession & Zero Allocations", "Nanosecond")]
     [InlineData(AgentRole.TechnicalProductManager, "Jira Juggling & Buzzword Mastery", "Buzzword")]
@@ -68,7 +68,7 @@ public class AgentNameGeneratorTests
         var role = AgentRole.SoftwareDeveloper;
         var skills = new List<SkillDefinition>
         {
-            new("skill-csharp", "Modern C# 13 & Zero-Allocation Dogma", "Zero-alloc patterns", "Use Span/Memory", ["csharp_syntax_check"]),
+            new("skill-csharp", "Modern C# 15 & Zero-Allocation Dogma", "Zero-alloc patterns", "Use Span/Memory", ["csharp_syntax_check"]),
             new("skill-perf", "Nanosecond Obsession & Zero Allocations", "P99 latency profiling", "Measure Gen0", ["test_runner"])
         };
 
@@ -101,7 +101,7 @@ public class AgentNameGeneratorTests
         var role = AgentRole.SoftwareDeveloper;
         var skills = new List<SkillDefinition>
         {
-            new("skill-csharp", "Modern C# 13 & Zero-Allocation Dogma", "Zero alloc", "Ban all setters and use ReadOnlySpan.", ["csharp_syntax_check"])
+            new("skill-csharp", "Modern C# 15 & Zero-Allocation Dogma", "Zero alloc", "Ban all setters and use ReadOnlySpan.", ["csharp_syntax_check"])
         };
 
         var prompt = _generator.GenerateSystemPrompt(role, "Devon 'Zero-Alloc' Crashdump (Senior Developer)", skills);

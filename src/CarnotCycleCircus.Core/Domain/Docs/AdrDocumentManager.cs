@@ -501,6 +501,30 @@ public class AdrDocumentManager : IAdrDocumentManager
         );
         _adrs[adr19.Id] = adr19;
 
+        var adr20 = new ArchitecturalDecisionRecord(
+            Id: "ADR-0020",
+            Title: "Upgrade to .NET 11 (C# 15) and Migrate Test Assertions to Shouldly",
+            Status: AdrStatus.Accepted,
+            Context: "Carnot Cycle Circus previously targeted .NET 10 / C# 13 and used FluentAssertions 8.x. Upgrading to .NET 11.0 resolves NU1903 (GHSA-334f-vvp4-7g6p) on SignalR packages and adopts C# 15, while migrating to Shouldly removes FluentAssertions commercial licensing restrictions.",
+            Decision: "Upgrade global.json, all projects, Dockerfile, and CI workflows to .NET 11 (net11.0 / 11.0.100), update NuGet packages to latest versions, remove redundant shared-framework references (NU1510) and BL0012 StateHasChanged calls, and migrate all test suites to Shouldly 4.3.0.",
+            AlternativesConsidered: [
+                "Stay on .NET 10 LTS 10.0.15 (rejected: defers .NET 11 / C# 15 adoption)",
+                "Retain FluentAssertions 8.x or pin 7.x (rejected: commercial license warning or unmaintained branch)"
+            ],
+            ConsequencesPositive: [
+                "Zero vulnerable or outdated NuGet packages",
+                "MIT-licensed Shouldly test assertions with zero license nag",
+                "Cleaner Blazor components compliant with .NET 11 BL0012"
+            ],
+            ConsequencesNegative: [
+                "Requires .NET 11 SDK (11.0.100+) locally and in CI",
+                ".NET 11 is an STS release rather than LTS"
+            ],
+            CreatedAt: DateTimeOffset.UtcNow,
+            UpdatedAt: DateTimeOffset.UtcNow
+        );
+        _adrs[adr20.Id] = adr20;
+
         // Seed default system documentation
         var c4Doc = new ProjectDocument(
             Id: "DOC-C4",

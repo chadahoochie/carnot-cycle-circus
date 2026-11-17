@@ -47,7 +47,8 @@ docs/
 │   ├── 0016-photino-desktop-client-headless-docker-server-and-local-user-storage.md
 │   ├── 0017-system-area-separation-and-team-archetype-elimination.md
 │   ├── 0018-project-scoping-and-application-versus-project-level-separation.md
-│   └── 0019-transition-from-dag-to-closed-loop-agent-workflow-claw.md
+│   ├── 0019-transition-from-dag-to-closed-loop-agent-workflow-claw.md
+│   └── 0020-upgrade-to-dotnet-11-and-migrate-tests-to-shouldly.md
 │
 ├── guides/                        # Step-by-step developer and agent execution guides
 │   ├── developer-onboarding.md    # Quickstart, local build, test execution, & project tour

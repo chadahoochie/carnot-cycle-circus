@@ -37,7 +37,7 @@
 | `RequirementsResearcher` | Rachel "DeepDive" Reference (Requirements Researcher) | `anthropic/claude-3.7-sonnet` | `web_search`, `memory_lookup` | Research Briefs (`*_RESEARCH_BRIEF.md`), RFC specifications, technical feasibility reports |
 | `TechnicalProductManager` | Barnum B. Buzzword (TPM) | `openai/gpt-4o` | `web_search`, `memory_lookup` | PRD markdown (`*_PRD.md`), Epics, User Stories, Acceptance Criteria |
 | `LeadArchitect` | Archduke Archibald Abstraction-o (Lead Arch) | `anthropic/claude-3.7-sonnet` | `web_search`, `csharp_syntax_check`, `memory_lookup`, `adr_writer` | ADRs (MADR/Nygard), C4 Diagrams, Domain Boundaries, Clean Architecture Scaffolds |
-| `SoftwareDeveloper` | Devon "Coldbrew" Crashdump (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 13 source code, zero-allocation services, xUnit test suites |
+| `SoftwareDeveloper` | Devon "Coldbrew" Crashdump (Senior Dev) | `qwen/qwen-2.5-coder-32b-instruct` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | C# 15 source code, zero-allocation services, xUnit test suites |
 | `SecurityEngineer` | Sari "Tinfoil" Sandbox (Security Eng) | `openai/o3-mini` | `web_search`, `csharp_syntax_check`, `memory_lookup` | STRIDE threat models, vulnerability audits, secret leak checks |
 | `OptimizationEngineer` | Otto-Cycle Overclock (Optimization Eng) | `anthropic/claude-3.7-sonnet` | `csharp_syntax_check`, `test_runner`, `memory_lookup` | BenchmarkDotNet reports, latency audits, allocation profiles |
 | `PrincipalQAAnalyst` | Quinn the Build-Executioner (Principal QA) | `deepseek/deepseek-r1` | `test_runner`, `memory_lookup`, `csharp_syntax_check` | Test strategies, boundary matrices, quality scorecards, certification |
